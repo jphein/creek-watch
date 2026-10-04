@@ -40,12 +40,28 @@ STUDY = {
     "licence": "not specified (California open data portal lists no licence for this dataset)",
     "method_note": ("Measured as MPN/100 mL (method SM 9223 B); the state objective is written in "
                     "cfu/100 mL. The two are commonly treated as comparable, not identical."),
+    # The Board's own web map of this study, for context: LINK ONLY. Its CSV is licensed "no reproduction without
+    # written permission", so the numbers here come from CEDEN, never from that map (scratch/api/waterboards-bacteria.md).
+    "context_url": "https://experience.arcgis.com/experience/1ea90c2492c94d1f999f200c6578af5a",
+    "context_label": "Regional Board's map of this study",
 }
 # CEDEN station code -> our site id (both within 15 m; see data/SOURCES.md)
 STATIONS = {
-    "516NEV109": {"creek_id": "wolf", "site_id": "wolf-glen-jones-park"},
-    "516NEV101": {"creek_id": "wolf", "site_id": "wolf-wolf-rd"},
+    "516NEV109": {"creek_id": "wolf", "site_id": "wolf-glen-jones-park", "waterbody": "Wolf Creek"},
+    "516NEV101": {"creek_id": "wolf", "site_id": "wolf-wolf-rd", "waterbody": "Wolf Creek"},
 }
+# The study's other 7 stations in the Wolf Creek watershed. No Creek Watch site there (site_id None): shown in the
+# same dated past-study panel (and as dated map pins), never as a site's current conditions. Upstream -> downstream.
+STUDY_ONLY_STATIONS = {
+    "516NEV114": {"creek_id": "wolf", "site_id": None, "waterbody": "French Ravine (tributary)"},
+    "516NEV107": {"creek_id": "wolf", "site_id": None, "waterbody": "Wolf Creek"},
+    "516NEV115": {"creek_id": "wolf", "site_id": None, "waterbody": "Rattlesnake Creek (tributary)"},
+    "516NEV104": {"creek_id": "wolf", "site_id": None, "waterbody": "Wolf Creek"},
+    "516NEV113": {"creek_id": "wolf", "site_id": None, "waterbody": "Cherry Creek (tributary)"},
+    "516NEV103": {"creek_id": "wolf", "site_id": None, "waterbody": "Wolf Creek"},
+    "516NEV102": {"creek_id": "wolf", "site_id": None, "waterbody": "South Wolf Creek (tributary)"},
+}
+ALL_STATIONS = {**STATIONS, **STUDY_ONLY_STATIONS}
 
 
 @lru_cache(maxsize=1)
@@ -98,14 +114,14 @@ def _sentence(name: str, sm: dict) -> str:
 def get_bacteria_history(creek_id: str) -> dict:
     snap = _snapshot().get("stations") or {}
     stations = []
-    for code, m in STATIONS.items():
+    for code, m in ALL_STATIONS.items():   # mapped stations first, then the study's others upstream -> downstream
         if m["creek_id"] != creek_id or code not in snap:
             continue
         st = snap[code]
         sm = summarise(st["samples"])
         stations.append({
             "station_code": code, "name": st["name"], "lat": st["lat"], "lon": st["lon"],
-            "site_id": m["site_id"], "samples": st["samples"], "summary": sm,
+            "site_id": m["site_id"], "waterbody": m["waterbody"], "samples": st["samples"], "summary": sm,
             "text": _sentence(st["name"], sm),
         })
     if not stations:

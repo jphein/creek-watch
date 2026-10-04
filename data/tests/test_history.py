@@ -11,9 +11,9 @@ FIX = json.loads((pathlib.Path(__file__).parent / "fixtures" / "ceden_fib_wolf_2
 
 def test_builder_keeps_exact_ecoli_only():
     built = builder.build(FIX)
-    assert set(built) == {"516NEV109", "516NEV101"}
+    assert set(built) == set(history.ALL_STATIONS) and len(built) == 9
     assert all(len(st["samples"]) == 13 for st in built.values())          # 26 rows each: 13 E. coli + 13 TC
-    assert len(FIX) == 52 and {r["Analyte"] for r in FIX} == {"E. coli", "Coliform, Total"}
+    assert len(FIX) == 234 and {r["Analyte"] for r in FIX} == {"E. coli", "Coliform, Total"}
 
 
 def test_builder_rejects_unexpected_units():
@@ -62,3 +62,43 @@ def test_other_creek_and_no_score_effect():
     base = score.compute_health("wolf", [], cond)
     with_hist = score.compute_health("wolf", [], dict(cond, bacteria_history=history.get_bacteria_history("wolf")))
     assert base["score"] == with_hist["score"] and base["warnings"] == with_hist["warnings"]
+
+
+def test_all_nine_study_stations_mapped_first_then_upstream_to_downstream():
+    (study,) = history.get_bacteria_history("wolf")["studies"]
+    sts = study["stations"]
+    assert [st["station_code"] for st in sts[:2]] == ["516NEV109", "516NEV101"]          # our two sites first
+    assert [st["site_id"] for st in sts[:2]] == ["wolf-glen-jones-park", "wolf-wolf-rd"]
+    others = sts[2:]
+    assert len(others) == 7 and all(st["site_id"] is None for st in others)
+    assert [st["lat"] for st in others] == sorted((st["lat"] for st in others), reverse=True)  # upstream -> downstream
+    assert {st["waterbody"] for st in others} >= {"French Ravine (tributary)", "Cherry Creek (tributary)", "Wolf Creek"}
+    assert all(st["summary"]["n_samples"] == 13 for st in sts)
+
+
+def test_study_only_station_numbers():
+    """Numbers from CEDEN; the Board's own map (independent copy) agrees on max and >320 counts."""
+    (study,) = history.get_bacteria_history("wolf")["studies"]
+    st = {s["station_code"]: s for s in study["stations"]}
+    fr, cherry = st["516NEV114"]["summary"], st["516NEV113"]["summary"]
+    assert (fr["max_ecoli"], fr["n_over_stv"], fr["weeks_gm_over_objective"]) == (2419.6, 2, 8)
+    assert (cherry["max_ecoli"], cherry["n_over_stv"]) == (613.1, 2)
+    assert st["516NEV107"]["summary"]["n_over_stv"] == 0
+    assert "French Ravine at Hidden Valley Road" in st["516NEV114"]["text"]
+
+
+def test_context_link_only_and_never_current_or_unsafe():
+    (study,) = history.get_bacteria_history("wolf")["studies"]
+    assert study["is_current"] is False and study["period"] == "2024-05-22 to 2024-09-04"
+    assert study["context_url"] == "https://experience.arcgis.com/experience/1ea90c2492c94d1f999f200c6578af5a"
+    snap = json.loads(history.SNAPSHOT.read_text())
+    assert snap["_source"].startswith("CEDEN via data.ca.gov")          # numbers from CEDEN, not the ArcGIS CSV
+    text = json.dumps(study).lower()
+    assert "unsafe" not in text and "dangerous" not in text
+
+
+def test_builder_main_fetches_all_nine_codes(tmp_path):
+    asked = []
+    doc = builder.main(lambda codes: asked.extend(codes) or FIX, out=tmp_path / "snap.json")
+    assert sorted(asked) == sorted(history.ALL_STATIONS) and len(asked) == 9
+    assert json.loads((tmp_path / "snap.json").read_text())["stations"] == doc["stations"] == builder.build(FIX)

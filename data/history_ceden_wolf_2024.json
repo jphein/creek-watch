@@ -1,7 +1,7 @@
 {
  "_source": "CEDEN via data.ca.gov, resource 15a63495-8d9f-4a49-b43a-3092ef3106b9",
  "_licence": "not specified (California open data portal lists no licence for this dataset)",
- "_built": "2026-10-04T03:48:12Z",
+ "_built": "2026-10-04T17:40:46Z",
  "stations": {
   "516NEV101": {
    "name": "Wolf Creek at Wolf Road",
@@ -103,6 +103,406 @@
     }
    ]
   },
+  "516NEV102": {
+   "name": "South Wolf Creek above confluence with Wolf Creek",
+   "lat": 39.06242,
+   "lon": -121.08844,
+   "project": "RWB5 Microbial Source Tracking Wolf Cr Study 2024",
+   "method": "SM 9223 B-SOP ASWAU",
+   "samples": [
+    {
+     "date": "2024-05-22",
+     "ecoli": 90.9,
+     "qual": "=",
+     "gm6w": 90.9,
+     "gm6w_n": 1
+    },
+    {
+     "date": "2024-06-19",
+     "ecoli": 49.5,
+     "qual": "=",
+     "gm6w": 67.079,
+     "gm6w_n": 2
+    },
+    {
+     "date": "2024-06-26",
+     "ecoli": 60.9,
+     "qual": "=",
+     "gm6w": 64.952,
+     "gm6w_n": 3
+    },
+    {
+     "date": "2024-07-02",
+     "ecoli": 52.1,
+     "qual": "=",
+     "gm6w": 61.469,
+     "gm6w_n": 4
+    },
+    {
+     "date": "2024-07-10",
+     "ecoli": 248.1,
+     "qual": "=",
+     "gm6w": 79.008,
+     "gm6w_n": 4
+    },
+    {
+     "date": "2024-07-17",
+     "ecoli": 214.2,
+     "qual": "=",
+     "gm6w": 96.45,
+     "gm6w_n": 5
+    },
+    {
+     "date": "2024-07-24",
+     "ecoli": 547.5,
+     "qual": "=",
+     "gm6w": 128.82,
+     "gm6w_n": 6
+    },
+    {
+     "date": "2024-07-31",
+     "ecoli": 133.3,
+     "qual": "=",
+     "gm6w": 129.45,
+     "gm6w_n": 7
+    },
+    {
+     "date": "2024-08-07",
+     "ecoli": 155.3,
+     "qual": "=",
+     "gm6w": 152.42,
+     "gm6w_n": 7
+    },
+    {
+     "date": "2024-08-14",
+     "ecoli": 191.8,
+     "qual": "=",
+     "gm6w": 220.689,
+     "gm6w_n": 6
+    },
+    {
+     "date": "2024-08-21",
+     "ecoli": 98.7,
+     "qual": "=",
+     "gm6w": 189.261,
+     "gm6w_n": 6
+    },
+    {
+     "date": "2024-08-28",
+     "ecoli": 325.5,
+     "qual": "=",
+     "gm6w": 202.932,
+     "gm6w_n": 6
+    },
+    {
+     "date": "2024-09-04",
+     "ecoli": 143.9,
+     "qual": "=",
+     "gm6w": 162.416,
+     "gm6w_n": 6
+    }
+   ]
+  },
+  "516NEV103": {
+   "name": "Wolf Creek at Cottage Hill Drive",
+   "lat": 39.064,
+   "lon": -121.09071,
+   "project": "RWB5 Microbial Source Tracking Wolf Cr Study 2024",
+   "method": "SM 9223 B-SOP ASWAU",
+   "samples": [
+    {
+     "date": "2024-05-22",
+     "ecoli": 53.8,
+     "qual": "=",
+     "gm6w": 53.8,
+     "gm6w_n": 1
+    },
+    {
+     "date": "2024-06-19",
+     "ecoli": 285.1,
+     "qual": "=",
+     "gm6w": 123.848,
+     "gm6w_n": 2
+    },
+    {
+     "date": "2024-06-26",
+     "ecoli": 547.5,
+     "qual": "=",
+     "gm6w": 203.261,
+     "gm6w_n": 3
+    },
+    {
+     "date": "2024-07-02",
+     "ecoli": 307.6,
+     "qual": "=",
+     "gm6w": 225.443,
+     "gm6w_n": 4
+    },
+    {
+     "date": "2024-07-10",
+     "ecoli": 517.2,
+     "qual": "=",
+     "gm6w": 396.969,
+     "gm6w_n": 4
+    },
+    {
+     "date": "2024-07-17",
+     "ecoli": 63.8,
+     "qual": "=",
+     "gm6w": 275.403,
+     "gm6w_n": 5
+    },
+    {
+     "date": "2024-07-24",
+     "ecoli": 224.7,
+     "qual": "=",
+     "gm6w": 266.221,
+     "gm6w_n": 6
+    },
+    {
+     "date": "2024-07-31",
+     "ecoli": 49.5,
+     "qual": "=",
+     "gm6w": 209.346,
+     "gm6w_n": 7
+    },
+    {
+     "date": "2024-08-07",
+     "ecoli": 46.4,
+     "qual": "=",
+     "gm6w": 161.52,
+     "gm6w_n": 7
+    },
+    {
+     "date": "2024-08-14",
+     "ecoli": 24.6,
+     "qual": "=",
+     "gm6w": 86.501,
+     "gm6w_n": 6
+    },
+    {
+     "date": "2024-08-21",
+     "ecoli": 22.6,
+     "qual": "=",
+     "gm6w": 51.337,
+     "gm6w_n": 6
+    },
+    {
+     "date": "2024-08-28",
+     "ecoli": 48.8,
+     "qual": "=",
+     "gm6w": 50.967,
+     "gm6w_n": 7
+    },
+    {
+     "date": "2024-09-04",
+     "ecoli": 44.3,
+     "qual": "=",
+     "gm6w": 37.454,
+     "gm6w_n": 6
+    }
+   ]
+  },
+  "516NEV104": {
+   "name": "Wolf Creek at Lime Kiln Road",
+   "lat": 39.09294,
+   "lon": -121.10864,
+   "project": "RWB5 Microbial Source Tracking Wolf Cr Study 2024",
+   "method": "SM 9223 B-SOP ASWAU",
+   "samples": [
+    {
+     "date": "2024-05-22",
+     "ecoli": 32.7,
+     "qual": "=",
+     "gm6w": 32.7,
+     "gm6w_n": 1
+    },
+    {
+     "date": "2024-06-19",
+     "ecoli": 172.2,
+     "qual": "=",
+     "gm6w": 75.04,
+     "gm6w_n": 2
+    },
+    {
+     "date": "2024-06-26",
+     "ecoli": 238.2,
+     "qual": "=",
+     "gm6w": 110.283,
+     "gm6w_n": 3
+    },
+    {
+     "date": "2024-07-02",
+     "ecoli": 101.7,
+     "qual": "=",
+     "gm6w": 108.071,
+     "gm6w_n": 4
+    },
+    {
+     "date": "2024-07-10",
+     "ecoli": 113.7,
+     "qual": "=",
+     "gm6w": 147.575,
+     "gm6w_n": 4
+    },
+    {
+     "date": "2024-07-17",
+     "ecoli": 147.0,
+     "qual": "=",
+     "gm6w": 147.46,
+     "gm6w_n": 5
+    },
+    {
+     "date": "2024-07-24",
+     "ecoli": 228.2,
+     "qual": "=",
+     "gm6w": 158.592,
+     "gm6w_n": 6
+    },
+    {
+     "date": "2024-07-31",
+     "ecoli": 88.2,
+     "qual": "=",
+     "gm6w": 141.858,
+     "gm6w_n": 6
+    },
+    {
+     "date": "2024-08-07",
+     "ecoli": 178.2,
+     "qual": "=",
+     "gm6w": 135.16,
+     "gm6w_n": 6
+    },
+    {
+     "date": "2024-08-14",
+     "ecoli": 60.9,
+     "qual": "=",
+     "gm6w": 124.088,
+     "gm6w_n": 6
+    },
+    {
+     "date": "2024-08-21",
+     "ecoli": 128.1,
+     "qual": "=",
+     "gm6w": 126.579,
+     "gm6w_n": 6
+    },
+    {
+     "date": "2024-08-28",
+     "ecoli": 48.7,
+     "qual": "=",
+     "gm6w": 110.433,
+     "gm6w_n": 7
+    },
+    {
+     "date": "2024-09-04",
+     "ecoli": 59.4,
+     "qual": "=",
+     "gm6w": 84.135,
+     "gm6w_n": 6
+    }
+   ]
+  },
+  "516NEV107": {
+   "name": "Wolf Creek at Auburn Road",
+   "lat": 39.15546,
+   "lon": -121.07822,
+   "project": "RWB5 Microbial Source Tracking Wolf Cr Study 2024",
+   "method": "SM 9223 B-SOP ASWAU",
+   "samples": [
+    {
+     "date": "2024-05-22",
+     "ecoli": 18.9,
+     "qual": "=",
+     "gm6w": 18.9,
+     "gm6w_n": 1
+    },
+    {
+     "date": "2024-06-19",
+     "ecoli": 218.7,
+     "qual": "=",
+     "gm6w": 64.292,
+     "gm6w_n": 2
+    },
+    {
+     "date": "2024-06-26",
+     "ecoli": 228.2,
+     "qual": "=",
+     "gm6w": 98.071,
+     "gm6w_n": 3
+    },
+    {
+     "date": "2024-07-02",
+     "ecoli": 93.4,
+     "qual": "=",
+     "gm6w": 96.882,
+     "gm6w_n": 4
+    },
+    {
+     "date": "2024-07-10",
+     "ecoli": 172.3,
+     "qual": "=",
+     "gm6w": 168.345,
+     "gm6w_n": 4
+    },
+    {
+     "date": "2024-07-17",
+     "ecoli": 56.5,
+     "qual": "=",
+     "gm6w": 135.322,
+     "gm6w_n": 5
+    },
+    {
+     "date": "2024-07-24",
+     "ecoli": 178.9,
+     "qual": "=",
+     "gm6w": 141.767,
+     "gm6w_n": 6
+    },
+    {
+     "date": "2024-07-31",
+     "ecoli": 44.1,
+     "qual": "=",
+     "gm6w": 108.561,
+     "gm6w_n": 6
+    },
+    {
+     "date": "2024-08-07",
+     "ecoli": 88.2,
+     "qual": "=",
+     "gm6w": 92.654,
+     "gm6w_n": 6
+    },
+    {
+     "date": "2024-08-14",
+     "ecoli": 46.4,
+     "qual": "=",
+     "gm6w": 82.457,
+     "gm6w_n": 6
+    },
+    {
+     "date": "2024-08-21",
+     "ecoli": 83.3,
+     "qual": "=",
+     "gm6w": 73.05,
+     "gm6w_n": 6
+    },
+    {
+     "date": "2024-08-28",
+     "ecoli": 61.3,
+     "qual": "=",
+     "gm6w": 71.243,
+     "gm6w_n": 7
+    },
+    {
+     "date": "2024-09-04",
+     "ecoli": 110.0,
+     "qual": "=",
+     "gm6w": 68.284,
+     "gm6w_n": 6
+    }
+   ]
+  },
   "516NEV109": {
    "name": "Wolf Creek at the North Star Mining Museum",
    "lat": 39.207851,
@@ -199,6 +599,306 @@
      "ecoli": 9.8,
      "qual": "=",
      "gm6w": 33.581,
+     "gm6w_n": 6
+    }
+   ]
+  },
+  "516NEV113": {
+   "name": "Cherry Creek at Sharmiden Way",
+   "lat": 39.070412,
+   "lon": -121.082825,
+   "project": "RWB5 Microbial Source Tracking Wolf Cr Study 2024",
+   "method": "SM 9223 B-SOP ASWAU",
+   "samples": [
+    {
+     "date": "2024-05-22",
+     "ecoli": 131.4,
+     "qual": "=",
+     "gm6w": 131.4,
+     "gm6w_n": 1
+    },
+    {
+     "date": "2024-06-19",
+     "ecoli": 290.9,
+     "qual": "=",
+     "gm6w": 195.51,
+     "gm6w_n": 2
+    },
+    {
+     "date": "2024-06-26",
+     "ecoli": 133.3,
+     "qual": "=",
+     "gm6w": 172.077,
+     "gm6w_n": 3
+    },
+    {
+     "date": "2024-07-02",
+     "ecoli": 178.9,
+     "qual": "=",
+     "gm6w": 173.758,
+     "gm6w_n": 4
+    },
+    {
+     "date": "2024-07-10",
+     "ecoli": 613.1,
+     "qual": "=",
+     "gm6w": 255.375,
+     "gm6w_n": 4
+    },
+    {
+     "date": "2024-07-17",
+     "ecoli": 365.4,
+     "qual": "=",
+     "gm6w": 274.345,
+     "gm6w_n": 5
+    },
+    {
+     "date": "2024-07-24",
+     "ecoli": 275.5,
+     "qual": "=",
+     "gm6w": 274.537,
+     "gm6w_n": 6
+    },
+    {
+     "date": "2024-07-31",
+     "ecoli": 261.3,
+     "qual": "=",
+     "gm6w": 269.671,
+     "gm6w_n": 6
+    },
+    {
+     "date": "2024-08-07",
+     "ecoli": 86.0,
+     "qual": "=",
+     "gm6w": 229.049,
+     "gm6w_n": 7
+    },
+    {
+     "date": "2024-08-14",
+     "ecoli": 21.1,
+     "qual": "=",
+     "gm6w": 175.546,
+     "gm6w_n": 6
+    },
+    {
+     "date": "2024-08-21",
+     "ecoli": 114.5,
+     "qual": "=",
+     "gm6w": 132.72,
+     "gm6w_n": 6
+    },
+    {
+     "date": "2024-08-28",
+     "ecoli": 98.7,
+     "qual": "=",
+     "gm6w": 127.222,
+     "gm6w_n": 7
+    },
+    {
+     "date": "2024-09-04",
+     "ecoli": 201.4,
+     "qual": "=",
+     "gm6w": 101.278,
+     "gm6w_n": 6
+    }
+   ]
+  },
+  "516NEV114": {
+   "name": "French Ravine at Hidden Valley Road",
+   "lat": 39.168024,
+   "lon": -121.092804,
+   "project": "RWB5 Microbial Source Tracking Wolf Cr Study 2024",
+   "method": "SM 9223 B-SOP ASWAU",
+   "samples": [
+    {
+     "date": "2024-05-22",
+     "ecoli": 81.3,
+     "qual": "=",
+     "gm6w": 81.3,
+     "gm6w_n": 1
+    },
+    {
+     "date": "2024-06-19",
+     "ecoli": 83.3,
+     "qual": "=",
+     "gm6w": 82.294,
+     "gm6w_n": 2
+    },
+    {
+     "date": "2024-06-26",
+     "ecoli": 125.9,
+     "qual": "=",
+     "gm6w": 94.824,
+     "gm6w_n": 3
+    },
+    {
+     "date": "2024-07-02",
+     "ecoli": 111.2,
+     "qual": "=",
+     "gm6w": 98.677,
+     "gm6w_n": 4
+    },
+    {
+     "date": "2024-07-10",
+     "ecoli": 2419.6,
+     "qual": ">",
+     "gm6w": 230.478,
+     "gm6w_n": 4
+    },
+    {
+     "date": "2024-07-17",
+     "ecoli": 547.5,
+     "qual": "=",
+     "gm6w": 274.019,
+     "gm6w_n": 5
+    },
+    {
+     "date": "2024-07-24",
+     "ecoli": 290.9,
+     "qual": "=",
+     "gm6w": 276.763,
+     "gm6w_n": 6
+    },
+    {
+     "date": "2024-07-31",
+     "ecoli": 218.7,
+     "qual": "=",
+     "gm6w": 325.069,
+     "gm6w_n": 6
+    },
+    {
+     "date": "2024-08-07",
+     "ecoli": 127.4,
+     "qual": "=",
+     "gm6w": 284.354,
+     "gm6w_n": 7
+    },
+    {
+     "date": "2024-08-14",
+     "ecoli": 73.8,
+     "qual": "=",
+     "gm6w": 304.199,
+     "gm6w_n": 6
+    },
+    {
+     "date": "2024-08-21",
+     "ecoli": 172.3,
+     "qual": "=",
+     "gm6w": 195.846,
+     "gm6w_n": 6
+    },
+    {
+     "date": "2024-08-28",
+     "ecoli": 61.3,
+     "qual": "=",
+     "gm6w": 165.901,
+     "gm6w_n": 7
+    },
+    {
+     "date": "2024-09-04",
+     "ecoli": 123.4,
+     "qual": "=",
+     "gm6w": 117.857,
+     "gm6w_n": 6
+    }
+   ]
+  },
+  "516NEV115": {
+   "name": "Rattlesnake Creek at Auburn Road",
+   "lat": 39.135579,
+   "lon": -121.077609,
+   "project": "RWB5 Microbial Source Tracking Wolf Cr Study 2024",
+   "method": "SM 9223 B-SOP ASWAU",
+   "samples": [
+    {
+     "date": "2024-05-22",
+     "ecoli": 85.7,
+     "qual": "=",
+     "gm6w": 85.7,
+     "gm6w_n": 1
+    },
+    {
+     "date": "2024-06-19",
+     "ecoli": 160.7,
+     "qual": "=",
+     "gm6w": 117.354,
+     "gm6w_n": 2
+    },
+    {
+     "date": "2024-06-26",
+     "ecoli": 290.9,
+     "qual": "=",
+     "gm6w": 158.823,
+     "gm6w_n": 3
+    },
+    {
+     "date": "2024-07-02",
+     "ecoli": 145.0,
+     "qual": "=",
+     "gm6w": 155.248,
+     "gm6w_n": 4
+    },
+    {
+     "date": "2024-07-10",
+     "ecoli": 98.5,
+     "qual": "=",
+     "gm6w": 160.746,
+     "gm6w_n": 4
+    },
+    {
+     "date": "2024-07-17",
+     "ecoli": 34.5,
+     "qual": "=",
+     "gm6w": 118.162,
+     "gm6w_n": 5
+    },
+    {
+     "date": "2024-07-24",
+     "ecoli": 60.9,
+     "qual": "=",
+     "gm6w": 105.804,
+     "gm6w_n": 6
+    },
+    {
+     "date": "2024-07-31",
+     "ecoli": 43.5,
+     "qual": "=",
+     "gm6w": 85.097,
+     "gm6w_n": 6
+    },
+    {
+     "date": "2024-08-07",
+     "ecoli": 93.2,
+     "qual": "=",
+     "gm6w": 70.392,
+     "gm6w_n": 6
+    },
+    {
+     "date": "2024-08-14",
+     "ecoli": 16.9,
+     "qual": "=",
+     "gm6w": 49.198,
+     "gm6w_n": 6
+    },
+    {
+     "date": "2024-08-21",
+     "ecoli": 56.3,
+     "qual": "=",
+     "gm6w": 44.818,
+     "gm6w_n": 6
+    },
+    {
+     "date": "2024-08-28",
+     "ecoli": 53.8,
+     "qual": "=",
+     "gm6w": 46.003,
+     "gm6w_n": 7
+    },
+    {
+     "date": "2024-09-04",
+     "ecoli": 63.1,
+     "qual": "=",
+     "gm6w": 48.55,
      "gm6w_n": 6
     }
    ]

@@ -2,7 +2,8 @@
 """Rebuild data/history_ceden_wolf_2024.json from CEDEN (data.ca.gov CKAN datastore SQL).
 
 Run from the repo root:  python3 -m data.tools.build_ceden_history
-Keeps only E. coli (exact analyte "E. coli", never total coliform) for the mapped stations.
+Keeps only E. coli (exact analyte "E. coli", never total coliform) for all 9 stations of the 2024 study
+(history.ALL_STATIONS: 2 mapped to our sites + 7 study-only).
 """
 import json
 import urllib.parse
@@ -45,10 +46,16 @@ def build(records):
     return out
 
 
-if __name__ == "__main__":
-    recs = fetch(list(history.STATIONS))
+def main(fetch_records=fetch, out=None):
+    """Fetch all 9 stations of the study and write the snapshot (out defaults to history.SNAPSHOT)."""
+    recs = fetch_records(list(history.ALL_STATIONS))
     doc = {"_source": "CEDEN via data.ca.gov, resource " + RESOURCE, "_licence": history.STUDY["licence"],
            "_built": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"), "stations": build(recs)}
-    history.SNAPSHOT.write_text(json.dumps(doc, indent=1) + "\n")
+    (out or history.SNAPSHOT).write_text(json.dumps(doc, indent=1) + "\n")
     for code, st in doc["stations"].items():
         print(code, st["name"], len(st["samples"]), "E. coli samples", st["samples"][0]["date"], "..", st["samples"][-1]["date"])
+    return doc
+
+
+if __name__ == "__main__":
+    main()
