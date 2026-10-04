@@ -33,6 +33,8 @@ PREV=creekwatch-prev
 CW_PORT="${CW_PORT:-8442}"
 CW_STAGE_PORT="${CW_STAGE_PORT:-8443}"
 STAGE=creekwatch-stage
+# Fallback contract; backend/tests/test_deploy_contract.py asserts the Dockerfile + compose.yaml match
+# these three defaults. Change them together with the Dockerfile, in the same PR.
 CW_APP_PORT="${CW_APP_PORT:-8080}"
 CW_VAR="${CW_VAR:-/srv/creekwatch}"
 VOLUME="${CW_VOLUME:-creekwatch-data}"
