@@ -877,3 +877,5 @@ html[data-save-data] .photo-figure { display: none; }
 .r-age { margin-top: 2px; font-size: 0.92rem; font-weight: 700; color: var(--ink); }
 .r-st.stale .r-age { color: var(--watch); }
 .r-note { margin-top: 4px; font-size: 0.85rem; color: var(--ink-2); }
+.h-method { margin: 4px 14px 6px; color: var(--muted); font-style: italic; }
+.hist-chart .hl { paint-order: stroke; stroke: var(--surface-2); stroke-width: 3px; stroke-linejoin: round; }

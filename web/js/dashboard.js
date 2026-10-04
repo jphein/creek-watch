@@ -114,6 +114,9 @@ function condHTML(c) {
    only finite numbers are plotted. */
 const num = (v) => (typeof v === 'number' ? v : typeof v === 'string' && /^\s*-?\d+(\.\d+)?\s*$/.test(v) ? Number(v) : NaN);
 
+// Objective lines carry the objective's own units (cfu), since the samples were measured as MPN (data lane).
+const unitTag = (obj) => (/cfu/i.test(String(obj?.units || '')) ? ' (cfu)' : '');
+
 function historyChart(st, obj, minN) {
   // qual (CEDEN ResultQualCode): '=' exact; '<'/'>' means the number is the lab's limit, so never draw it as exact.
   const pts = (st.samples || []).map((x) => ({ d: String(x.date || ''), v: num(x.ecoli), g: num(x.gm6w), n: Number(x.gm6w_n) || 0,
@@ -142,7 +145,7 @@ function historyChart(st, obj, minN) {
       <text class="ht" x="${padL - 4}" y="${(top + 8).toFixed(1)}" text-anchor="end">${Math.round(yMax)}</text>
       ${bars}
       ${gpts.length > 1 ? `<polyline class="hg" points="${gpts.join(' ')}"/>` : ''}
-      ${ref(stv, 'ref stv', `${stv} single sample`)}${ref(gm, 'ref gm', `${gm} 6-week average`)}
+      ${ref(stv, 'ref stv', `objective ${stv} single sample${unitTag(obj)}`)}${ref(gm, 'ref gm', `objective ${gm} 6-week avg${unitTag(obj)}`)}
       <text class="ht" x="${padL}" y="${H - 3}">${esc(first)}</text><text class="ht" x="${W - 4}" y="${H - 3}" text-anchor="end">${esc(last)}</text>
     </svg>
     <figcaption class="small muted">Bars: each sample. Line: 6-week geometric mean (only with ${minN || 5}+ samples). Dashed lines: the state objectives.${
@@ -166,6 +169,7 @@ function historyHTML(cond) {
         ${st.text ? `<p>${esc(st.text)}</p>` : ''}
         ${historyChart(st, s.objective, s.gm_min_samples)}
       </section>`).join('')}
+      ${s.method_note ? `<p class="h-method small">${esc(s.method_note)}</p>` : ''}
       <p class="credit">${esc(s.credit || '')}${srcUrl ? ` · <a href="${esc(srcUrl)}" target="_blank" rel="noopener">data</a>` : ''}${
         objUrl ? ` · compared with the <a href="${esc(objUrl)}" target="_blank" rel="noopener">state objective</a>` : ''}${s.licence ? ` · Licence: ${esc(s.licence)}` : ''}</p>
     </details>`;
