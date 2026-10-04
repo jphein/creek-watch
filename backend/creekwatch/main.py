@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import ipaddress
 import json
 import logging
@@ -27,6 +28,10 @@ from .data_iface import DataLayer, load_creeks, utcnow_iso
 from . import photos as photos_mod
 from .photos import HEIC_SUPPORTED, PhotoBusy, PhotoError, process_photo
 from .ratelimit import RateLimiter, rate_key
+from .alerts.poller import AlertContext, Poller, load_adapters
+from .alerts.push import PushService, VapidKeys
+from .alerts.routes import register as register_alerts
+from .alerts.store import AlertStore
 
 log = logging.getLogger("creekwatch")
 
@@ -112,6 +117,18 @@ def make_client_ip(trusted: str):
 
 # ---- app -------------------------------------------------------------------
 
+async def _poll_forever(poller: "Poller", tick_s: float) -> None:
+    """Background alert polling. Blocking work runs on a worker thread; the loop never dies."""
+    while True:
+        try:
+            await anyio.to_thread.run_sync(poller.run_due)
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            log.exception("alert poll cycle crashed; continuing")
+        await asyncio.sleep(tick_s)
+
+
 def create_app(settings: Settings | None = None) -> FastAPI:
     s = settings or Settings()
 
@@ -119,7 +136,15 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     async def lifespan(app: FastAPI):
         db.init(s.db_path)
         s.uploads_dir.mkdir(parents=True, exist_ok=True)
-        yield
+        task = None
+        if s.poller_enabled and alert_poller.adapters:
+            task = asyncio.create_task(_poll_forever(alert_poller, s.poller_tick_s))
+        try:
+            yield
+        finally:
+            if task:
+                task.cancel()
+            alert_poller.shutdown()
 
     app = FastAPI(title="Creek Watch API", version="0.1.0", lifespan=lifespan,
                   docs_url="/api/docs", openapi_url="/api/openapi.json", redoc_url=None)
@@ -188,6 +213,22 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         if not c:
             raise HTTPException(404, f"Unknown creek_id {creek_id!r}. Known: {', '.join(creek_by_id)}")
         return c
+
+    # -- alerts (store, poller, feeds, push) --------------------------------
+    s.data_dir.mkdir(parents=True, exist_ok=True)
+    alert_store = AlertStore(s.db_path)
+    push_service = PushService(s.db_path, VapidKeys.from_env(), max_subs=s.push_max_subs)
+
+    def _ctx() -> AlertContext:
+        def reports(cid: str, days: int) -> list[dict[str, Any]]:
+            since = iso(datetime.now(timezone.utc) - timedelta(days=days))
+            return fetch_reports(cid, since, 500)
+        return AlertContext(creeks=creeks, reports_fn=reports, conditions_fn=data.conditions)
+
+    alert_poller = Poller(load_adapters(s.use_data_package), alert_store, _ctx, push=push_service)
+    app.state.alert_store, app.state.alert_poller, app.state.push = alert_store, alert_poller, push_service
+    register_alerts(app, alert_store, push_service, alert_poller, set(creek_by_id), client_ip, s.public_url,
+                    RateLimiter(s.push_rate_count, s.rate_limit_window_s))
 
     # -- routes --------------------------------------------------------------
 

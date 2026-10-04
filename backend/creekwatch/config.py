@@ -40,6 +40,13 @@ class Settings:
     trusted_proxies: str = field(default_factory=lambda: os.environ.get(
         "CREEKWATCH_TRUSTED_PROXIES", "127.0.0.0/8,::1/128,172.16.0.0/12"))
 
+    # Alerts: background poller (off unless enabled; tests/dev never fetch), push limits.
+    poller_enabled: bool = field(default_factory=lambda: _env_bool("CREEKWATCH_POLLER", False))
+    poller_tick_s: float = field(default_factory=lambda: float(os.environ.get("CREEKWATCH_POLLER_TICK_S", "30")))
+    push_max_subs: int = field(default_factory=lambda: int(os.environ.get("CREEKWATCH_PUSH_MAX_SUBS", "5000")))
+    push_rate_count: int = field(default_factory=lambda: int(os.environ.get("CREEKWATCH_PUSH_RATE_COUNT", "20")))
+    public_url: str | None = field(default_factory=lambda: os.environ.get("CREEKWATCH_PUBLIC_URL") or None)
+
     @property
     def db_path(self) -> Path:
         return self.data_dir / "creekwatch.db"
