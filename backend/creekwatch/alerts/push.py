@@ -35,6 +35,13 @@ from .model import DEFER_SHORT, SEVERITY_RANK
 
 log = logging.getLogger("creekwatch.push")
 
+# Never let library DEBUG logging leak push tokens or keys: at DEBUG urllib3 logs the request line
+# ("POST /fcm/send/<token>"), and the push/crypto libraries can log key material. Pinned at import,
+# so CREEKWATCH_LOG_LEVEL=DEBUG (root) can't enable them.
+SECRET_SAFE_LOGGERS = ("urllib3", "requests", "pywebpush", "py_vapid", "http_ece")
+for _name in SECRET_SAFE_LOGGERS:
+    logging.getLogger(_name).setLevel(logging.WARNING)
+
 PUSH_HOSTS_EXACT = {"fcm.googleapis.com", "updates.push.services.mozilla.com"}
 PUSH_HOST_SUFFIXES = (".push.apple.com", ".notify.windows.com")
 MAX_ENDPOINT_LEN = 1024
@@ -501,7 +508,11 @@ class PushService:
         return r["created"] if r else None
 
     def _welcome_send(self, sub: dict, creek_names: dict[str, str] | None) -> int:
-        tag, created = sub_tag(sub["endpoint"]), self._created(sub["endpoint"])
+        tag, created = sub_tag(sub["endpoint"]), None
+        try:  # the age is diagnostic only: a locked/busy DB must not skip the welcome itself
+            created = self._created(sub["endpoint"])
+        except Exception as e:
+            log.warning("welcome push sub=%s: created lookup failed (%s); sending anyway", tag, type(e).__name__)
         try:
             validate_endpoint(sub["endpoint"])
             code = self._send(sub, welcome_payload(sub, creek_names), "normal")
