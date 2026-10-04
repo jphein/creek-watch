@@ -524,6 +524,7 @@ details.more summary { cursor: pointer; font-weight: 700; color: var(--brand); p
 .band-key { list-style: none; padding: 0; }
 .band-key li { display: flex; gap: 10px; align-items: baseline; }
 .band-key .band-dot { transform: translateY(2px); }
+.band-key strong { white-space: nowrap; }
 .pin { display: grid; place-items: center; }
 .pin-glyph { transform: rotate(45deg); color: #fff; font: 800 13px/1 var(--font); }
 .pin.band-fair .pin-glyph { color: #1d1600; }
@@ -557,3 +558,4 @@ details.more summary { cursor: pointer; font-weight: 700; color: var(--brand); p
 .flask-marker { width: 22px; height: 22px; border-radius: 6px; display: grid; place-items: center; background: var(--surface); color: var(--moss); border: 2px solid var(--moss); font-size: 13px; line-height: 1; box-shadow: 0 1px 4px rgb(0 0 0 / 0.3); }
 .flask-marker.sm { width: 16px; height: 16px; font-size: 10px; border-width: 1.5px; display: inline-grid; }
 .wq-say.neutral { color: var(--muted); }
+.flag-list li.alert { background: var(--alert-tint); border-left-color: var(--alert); }
