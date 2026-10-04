@@ -1,6 +1,6 @@
 // Map — creek lines, site markers, recent-report pins coloured by band.
 import { getCreeks, getReports, getConditions, getAlerts, reportBand } from './api.js';
-import { esc, bandLabel, reportCardHTML, alertHTML, SEV } from './ui.js';
+import { esc, bandLabel, reportCardHTML, alertHTML, SEV, httpsUrl } from './ui.js';
 
 const LEAFLET_CSS = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css';
 const LEAFLET_JS = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js';
@@ -40,7 +40,7 @@ export async function mountMap(el, qs) {
     <div class="map-wrap"><div id="map-canvas" role="region" aria-label="Map of Wolf Creek and Deer Creek with recent reports"></div>
     <div class="map-legend" aria-label="Legend">${['good', 'fair', 'watch', 'alert']
       .map((b) => `<span><span class="band-dot band-${b}"></span>${BAND_GLYPH[b]} ${bandLabel(b)}</span>`)
-      .join('')}<span><span class="flask-marker sm" aria-hidden="true">⚗</span> Water test</span><span><span class="alert-marker sm sev-watch" aria-hidden="true"><span>!</span></span> Alert area</span></div></div>`;
+      .join('')}<span><span class="flask-marker sm" aria-hidden="true">⚗</span> Water test</span><span><span class="alert-marker sm sev-watch" aria-hidden="true"><span>!</span></span> Alert area</span><span><span class="swim-marker sm" aria-hidden="true">≈</span> Swim hole test</span></div></div>`;
   try {
     L = await loadLeaflet();
   } catch (e) {
@@ -104,6 +104,22 @@ export async function mountMap(el, qs) {
     }
   });
 
+  // Swim holes (SYRCL bacteria tests, data #100): regional, the same for every creek. These are dated summer
+  // samples, not live readings: the date leads, the wording follows the 320 rule, and markers are neutral.
+  const holes = new Map();
+  for (const cond of conds) for (const st of cond?.swim_holes?.stations || []) {
+    if (st && st.station_id != null && !holes.has(String(st.station_id))) holes.set(String(st.station_id), st);
+  }
+  const jbr = conds.flatMap((c) => c?.river?.stations || []).find((x) => x?.station_id === 'JBR');
+  for (const st of holes.values()) {
+    if (!isNum(st.lat) || !isNum(st.lon)) continue; // a null coordinate must not become 0, 0
+    const name = spotName(st);
+    L.marker([Number(st.lat), Number(st.lon)], {
+      icon: L.divIcon({ className: '', html: '<div class="swim-marker" aria-hidden="true">≈</div>', iconSize: [24, 24], iconAnchor: [12, 12] }),
+      title: `Swim hole: ${name}`, alt: `Swim hole ${name}`, keyboard: true,
+    }).bindPopup(swimPopupHTML(st, jbr), { maxWidth: 300, autoPanPaddingTopLeft: [52, 12], autoPanPaddingBottomRight: [12, 90] }).addTo(map); // clear the zoom control and legend
+  }
+
   // Alert areas (docs/ALERTS-SPEC.md): polygons dashed + lightly filled, points as glyph markers.
   const SEV_VAR = { alert: '--alert', watch: '--watch', advisory: '--brand', info: '--muted' };
   for (const a of await getAlerts().catch(() => [])) {
@@ -152,6 +168,39 @@ export async function mountMap(el, qs) {
     map.fitBounds(b, { padding: [24, 24] });
   }
   showMap(qs);
+}
+
+const ECOLI_STV = 320;
+// Number(null) and Number('') are 0, which would show a missing reading as a real-looking zero.
+const isNum = (x) => x != null && x !== '' && Number.isFinite(Number(x));
+const spotName = (st) => String(st.name ?? '').trim() || 'Unnamed spot';
+export function swimPopupHTML(st, jbr) {
+  const t = Date.parse(`${String(st.date || '').slice(0, 10)}T12:00:00`);
+  const when = t ? new Date(t).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : '';
+  // Calendar days between the sample date and today (local), e.g. Aug 8 → Oct 4 = 57.
+  const today = new Date(); today.setHours(12, 0, 0, 0);
+  const days = t ? Math.max(0, Math.round((today - t) / 864e5)) : null;
+  const v = Number(st.ecoli_mpn_100ml);
+  const val = isNum(st.ecoli_mpn_100ml)
+    ? `E. coli <strong>${esc(v)}</strong> per 100 mL: ${v <= ECOLI_STV
+      ? `below California’s recreational threshold of ${ECOLI_STV}.`
+      : `above the ${ECOLI_STV} recreational threshold (a statistical threshold, not a single-sample limit).`}`
+    : 'No E. coli number in the latest test.';
+  const href = httpsUrl(st.source_url);
+  const southYuba = /south yuba/i.test(String(st.river || ''));
+  const flowT = Date.parse(jbr?.observed_at || '');
+  const flow = southYuba && jbr && isNum(jbr.flow_cfs)
+    ? `<p class="sp-flow">South Yuba at Jones Bar now: ${esc(Number(jbr.flow_cfs))} cfs${flowT ? `, as of ${esc(new Date(flowT).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' }))}` : ''}.</p>`
+    : '';
+  return `<div class="swim-pop">
+    <p class="sp-kicker">Swim hole · volunteer bacteria test</p>
+    <strong class="sp-name">${esc(spotName(st))}</strong>${st.river ? `<span class="sp-river">${esc(st.river)}</span>` : ''}
+    <p class="sp-date">Tested <strong>${esc(when || 'date unknown')}</strong>${days != null ? ` (${esc(days)} day${days === 1 ? '' : 's'} ago)` : ''}: a summer sample, not a live reading.</p>
+    <p class="sp-val">${val}</p>
+    ${st.stale ? '<p class="sp-note">An older sample; newer tests may not be published yet.</p>' : ''}
+    ${flow}
+    <p class="credit">${esc(st.credit || 'Volunteer monitoring')}${href ? ` · <a href="${esc(href)}" target="_blank" rel="noopener noreferrer">data</a>` : ''}</p>
+  </div>`;
 }
 
 export function showMap(qs) {
