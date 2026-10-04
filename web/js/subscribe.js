@@ -24,6 +24,12 @@ async function registration() {
   return (await navigator.serviceWorker.getRegistration()) || navigator.serviceWorker.register('sw.js');
 }
 
+function sameKey(buf, bytes) {
+  if (!buf) return false; // unknown key: treat as different (a fresh subscription is cheap; a dead one is silent)
+  const a = new Uint8Array(buf);
+  return a.length === bytes.length && a.every((v, i) => v === bytes[i]);
+}
+
 function b64urlToBytes(s) {
   const pad = '='.repeat((4 - (s.length % 4)) % 4);
   const raw = atob((s + pad).replace(/-/g, '+').replace(/_/g, '/'));
@@ -189,11 +195,25 @@ function bind(key, existing) {
       }
       const reg = await registration();
       await navigator.serviceWorker.ready;
-      const sub = existing || (await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64urlToBytes(key) }));
+      const keyBytes = b64urlToBytes(key);
+      // Re-read NOW (not the render-time snapshot). Reuse a subscription only when alerts are already on
+      // from this flow AND it was made with the current server key. Anything else is a leftover (an earlier
+      // session, a reset permission, a rotated VAPID key) whose push token may already be dead: posting it
+      // got FCM 410 on the welcome push (prod, 2026-10-03 20:35). Replace it with a fresh one.
+      let sub = await reg.pushManager.getSubscription();
+      const wasOn = !!loadFilters();
+      let replaced = null;
+      if (sub && !(wasOn && sameKey(sub.options && sub.options.applicationServerKey, keyBytes))) {
+        replaced = sub.endpoint;
+        await sub.unsubscribe().catch(() => {});
+        sub = null;
+      }
+      if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: keyBytes });
       await pushSubscribe(sub.toJSON ? sub.toJSON() : sub, filters);
+      if (replaced && replaced !== sub.endpoint) pushUnsubscribe(replaced).catch(() => {}); // server forgets the old one
       saveFilters(filters);
       editing = false;
-      toast(existing ? 'Alert settings saved.' : 'Alerts are on. We’ll only buzz you for what you picked.');
+      toast(wasOn && !replaced ? 'Alert settings saved.' : 'Alerts are on. We’ll only buzz you for what you picked.');
       render();
     } catch (err) {
       hint.textContent = err instanceof ApiError ? err.message : 'Couldn’t turn on alerts on this phone. Check your connection and try again.';

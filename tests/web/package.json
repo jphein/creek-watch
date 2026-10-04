@@ -4,8 +4,10 @@
   "type": "module",
   "description": "Browser tests for web/ (Playwright, headless Chrome). See README.md.",
   "scripts": {
-    "test": "node xss.test.mjs && node push-sw.test.mjs && node alerts-state.test.mjs && node cleanup.test.mjs",
+    "test": "node xss.test.mjs && node push-sw.test.mjs && node alerts-state.test.mjs && node cleanup.test.mjs && node push-subscribe.test.mjs",
     "test:live": "node push-live.test.mjs"
   },
-  "devDependencies": { "playwright-core": "^1.63.0" }
+  "devDependencies": {
+    "playwright-core": "^1.63.0"
+  }
 }
