@@ -45,6 +45,12 @@ Vaultwarden is the source of truth: the secure note **"creekwatch VAPID"** holds
 
 Values travel only through pipes: never through argv, logs, the repo or the image. Rotating the keypair invalidates every push subscription, so `init` won't overwrite. `deploy/tests/secrets-plumbing.sh` exercises the transport with a **throwaway** key: 0600, merge, refusal of malformed lines, the value intact in a hardened container, and no trace in the journal or container logs. A planted-leak probe confirms the leak check can see.
 
+## Alert poller
+
+`creekwatch-poll.timer` runs `deploy/poll.sh` every **10 min**, which does `python -m creekwatch.alerts.poller --once` *inside* the live container, so it gets the container's env, hardening and network. Leave `CREEKWATCH_POLLER` unset. The in-app poller is avoided because during a redeploy the staging container runs beside the live one on the same DB, and two in-app pollers could double-send pushes. Push dedupe (`alerts.last_pushed_severity`) and per-source state (`alert_sources`) live in the DB, so separate passes are safe. Overlapping passes are prevented by a lock; a skipped pass exits 75, which shows as a failed unit. Builds without the poller no-op. Logs: `journalctl -u creekwatch-poll`.
+
+**Not enabled by `install.sh`.** Enable it only once the poller honours DB-persisted due times and backoff, since `--once` currently refetches every source, including a 10 MB file, every pass: `sudo systemctl enable --now creekwatch-poll.timer`. The pass deadline runs inside the container (`timeout -k 10`), so a hung poller is killed there and passes can't pile up.
+
 ## Backups
 
 `creekwatch-backup.timer` runs **hourly** and copies to **disks** at `/mnt/raid/backups/ubox0/creekwatch/`, which borg snapshots nightly at 03:00:
