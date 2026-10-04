@@ -365,3 +365,29 @@ def test_failed_conditions_negative_cached_60s(monkeypatch):
     assert "error" in dl.conditions("deer")
     clock[0] += 59; dl.conditions("deer"); assert len(calls) == 1
     clock[0] += 2;  dl.conditions("deer"); assert len(calls) == 2
+
+
+# ---- water_color "orange" (possible mine drainage) + reports away from named sites --------------
+
+def test_orange_water_accepted_and_returned(client):
+    r = client.post("/api/reports", data=dict(REPORT, water_color="orange"))
+    assert r.status_code == 201, r.text
+    rep = r.json()
+    assert rep["water_color"] == "orange"
+    assert client.get(f"/api/reports/{rep['id']}").json()["water_color"] == "orange"
+    assert [x["water_color"] for x in client.get("/api/reports").json()] == ["orange"]
+    assert client.post("/api/reports", data=dict(REPORT, water_color="rust")).status_code == 422
+
+
+def test_report_on_a_tributary_away_from_named_sites(client):
+    """site_id is optional: a point >1.5 km from every named site (e.g. a small tributary) is accepted
+    with site_id null, as long as it is within 25 km of the creek's sites/line."""
+    from creekwatch.main import haversine_km
+    creeks = {c["id"]: c for c in client.get("/api/creeks").json()}
+    lat, lon = 39.2950, -121.0600                                   # ~4 km from every Deer Creek stub site
+    assert min(haversine_km(lat, lon, s["lat"], s["lon"]) for s in creeks["deer"]["sites"]) > 1.5
+    r = client.post("/api/reports", data=dict(REPORT, lat=str(lat), lon=str(lon), water_color="orange"))
+    assert r.status_code == 201, r.text
+    assert r.json()["site_id"] is None
+    far = client.post("/api/reports", data=dict(REPORT, lat="39.55", lon="-121.06"))   # ~32 km north
+    assert far.status_code == 422 and "km" in far.json()["detail"]

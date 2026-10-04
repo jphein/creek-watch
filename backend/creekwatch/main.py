@@ -37,7 +37,7 @@ from .alerts.store import AlertStore
 
 log = logging.getLogger("creekwatch")
 
-WaterColor = Literal["clear", "cloudy", "brown", "green", "other"]
+WaterColor = Literal["clear", "cloudy", "brown", "green", "orange", "other"]  # orange: possible mine drainage (iron/metals)
 Amount = Literal["none", "some", "lots"]
 Flow = Literal["dry", "low", "normal", "high", "flood"]
 Odor = Literal["none", "earthy", "sewage", "chemical", "rotten", "other"]
