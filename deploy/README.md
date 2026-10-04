@@ -18,6 +18,7 @@ phone ─► Cloudflare edge (proxied CNAME, TLS) ─► cloudflared tunnel on u
 | Undo the last deploy | `deploy/redeploy.sh --rollback` |
 | Timer logs | `ssh ubox0 journalctl -u creekwatch-redeploy -n 50` |
 | App logs | `ssh ubox0 docker logs --tail 100 creekwatch` |
+| Back up now / list backups | `deploy/backup.sh` · `deploy/backup.sh --list` (an hourly timer also runs it) |
 
 `redeploy.sh` does the following:
 1. It fetches the ref and builds `creekwatch:<sha>` on ubox0.
@@ -25,7 +26,26 @@ phone ─► Cloudflare edge (proxied CNAME, TLS) ─► cloudflared tunnel on u
 3. It swaps: the old container is stopped and kept as `creekwatch-prev`, and the new one goes live.
 4. It health-checks again, both directly and through Caddy. On failure it rolls back to `creekwatch-prev` automatically.
 
+The container's port and data path come from the image's own `EXPOSE` and `VOLUME`. Whichever path that is, the **same named volume `creekwatch-data`** is mounted there, so an app-side contract change (for example 8080 with /srv/creekwatch → 8000 with /app/var) can't strand deploys or orphan the reports.
+
 A sha that fails is written to `~/creekwatch/failed.shas`, and the timer won't retry it. A new merge, or a manual run, will. Measured swap gap: one probe miss at a 0.5 s interval, so about 1 s.
+
+## Backups
+
+`creekwatch-backup.timer` runs **hourly** and copies to **disks** at `/mnt/raid/backups/ubox0/creekwatch/`, which borg snapshots nightly at 03:00:
+- `db/creekwatch-<UTC>.db`: a consistent snapshot taken with SQLite's online-backup API inside the container. It needs no downtime, is checked with `integrity_check`, and is kept for 14 days.
+- `uploads/`: a mirror of the photos. A photo deleted for moderation is deleted here as well, and borg keeps the history.
+- `LATEST`: the stamp and report count of the newest snapshot.
+
+**Restore** (drilled 2026-10-03: the report and its photo came back from disks into a fresh container):
+```
+ssh ubox0
+rsync disks:/mnt/raid/backups/ubox0/creekwatch/db/<snap>.db ~/r/creekwatch.db
+rsync -a disks:/mnt/raid/backups/ubox0/creekwatch/uploads/ ~/r/uploads/
+docker stop creekwatch
+docker run --rm -v creekwatch-data:/to -v ~/r:/from:ro alpine sh -c 'cp -a /from/. /to/ && chown -R 10001 /to'
+docker start creekwatch
+```
 
 ## Files
 
@@ -35,11 +55,13 @@ A sha that fails is written to `~/creekwatch/failed.shas`, and the timer won't r
   - Tunnel traffic gets `X-Forwarded-For` from `CF-Connecting-IP`, so per-IP rate limiting sees real phones and not cloudflared. LAN traffic, which has no CF header, keeps Caddy's own XFF.
   - `Cache-Control` keeps the Cloudflare edge from caching: photos are marked `private`, so deletion is effective, and everything else is `no-cache`, so a redeploy reaches phones at once.
 - `cloudflared-ingress.yml`: the rule in `/etc/cloudflared/config.yml`, placed above the catch-all 404. It shares the tunnel with `list.techempower.org`.
+- `backup.sh` plus `creekwatch-backup.{service,timer}`: the hourly off-host backup described above.
 - `placeholder/`: the "coming soon" nginx page. It's the rollback target of last resort.
 
 ## One-time setup already done (2026-10-03)
 
 - **DNS:** a proxied CNAME `creekwatch.realm.watch` → `<tunnel-id>.cfargotunnel.com` in the realm.watch zone, created with Caddy's DNS token. The LAN has a gatekeeper dnsmasq override to `10.0.6.11`, like the other realm.watch sites, so LAN clients go straight to Caddy and Caddy keeps their real LAN IP.
+- **LAN DNS:** jp-main added `/creekwatch.realm.watch/10.0.6.11` to gatekeeper dnsmasq at 17:31. The pre-change backup is `scratch/deploy/gatekeeper/dhcp-before-creekwatch-1731.uci`.
 - **Repo access:** a read-only deploy key on ubox0 (`~/.ssh/creekwatch_deploy`, ssh alias `github-creekwatch`). Once the repo is public this is optional.
 - **Monitoring:** `status.realm.watch` checks `/healthz` and `/api/version` (jphein/status.realm.watch#14).
 - **Backups** sit next to each edited file on ubox0, as `*.bak-pre-creekwatch-*`.

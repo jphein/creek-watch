@@ -20,6 +20,11 @@ if [ "$(hostname -s)" != "$DEPLOY_HOST" ]; then
   exec ssh "$DEPLOY_HOST" "env $fwd bash -s -- $(printf '%q ' "$@")" < "${BASH_SOURCE[0]}"
 fi
 
+# Everything below runs inside main(): bash parses the whole function before running it, and
+# stdin is then detached, so when this script arrives as `ssh host bash -s < script`, an inner
+# ssh/docker/git that reads stdin can't swallow the rest of the script.
+main() {
+exec </dev/null
 BASE="${CW_BASE:-$HOME/creekwatch}"
 SRC="$BASE/src"
 REPO="${CW_REPO:-github-creekwatch:jphein/creek-watch.git}"
@@ -115,6 +120,14 @@ log "built $IMAGE"
 
 docker volume inspect "$VOLUME" >/dev/null 2>&1 || docker volume create "$VOLUME" >/dev/null
 
+# Follow the image's own contract (EXPOSE / VOLUME) so an app-side port or data-dir change can't strand
+# deploys; the SAME named volume is always mounted, so reports and photos carry across contract changes.
+img_port=$(docker image inspect -f '{{range $p, $_ := .Config.ExposedPorts}}{{$p}} {{end}}' "$IMAGE" | tr ' ' '\n' | grep -m1 /tcp | cut -d/ -f1 || true)
+img_vol=$(docker image inspect -f '{{range $v, $_ := .Config.Volumes}}{{$v}} {{end}}' "$IMAGE" | xargs -n1 2>/dev/null | head -1 || true)
+[ -n "$img_port" ] && CW_APP_PORT="$img_port"
+[ -n "$img_vol" ] && CW_VAR="$img_vol"
+log "contract: app port $CW_APP_PORT, volume $VOLUME at $CW_VAR"
+
 # 1) Stage: boot the new image on a side port (same volume) while the old one keeps serving.
 docker rm -f "$STAGE" >/dev/null 2>&1 || true
 run_app "$STAGE" "$CW_STAGE_PORT" "$IMAGE" no || fail "docker run (stage) failed; live container untouched"
@@ -154,3 +167,5 @@ else
   rollback
   fail "post-swap health check failed for $SHORT (rolled back)"
 fi
+}
+main "$@"
