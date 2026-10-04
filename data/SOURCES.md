@@ -27,9 +27,23 @@ Everything here is public and keyless. Retrieved 2026-10-03 unless noted.
 - Rain over the past and next 24 h: Open-Meteo `https://api.open-meteo.com/v1/forecast?hourly=precipitation&past_days=2&forecast_days=2`. This is keyless, gridded model data (not a rain gauge).
 
 ## USGS reliability note (2026-10-03)
-- Legacy `waterservices.usgs.gov` returned intermittent HTTP 503 errors during testing (the same URL alternated between 200 and 503). `ingest.fetch_gauge` retries once, then falls back to the new USGS Water Data API: `https://api.waterdata.usgs.gov/ogcapi/v0/collections/latest-continuous/items?monitoring_location_id=USGS-<site>&parameter_code=00060,00065`. The new API returned identical values (4.84 cfs and 2.50 ft at 2026-10-04T00:00Z for 11418500).
+- Legacy `waterservices.usgs.gov` returned intermittent HTTP 503 errors during testing (the same URL alternated between 200 and 503). It was also slow (0.6–7.6 s per call, against about 0.25 s for the new API). So `ingest.fetch_gauge` now uses the new USGS Water Data OGC API first and falls back to legacy NWIS: `https://api.waterdata.usgs.gov/ogcapi/v0/collections/latest-continuous/items?monitoring_location_id=USGS-<site>&parameter_code=00060,00065`. The new API returned identical values (4.84 cfs and 2.50 ft at 2026-10-04T00:00Z for 11418500).
 - The daily flow percentiles come from the stat service and are committed as `flow_stats.json` (all 366 days for both gauges). That way the score doesn't depend on that endpoint's uptime.
 
-## Community monitoring (documented, not ingested)
-- Wolf Creek Community Alliance: https://wolfcreekalliance.org/programs/ (about 20 years of volunteer water-quality monitoring).
-- Sierra Streams Institute (formerly Friends of Deer Creek): https://sierrastreamsinstitute.org/ ; data in RiverDB at https://riverdb.org/org/SSI .
+## Volunteer water-quality monitoring: RiverDB (ingested)
+- RiverDB (riverdb.org) is the public data portal used by SYRCL, Sierra Streams Institute and Wolf Creek Community Alliance. Its site loads data from a keyless GraphQL endpoint, `https://gql.riverdb.org/graphql`. We use the same `stations(agency:)` and `sitevisits(stationRef:)` queries the site's own pages use, and only for projects the groups flagged `Public` (SYRCL_WQ, SSI_1 "Deer Creek"; WCCA_1 "Monthly Water Quality").
+- Stations used (ids are RiverDB station refs):
+  - SYRCL "Deer Creek Below Nevada City" (17592187179149) and "Deer Creek Above Nevada City" (17592187179145): 41 visits each, 2022-03 → 2026-08.
+  - SSI Sites 4, 17, 13, 5 and 7 on Deer Creek: about 250 visits each, 2000 → 2022/23.
+  - WCCA Sites 2, 5, 8, 8.5, 9.2 and 15 on Wolf Creek: about 25 visits each, 2017 → 2019-12.
+- No license or terms statement was found on RiverDB. We treat the data as the groups' own: we read it, credit it on every reading, cache SYRCL for 24 h, and commit only the latest sample per station (`wq_snapshot.json`), never the history. If a group asks, we remove it.
+- Thresholds: DO ≥ 7.0 mg/L and pH 6.5–8.5 (Central Valley RWQCB Basin Plan, COLD beneficial use), and E. coli 320 per 100 mL (State Water Board bacteria objective, REC-1 statistical threshold value). 20 °C water and 10/25 NTU turbidity are rules of thumb.
+
+## Stroud Water Research Center / Monitor My Watershed (checked, not ingested)
+- monitormywatershed.org/browse lists 40 sites within 40 km of the creeks, all of them WCCA's Wolf Creek watershed stations, registered 2026-04-14 (e.g. "Glen Jones Park (WCCA Site 8)": pH, temperature and turbidity sensors configured). Every one shows "Last observation: –", so there is no data yet. When readings appear they can be downloaded as CSV per sensor, which makes this the likely future source of current Wolf Creek water tests.
+- Model My Watershed / WikiWatershed modelling tools: not used (they model land use and runoff; they don't observe it).
+
+## Community monitoring groups
+- Wolf Creek Community Alliance: https://wolfcreekalliance.org/programs/
+- Sierra Streams Institute (formerly Friends of Deer Creek): https://sierrastreamsinstitute.org/
+- South Yuba River Citizens League: https://yubariver.org

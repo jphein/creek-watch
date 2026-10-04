@@ -121,11 +121,15 @@ def _now_iso() -> str:
 
 # ------------------------------------------------------------------------ fetchers
 def fetch_gauge(site_no: str, timeout: float = 8) -> dict | None:
-    """Latest discharge/stage: legacy NWIS first (retry once), then the new USGS Water Data API."""
+    """Latest discharge/stage: the new USGS Water Data OGC API first (~0.25 s), then legacy
+    NWIS WaterServices (measured 0.6-7.6 s and intermittent 503s on 2026-10-03)."""
     try:
-        return _retry_once(lambda: fetch_gauge_nwis(site_no, timeout))
+        got = fetch_gauge_ogc(site_no, timeout)
+        if got:
+            return got
     except Exception:  # noqa: BLE001
-        return fetch_gauge_ogc(site_no, timeout)
+        pass
+    return fetch_gauge_nwis(site_no, timeout)
 
 
 def fetch_gauge_ogc(site_no: str, timeout: float = 8) -> dict | None:
@@ -309,6 +313,8 @@ def get_conditions(creek_id: str, *, max_age_s: int | None = None, timeout_s: fl
         "fc": lambda: _cached(f"fc:{cfg['nws_forecast']}", ttl("weather"), lambda: _retry_once(lambda: fetch_nws_forecast(cfg["nws_forecast"], timeout_s))),
         "rain": lambda: _cached(f"rain:{lat},{lon}", ttl("weather"), lambda: _retry_once(lambda: fetch_rain(lat, lon, timeout_s))),
     }
+    from . import wq
+    jobs["wq"] = lambda: wq.get_water_quality(creek_id, timeout_s=timeout_s)
     futs = {k: _pool.submit(fn) for k, fn in jobs.items()}
     res = {}
     for k, f in futs.items():
@@ -345,7 +351,9 @@ def get_conditions(creek_id: str, *, max_age_s: int | None = None, timeout_s: fl
             "precip_source_url": rain["source_url"] if rain else None,
             "stale": any(bool(x and x.get("stale")) for x in (obs, fc, rain)),
         }
-    return {"creek_id": creek_id, "gauge": gauge, "weather": weather, "fetched_at": _now_iso()}
+    water_quality = res.get("wq") or {"stations": []}
+    return {"creek_id": creek_id, "gauge": gauge, "weather": weather,
+            "water_quality": water_quality, "fetched_at": _now_iso()}
 
 
 if __name__ == "__main__":  # python3 -m data.ingest

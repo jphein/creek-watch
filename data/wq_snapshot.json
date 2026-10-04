@@ -1,0 +1,156 @@
+{
+ "_source": "RiverDB GraphQL (gql.riverdb.org), latest visit per station; data (c) the monitoring groups",
+ "_built": "2026-10-04T00:34:44Z",
+ "stations": {
+  "17592187179149": {
+   "date": "2026-08-08",
+   "readings": {
+    "do_mg_l": 9.1,
+    "ph": 7.3,
+    "turbidity_ntu": 1.35,
+    "conductivity_us_cm": 50.0,
+    "water_temp_c": 14.13
+   },
+   "visit_count": 41,
+   "first_date": "2022-03-11"
+  },
+  "17592187179145": {
+   "date": "2026-08-07",
+   "readings": {
+    "turbidity_ntu": 0.91,
+    "ph": 6.88,
+    "do_mg_l": 8.7,
+    "water_temp_c": 13.3,
+    "conductivity_us_cm": 43.33
+   },
+   "visit_count": 41,
+   "first_date": "2022-03-11"
+  },
+  "285873023368579": {
+   "date": "2022-09-13",
+   "readings": {
+    "turbidity_ntu": 0.44,
+    "ph": 7.29,
+    "ecoli_mpn_100ml": 9.8,
+    "do_mg_l": 10.4,
+    "conductivity_us_cm": 46.73
+   },
+   "visit_count": 254,
+   "first_date": "2001-01-13"
+  },
+  "285873023368607": {
+   "date": "2022-01-26",
+   "readings": {
+    "ph": 7.22,
+    "turbidity_ntu": 3.33,
+    "do_mg_l": 11.29,
+    "conductivity_us_cm": 89.37,
+    "ecoli_mpn_100ml": 23.5
+   },
+   "visit_count": 127,
+   "first_date": "2010-08-18"
+  },
+  "285873023368577": {
+   "date": "2022-09-07",
+   "readings": {
+    "turbidity_ntu": 0.27,
+    "ph": 6.69,
+    "ecoli_mpn_100ml": 72.3,
+    "do_mg_l": 7.26,
+    "conductivity_us_cm": 53.5
+   },
+   "visit_count": 244,
+   "first_date": "2001-05-17"
+  },
+  "285873023368591": {
+   "date": "2022-01-24",
+   "readings": {
+    "ecoli_mpn_100ml": 23.1,
+    "turbidity_ntu": 0.82,
+    "ph": 7.58,
+    "do_mg_l": 11.61,
+    "conductivity_us_cm": 107.47
+   },
+   "visit_count": 245,
+   "first_date": "2000-12-13"
+  },
+  "285873023368581": {
+   "date": "2022-10-12",
+   "readings": {
+    "turbidity_ntu": 0.63,
+    "ph": 8.01,
+    "ecoli_mpn_100ml": 24.6,
+    "do_mg_l": 8.69,
+    "conductivity_us_cm": 196.87
+   },
+   "visit_count": 252,
+   "first_date": "2000-12-09"
+  },
+  "285873023374516": {
+   "date": "2019-12-19",
+   "readings": {
+    "do_mg_l": 9.54,
+    "water_temp_c": 7.5,
+    "ph": 6.5,
+    "turbidity_ntu": 1.27
+   },
+   "visit_count": 25,
+   "first_date": "2017-03-16"
+  },
+  "285873023374524": {
+   "date": "2019-12-21",
+   "readings": {
+    "do_mg_l": 10.02,
+    "water_temp_c": 7.9,
+    "ph": 7.1,
+    "turbidity_ntu": 1.16
+   },
+   "visit_count": 25,
+   "first_date": "2017-03-18"
+  },
+  "285873023374532": {
+   "date": "2019-12-21",
+   "readings": {
+    "do_mg_l": 9.89,
+    "water_temp_c": 8.5,
+    "ph": 7.73,
+    "turbidity_ntu": 1.51
+   },
+   "visit_count": 25,
+   "first_date": "2017-03-16"
+  },
+  "285873023410886": {
+   "date": "2019-12-21",
+   "readings": {
+    "do_mg_l": 10.81,
+    "water_temp_c": 9.1,
+    "ph": 7.6,
+    "turbidity_ntu": 1.26
+   },
+   "visit_count": 12,
+   "first_date": "2018-11-09"
+  },
+  "285873023410889": {
+   "date": "2019-12-20",
+   "readings": {
+    "do_mg_l": 10.79,
+    "water_temp_c": 7.03,
+    "ph": 8.3,
+    "turbidity_ntu": 1.06
+   },
+   "visit_count": 18,
+   "first_date": "2018-02-15"
+  },
+  "285873023374546": {
+   "date": "2019-12-19",
+   "readings": {
+    "do_mg_l": 11.22,
+    "water_temp_c": 7.6,
+    "ph": 7.83,
+    "turbidity_ntu": 1.37
+   },
+   "visit_count": 25,
+   "first_date": "2017-03-17"
+  }
+ }
+}
