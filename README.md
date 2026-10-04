@@ -33,8 +33,8 @@ uv run uvicorn creekwatch.asgi:app --app-dir backend --reload --port 8000
 Run the tests:
 
 ```bash
-uv run pytest                                    # 291 Python tests (backend + data)
-cd tests/web && npm install && CHROME_PATH=/usr/bin/google-chrome npm test   # 4 headless-browser suites
+uv run pytest                                    # Python tests (backend + data)
+cd tests/web && npm install && CHROME_PATH=/usr/bin/google-chrome npm test   # headless-browser suites
 ```
 
 With Docker:
