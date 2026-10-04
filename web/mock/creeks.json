@@ -1,28 +1,186 @@
 [
-  {
-    "id": "wolf",
-    "name": "Wolf Creek",
-    "town": "Grass Valley",
-    "geojson_line": {"type": "LineString", "coordinates": [[-121.0465,39.2305],[-121.0530,39.2240],[-121.0585,39.2195],[-121.0612,39.2163],[-121.0655,39.2120],[-121.0700,39.2080],[-121.0745,39.2010],[-121.0790,39.1940],[-121.0860,39.1850]]},
-    "sites": [
-      {"id": "wolf-memorial-park", "name": "Memorial Park", "lat": 39.2127, "lon": -121.0648},
-      {"id": "wolf-downtown", "name": "Downtown (Mill St bridge)", "lat": 39.2172, "lon": -121.0603},
-      {"id": "wolf-trail-north", "name": "Wolf Creek Trail (north)", "lat": 39.2245, "lon": -121.0528},
-      {"id": "wolf-glenbrook", "name": "Glenbrook Basin", "lat": 39.2302, "lon": -121.0468},
-      {"id": "wolf-south", "name": "Wolf Creek Trail (south)", "lat": 39.1990, "lon": -121.0755}
-    ]
+ {
+  "id": "wolf",
+  "name": "Wolf Creek",
+  "town": "Grass Valley",
+  "geojson_line": {
+   "type": "FeatureCollection",
+   "features": [
+    {
+     "type": "Feature",
+     "properties": {
+      "creek_id": "wolf",
+      "name": "Wolf Creek",
+      "main_stem": true
+     },
+     "geometry": {
+      "type": "LineString",
+      "coordinates": [
+       [
+        -121.0465,
+        39.2305
+       ],
+       [
+        -121.053,
+        39.224
+       ],
+       [
+        -121.0585,
+        39.2195
+       ],
+       [
+        -121.0612,
+        39.2163
+       ],
+       [
+        -121.0655,
+        39.212
+       ],
+       [
+        -121.07,
+        39.208
+       ],
+       [
+        -121.0745,
+        39.201
+       ],
+       [
+        -121.079,
+        39.194
+       ],
+       [
+        -121.086,
+        39.185
+       ]
+      ]
+     }
+    }
+   ]
   },
-  {
-    "id": "deer",
-    "name": "Deer Creek",
-    "town": "Nevada City",
-    "geojson_line": {"type": "LineString", "coordinates": [[-120.9950,39.2720],[-121.0080,39.2670],[-121.0170,39.2635],[-121.0230,39.2610],[-121.0300,39.2590],[-121.0380,39.2585],[-121.0480,39.2560],[-121.0620,39.2500],[-121.0800,39.2420]]},
-    "sites": [
-      {"id": "deer-pioneer-park", "name": "Pioneer Park", "lat": 39.2626, "lon": -121.0196},
-      {"id": "deer-tribute-trail", "name": "Deer Creek Tribute Trail", "lat": 39.2598, "lon": -121.0335},
-      {"id": "deer-broad-st", "name": "Broad St bridge", "lat": 39.2617, "lon": -121.0236},
-      {"id": "deer-champion-mine", "name": "Champion Mine Rd crossing", "lat": 39.2560, "lon": -121.0480},
-      {"id": "deer-upper", "name": "Upper Deer Creek", "lat": 39.2690, "lon": -121.0090}
-    ]
-  }
+  "sites": [
+   {
+    "id": "wolf-memorial-park",
+    "name": "Memorial Park",
+    "lat": 39.2127,
+    "lon": -121.0648,
+    "access": "Mock access note: public park with a path down to the water."
+   },
+   {
+    "id": "wolf-downtown",
+    "name": "Downtown (Mill St bridge)",
+    "lat": 39.2172,
+    "lon": -121.0603
+   },
+   {
+    "id": "wolf-trail-north",
+    "name": "Wolf Creek Trail (north)",
+    "lat": 39.2245,
+    "lon": -121.0528
+   },
+   {
+    "id": "wolf-glenbrook",
+    "name": "Glenbrook Basin",
+    "lat": 39.2302,
+    "lon": -121.0468
+   },
+   {
+    "id": "wolf-south",
+    "name": "Wolf Creek Trail (south)",
+    "lat": 39.199,
+    "lon": -121.0755
+   }
+  ]
+ },
+ {
+  "id": "deer",
+  "name": "Deer Creek",
+  "town": "Nevada City",
+  "geojson_line": {
+   "type": "FeatureCollection",
+   "features": [
+    {
+     "type": "Feature",
+     "properties": {
+      "creek_id": "deer",
+      "name": "Deer Creek",
+      "main_stem": true
+     },
+     "geometry": {
+      "type": "LineString",
+      "coordinates": [
+       [
+        -120.995,
+        39.272
+       ],
+       [
+        -121.008,
+        39.267
+       ],
+       [
+        -121.017,
+        39.2635
+       ],
+       [
+        -121.023,
+        39.261
+       ],
+       [
+        -121.03,
+        39.259
+       ],
+       [
+        -121.038,
+        39.2585
+       ],
+       [
+        -121.048,
+        39.256
+       ],
+       [
+        -121.062,
+        39.25
+       ],
+       [
+        -121.08,
+        39.242
+       ]
+      ]
+     }
+    }
+   ]
+  },
+  "sites": [
+   {
+    "id": "deer-pioneer-park",
+    "name": "Pioneer Park",
+    "lat": 39.2626,
+    "lon": -121.0196,
+    "access": "Mock access note: public park with a path down to the water."
+   },
+   {
+    "id": "deer-tribute-trail",
+    "name": "Deer Creek Tribute Trail",
+    "lat": 39.2598,
+    "lon": -121.0335
+   },
+   {
+    "id": "deer-broad-st",
+    "name": "Broad St bridge",
+    "lat": 39.2617,
+    "lon": -121.0236
+   },
+   {
+    "id": "deer-champion-mine",
+    "name": "Champion Mine Rd crossing",
+    "lat": 39.256,
+    "lon": -121.048
+   },
+   {
+    "id": "deer-upper",
+    "name": "Upper Deer Creek",
+    "lat": 39.269,
+    "lon": -121.009
+   }
+  ]
+ }
 ]

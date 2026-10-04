@@ -69,6 +69,9 @@ const blank = () => ({
   noPhoto: false,
 });
 
+// Site access notes come from OSM research; drop "(OSM way 123…)" style refs for field users.
+const plainAccess = (t) => String(t).replace(/\s*\((?:[^()]*\bOSM\b[^()]*)\)/gi, '').replace(/\s+([.,])/g, '$1');
+
 function localStorageGet(k) {
   try { return localStorage.getItem(k) || ''; } catch { return ''; }
 }
@@ -296,7 +299,9 @@ function stepWhere() {
               <input type="radio" name="site_id" value="${esc(s.id)}" ${st.site_id === s.id ? 'checked' : ''}>
               <span class="site-face"><span class="site-dot" aria-hidden="true"></span><span class="site-name">${esc(s.name)}</span>${
                 d != null ? `<span class="site-dist">${fmtDistance(d)}</span>` : ''
-              }</span></label>`;
+              }</span>${
+                st.site_id === s.id && s.access ? `<span class="site-access">${esc(plainAccess(s.access))}</span>` : ''
+              }</label>`;
           })
           .join('')}
         <label class="site">
@@ -471,7 +476,13 @@ export function bindReport(el) {
         persist();
         return render();
       }
-      if (t.name === 'site_id') st.site_id_manual = true;
+      if (t.name === 'site_id') {
+        st.site_id_manual = true;
+        persist();
+        render();
+        el.querySelector(`input[name="site_id"][value="${CSS.escape(t.value)}"]`)?.focus();
+        return;
+      }
       persist();
       // enable Next without a full re-render (keeps focus on the radio)
       const nb = el.querySelector('[data-act="next"]');
