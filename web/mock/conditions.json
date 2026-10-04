@@ -6,9 +6,80 @@
    "precip_24h_in": 0.4,
    "forecast_short": "Sunny, high near 80",
    "observed_at": "2026-10-03T22:00:00Z",
-   "source_url": "https://forecast.weather.gov/MapClick.php?lat=39.2191&lon=-121.0611"
+   "source_url": "https://forecast.weather.gov/MapClick.php?lat=39.2191&lon=-121.0611",
+   "precip_source_url": "https://open-meteo.com/"
   },
-  "fetched_at": "2026-10-03T22:50:00Z"
+  "fetched_at": "2026-10-03T22:50:00Z",
+  "water_quality": {
+   "stations": [
+    {
+     "agency": "WCCA",
+     "station_id": "285873023374524",
+     "name": "WCCA Site 5 (Idaho Maryland Rd at Railroad Ave)",
+     "lat": 39.222642,
+     "lon": -121.049719,
+     "site_id": null,
+     "date": "2019-12-21",
+     "age_days": 2479,
+     "readings": {
+      "do_mg_l": 10.02,
+      "water_temp_c": 7.9,
+      "ph": 7.1,
+      "turbidity_ntu": 1.16
+     },
+     "visit_count": 25,
+     "first_date": "2017-03-18",
+     "live": false,
+     "credit": "Wolf Creek Community Alliance volunteer monitoring, via RiverDB",
+     "source_url": "https://riverdb.org/org/WCCA",
+     "agency_url": "https://wolfcreekalliance.org"
+    },
+    {
+     "agency": "WCCA",
+     "station_id": "285873023374532",
+     "name": "WCCA Site 8 (Glenn Jones Park)",
+     "lat": 39.2078806,
+     "lon": -121.0695512,
+     "site_id": "wolf-glen-jones-park",
+     "date": "2019-12-21",
+     "age_days": 2479,
+     "readings": {
+      "do_mg_l": 9.89,
+      "water_temp_c": 8.5,
+      "ph": 7.73,
+      "turbidity_ntu": 1.51
+     },
+     "visit_count": 25,
+     "first_date": "2017-03-16",
+     "live": false,
+     "credit": "Wolf Creek Community Alliance volunteer monitoring, via RiverDB",
+     "source_url": "https://riverdb.org/org/WCCA",
+     "agency_url": "https://wolfcreekalliance.org"
+    },
+    {
+     "agency": "WCCA",
+     "station_id": "285873023410886",
+     "name": "WCCA Site 8.5 (above Little Wolf Creek)",
+     "lat": 39.2033256,
+     "lon": -121.0673974,
+     "site_id": "wolf-daspah-seyo-trail",
+     "date": "2019-12-21",
+     "age_days": 2479,
+     "readings": {
+      "do_mg_l": 10.81,
+      "water_temp_c": 9.1,
+      "ph": 7.6,
+      "turbidity_ntu": 1.26
+     },
+     "visit_count": 12,
+     "first_date": "2018-11-09",
+     "live": false,
+     "credit": "Wolf Creek Community Alliance volunteer monitoring, via RiverDB",
+     "source_url": "https://riverdb.org/org/WCCA",
+     "agency_url": "https://wolfcreekalliance.org"
+    }
+   ]
+  }
  },
  "deer": {
   "gauge": {
@@ -24,8 +95,82 @@
    "precip_24h_in": 0.0,
    "forecast_short": "Sunny, high near 84",
    "observed_at": "2026-10-03T22:00:00Z",
-   "source_url": "https://forecast.weather.gov/MapClick.php?lat=39.2616&lon=-121.0161"
+   "source_url": "https://forecast.weather.gov/MapClick.php?lat=39.2616&lon=-121.0161",
+   "precip_source_url": "https://open-meteo.com/"
   },
-  "fetched_at": "2026-10-03T22:50:00Z"
+  "fetched_at": "2026-10-03T22:50:00Z",
+  "water_quality": {
+   "stations": [
+    {
+     "agency": "SYRCL",
+     "station_id": "17592187179149",
+     "name": "Deer Creek Below Nevada City",
+     "lat": 39.2603646,
+     "lon": -121.0320418,
+     "site_id": "deer-angkula-seo-bridge",
+     "date": "2026-08-08",
+     "age_days": 57,
+     "readings": {
+      "do_mg_l": 9.1,
+      "ph": 7.3,
+      "turbidity_ntu": 1.35,
+      "conductivity_us_cm": 50.0,
+      "water_temp_c": 14.13
+     },
+     "visit_count": 41,
+     "first_date": "2022-03-11",
+     "live": true,
+     "credit": "South Yuba River Citizens League volunteer monitoring, via RiverDB",
+     "source_url": "https://riverdb.org/org/SYRCL",
+     "agency_url": "https://yubariver.org"
+    },
+    {
+     "agency": "SYRCL",
+     "station_id": "17592187179145",
+     "name": "Deer Creek Above Nevada City",
+     "lat": 39.26816,
+     "lon": -121.00081,
+     "site_id": null,
+     "date": "2026-08-07",
+     "age_days": 58,
+     "readings": {
+      "turbidity_ntu": 0.91,
+      "ph": 6.88,
+      "do_mg_l": 8.7,
+      "water_temp_c": 13.3,
+      "conductivity_us_cm": 43.33
+     },
+     "visit_count": 41,
+     "first_date": "2022-03-11",
+     "live": true,
+     "credit": "South Yuba River Citizens League volunteer monitoring, via RiverDB",
+     "source_url": "https://riverdb.org/org/SYRCL",
+     "agency_url": "https://yubariver.org"
+    },
+    {
+     "agency": "SSI",
+     "station_id": "285873023368581",
+     "name": "SSI Site 7 (below Lake Wildwood)",
+     "lat": 39.2333,
+     "lon": -121.2228,
+     "site_id": "deer-pleasant-valley-rd",
+     "date": "2022-10-12",
+     "age_days": 1453,
+     "readings": {
+      "turbidity_ntu": 0.63,
+      "ph": 8.01,
+      "ecoli_mpn_100ml": 24.6,
+      "do_mg_l": 8.69,
+      "conductivity_us_cm": 196.87
+     },
+     "visit_count": 252,
+     "first_date": "2000-12-09",
+     "live": false,
+     "credit": "Sierra Streams Institute volunteer monitoring, via RiverDB",
+     "source_url": "https://riverdb.org/org/SSI",
+     "agency_url": "https://sierrastreamsinstitute.org"
+    }
+   ]
+  }
  }
 }
