@@ -49,6 +49,9 @@ class Settings:
     push_rate_count: int = field(default_factory=lambda: int(os.environ.get("CREEKWATCH_PUSH_RATE_COUNT", "20")))
     public_url: str | None = field(default_factory=lambda: os.environ.get("CREEKWATCH_PUBLIC_URL") or None)
 
+    # Cutover write freeze: report + push-subscription writes return 503 "maintenance"; reads keep working.
+    read_only: bool = field(default_factory=lambda: _env_bool("CREEKWATCH_READ_ONLY", False))
+
     @property
     def db_path(self) -> Path:
         return self.data_dir / "creekwatch.db"
