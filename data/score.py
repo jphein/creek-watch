@@ -58,6 +58,7 @@ REPORT_RULES = [
 #   E. coli 320 MPN/100 mL: CA statewide bacteria objective (REC-1 statistical threshold value)
 #   water temp > 20 C: rule of thumb for stress on trout and other cold-water life
 #   turbidity > 10 / 25 NTU: rule of thumb for elevated / high (no fixed numeric objective here)
+ECOLI_LIMIT = 320     # MPN/100 mL: CA statewide REC-1 statistical threshold value
 WQ_FULL_DAYS = 60     # samples this recent count fully
 WQ_HALF_DAYS = 180    # ... this recent count half; older ones are shown as context only
 
@@ -273,6 +274,20 @@ def compute_health(creek_id: str, reports: list[dict] | None, conditions: dict |
     else:
         sig("volunteer_lab_data", None, 0, "No volunteer water-test data is available right now.",
             "RiverDB volunteer monitoring")
+
+    # E. coli advisory: ANY recent volunteer test on this creek above the state swimming threshold
+    # (checked across all stations; the newest station may not measure E. coli at all).
+    hot = [s for s in wq_st
+           if (s.get("readings") or {}).get("ecoli_mpn_100ml") is not None
+           and s["readings"]["ecoli_mpn_100ml"] > ECOLI_LIMIT
+           and s.get("age_days") is not None and s["age_days"] <= WQ_FULL_DAYS]
+    if hot:
+        worst = max(hot, key=lambda s: s["readings"]["ecoli_mpn_100ml"])
+        warn("bacteria_watch", "watch", "Bacteria above the swimming standard",
+             f"{worst.get('credit') or 'A volunteer group'} measured E. coli of "
+             f"{worst['readings']['ecoli_mpn_100ml']:g} per 100 mL at {worst.get('name')} on {worst.get('date')}, "
+             f"above California's swimming threshold of {ECOLI_LIMIT}. Avoid swimming or putting your face "
+             "in the water there, and wash hands after contact.")
 
     # ---- citizen reports
     n = len(recent)

@@ -80,6 +80,7 @@ Newer reports count more: a report's weight halves every 3 days. Each condition 
 | **Runoff / sediment watch** | ≥ 0.5 in of rain in the last 24 h **and** a report of brown or cloudy water in the last 48 h | At least **watch** |
 | **Algal bloom watch** | A report of lots of algae or green water this week **and** air temperature ≥ 80 °F | At least **watch** |
 | Heavy rain forecast | ≥ 0.5 in of rain forecast in the next 24 h | Advisory only; the score is unchanged |
+| **Bacteria above the swimming standard** | Any volunteer test on the creek in the last 60 days with E. coli > 320 per 100 mL (California's swimming threshold) | At least **watch**, naming the group and the test date |
 
 When a warning forces a band, the score is capped at the top of that band. A creek can't show "alert" next to a score of 85. The cap is listed as its own signal, `early_warning_cap`.
 
