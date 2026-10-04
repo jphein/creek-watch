@@ -152,6 +152,12 @@ fi
 docker rm -f "$STAGE" >/dev/null
 log "staged OK; swapping"
 
+# Hold the backup lock across the swap (released when this script exits) so backup.sh never runs while
+# no container is named $NAME. Wait for an in-flight backup; never block a deploy forever on it.
+BACKUP_STAGE="${CW_BACKUP_STAGE:-$HOME/creekwatch/backup-stage}"
+mkdir -p "$BACKUP_STAGE"
+exec 8>"$BACKUP_STAGE/.lock"
+flock -w "${CW_SWAP_LOCK_WAIT:-600}" 8 || log "WARN: backup lock still busy; swapping anyway"
 # 2) Swap: keep the old container (stopped) as $PREV so rollback is one `docker start`. Gap is ~1-2 s.
 docker rm -f "$PREV" >/dev/null 2>&1 || true
 if docker inspect "$NAME" >/dev/null 2>&1; then
