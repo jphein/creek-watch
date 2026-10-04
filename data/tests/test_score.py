@@ -259,11 +259,15 @@ def test_orange_water_signal_watch_and_flag():
     s = sig(res, "water_orange")
     assert -12 <= s["weight"] < 0 and res["score"] < base["score"]
     assert "can be a sign of mine drainage" in s["explanation"]
+    assert "natural iron seep" in s["explanation"]                          # natural-cause hedge
+    assert "appropriate agency" in s["explanation"]
+    assert "routes it to the Regional Water Board" not in s["explanation"]  # page doesn't say that
     assert "toxic" not in s["explanation"].lower()                       # careful wording, no overclaim
     assert "https://calepa.ca.gov/enforcement/complaints/" in s["explanation"]
     w = [w for w in res["warnings"] if w["id"] == "orange_water_watch"]
     assert w and w[0]["level"] == "watch" and BAND_ORDER(res["band"]) >= BAND_ORDER("watch")
     assert "toxic" not in w[0]["explanation"].lower()
+    assert "natural iron seep" in w[0]["explanation"]
     assert "orange_water" in report_flags(report(water_color="orange"))
     assert "orange_water" not in report_flags(report(water_color="brown"))
 
