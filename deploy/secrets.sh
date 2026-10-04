@@ -39,10 +39,19 @@ if os.path.exists(path):
     with open(path) as fh:
         old = [l.rstrip("\n") for l in fh if l.strip() and l.split("=", 1)[0] not in keys]
 d = os.path.dirname(path); os.makedirs(d, exist_ok=True)
-fd, tmp = tempfile.mkstemp(dir=d, prefix=".app.env.")
-with os.fdopen(fd, "w") as fh:
-    fh.write("\n".join(old + new) + "\n")
-os.chmod(tmp, 0o600); os.replace(tmp, path)
+fd, tmp = tempfile.mkstemp(dir=d, prefix=".app.env.")   # mkstemp: already 0600
+try:
+    with os.fdopen(fd, "w") as fh:
+        fh.write("\n".join(old + new) + "\n")
+        fh.flush(); os.fsync(fh.fileno())                 # contents durable before the rename
+    os.chmod(tmp, 0o600); os.replace(tmp, path)
+except BaseException:
+    try: os.unlink(tmp)                                   # never leave a secret-bearing temp file
+    except FileNotFoundError: pass
+    raise
+dfd = os.open(d, os.O_RDONLY)
+try: os.fsync(dfd)                                        # the rename itself durable
+finally: os.close(dfd)
 print(f"wrote {path} (0600): set {sorted(keys)}; kept {len(old)} other line(s)", file=sys.stderr)
 '
 
