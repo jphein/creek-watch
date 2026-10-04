@@ -53,7 +53,8 @@ def offline(monkeypatch):
 def assert_spec_shape(a):
     core = {"id", "source", "source_name", "category", "severity", "title", "summary",
             "instruction", "area", "effective", "expires", "updated", "status", "url", "attribution"}
-    cap = {"event", "cap_urgency", "cap_severity", "cap_certainty"}   # optional CAP passthrough (NWS)
+    cap = {"event", "cap_urgency", "cap_severity", "cap_certainty",   # optional CAP passthrough (NWS)
+           "cap_identifier", "cap_sender", "cap_sent"}
     assert core <= set(a) <= core | cap
     assert ID_RE.match(a["id"]) and a["id"].startswith(a["source"] + ":"), a["id"]  # API validation
     assert not any(c in a["url"] for c in '<>"\' '), a["url"]
@@ -440,3 +441,14 @@ def test_real_adapter_urls_survive_strict_check():
     for src in (NWS(), HAB(), OEHHA()):
         for a in src.run(NOW):
             assert a["url"] != model.SOURCE_URLS[src.id][1] or src.id == "hab", (src.id, a["url"])
+
+
+def test_nws_cap_reference_fields_are_latest_message(monkeypatch):
+    (a,) = NWS().run(NOW)
+    p = NWS_FIX["features"][0]["properties"]
+    assert (a["cap_identifier"], a["cap_sender"], a["cap_sent"]) == (p["id"], "w-nws.webmaster@noaa.gov", p["sent"])
+    assert a["cap_identifier"] != a["id"].split(":", 1)[1]           # latest message, not the thread root
+    f = copy.deepcopy(NWS_FIX["features"][0]); f["properties"]["sender"] = "a, b"
+    monkeypatch.setattr(http, "get_text", route(nws={"features": [f]}))
+    (b,) = NWS().run(NOW)
+    assert "cap_sender" not in b                                      # would break "sender,identifier,sent"

@@ -106,4 +106,10 @@ class NWS(Source):
         # Optional CAP 1.2 passthrough (API's CAP feed uses these verbatim, not re-derived).
         a.update(event=p["event"], cap_urgency=p.get("urgency"), cap_severity=p.get("severity"),
                  cap_certainty=p.get("certainty"))
+        # CAP <references> "sender,identifier,sent" of the LATEST message in the thread (API).
+        # Omitted if a value could break that comma/space-separated list.
+        for key, val in (("cap_identifier", p.get("id")), ("cap_sender", p.get("sender")),
+                         ("cap_sent", p.get("sent"))):
+            if isinstance(val, str) and val and not any(c in val for c in ", \t\r\n"):
+                a[key] = val
         return a
