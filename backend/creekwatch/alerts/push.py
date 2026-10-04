@@ -11,6 +11,7 @@ Threat model (Oracle gate): a subscription endpoint is an attacker-chosen URL we
 from __future__ import annotations
 
 import base64
+import hashlib
 import ipaddress
 import json
 import logging
@@ -19,6 +20,8 @@ import re
 import socket
 import sqlite3
 import threading
+import time
+from collections import OrderedDict
 from concurrent.futures import ThreadPoolExecutor, wait
 from datetime import datetime, timezone
 from pathlib import Path
@@ -346,10 +349,42 @@ def hardened_session():
 
 # ---- subscription store + sender ---------------------------------------------------------------
 
+SEVERITY_WORDS = {"info": "all", "advisory": "advisory-level and higher", "watch": "watch-level and higher",
+                  "alert": "alert-level"}
+WELCOME_TAG = "cw-welcome"
+WELCOME_MAX_PENDING = 20   # bound the welcome backlog (subscribe is rate-limited per IP; this caps across IPs)
+WELCOME_DEDUP_S = 24 * 3600  # an endpoint is welcomed at most once per 24 h (delete/re-subscribe loops)
+WELCOME_DEDUP_MAX = 10_000   # LRU size bound
+
+
+def welcome_payload(sub: dict, creek_names: dict[str, str] | None = None) -> bytes:
+    """The one confirmation push sent to a NEW subscription. Not an alert: touches no alert/claim state."""
+    names = creek_names or {}
+    creeks = ", ".join(names.get(c, c) for c in sub["creek_ids"]) if sub["creek_ids"] else "all creeks"
+    sev = (min(sub["severities"], key=SEVERITY_RANK.get) if sub.get("severities") else sub["min_severity"])
+    body = (f"You'll get {SEVERITY_WORDS.get(sev, sev + '+')} alerts for {creeks}. "
+            "For emergencies: Nevada County Alerts, AwareCA, 911.")
+    # No id / alert_id: the SW builds /#alerts?id=<id> for alerts; a welcome is not an alert, so
+    # it must fall back to /#alerts (sw.js uses tag||id for the notification tag).
+    data = {"tag": WELCOME_TAG, "kind": "welcome", "severity": "info",
+            "category": "other", "title": "Creek Watch alerts are on", "body": body[:200], "summary": body[:200],
+            # no `notice`: the body already carries the emergency line, and sw.js appends notice to the body
+            "source_name": "Creek Watch", "official": False, "url": "/#alerts",
+            "source_url": None, "creek_ids": sub["creek_ids"]}
+    raw = json.dumps(data, separators=(",", ":")).encode()
+    if len(raw) > MAX_PAYLOAD:
+        raise ValueError("welcome payload too large")
+    return raw
+
+
 class PushService:
     def __init__(self, db_path: Path, vapid: VapidKeys | None, max_subs: int = 5000, sender=None):
         self.db_path, self.vapid, self.max_subs = db_path, vapid, max_subs
         self._send = sender or self._webpush_send   # injectable for tests
+        self._welcome_pool = ThreadPoolExecutor(max_workers=2, thread_name_prefix="push-welcome")
+        self._welcome_pending: set = set()
+        self._welcomed: "OrderedDict[str, float]" = OrderedDict()   # sha256(endpoint) -> time welcomed
+        self._clock = time.time
         self._lock = threading.Lock()
         with self._conn() as c:
             c.executescript(SCHEMA)
@@ -408,6 +443,46 @@ class PushService:
             return resp.status_code
         except WebPushException as e:
             return e.response.status_code if e.response is not None else 0
+
+    def welcome_async(self, sub: dict, creek_names: dict[str, str] | None = None):
+        """Queue ONE confirmation push to this (new) subscription, off the request thread. Same
+        hardened send path; 404/410 prunes it; failures are logged, never raised to the caller.
+        Returns the Future, or None when push is off or the backlog is full."""
+        if not self.enabled:
+            return None
+        key = hashlib.sha256(sub["endpoint"].encode()).hexdigest()
+        now = self._clock()
+        with self._lock:
+            while self._welcomed and (len(self._welcomed) > WELCOME_DEDUP_MAX
+                                      or now - next(iter(self._welcomed.values())) > WELCOME_DEDUP_S):
+                self._welcomed.popitem(last=False)          # LRU / TTL eviction (oldest first)
+            if key in self._welcomed:
+                log.info("welcome push skipped: endpoint welcomed in the last 24 h")
+                return None
+            if len(self._welcome_pending) >= WELCOME_MAX_PENDING:
+                log.warning("welcome push skipped: backlog full")
+                return None
+            self._welcomed[key] = now
+            fut = self._welcome_pool.submit(self._welcome_send, dict(sub), creek_names)
+            self._welcome_pending.add(fut)
+        fut.add_done_callback(lambda f: self._welcome_pending.discard(f))
+        return fut
+
+    def _welcome_send(self, sub: dict, creek_names: dict[str, str] | None) -> int:
+        try:
+            validate_endpoint(sub["endpoint"])
+            code = self._send(sub, welcome_payload(sub, creek_names), "normal")
+        except Exception as e:
+            log.warning("welcome push to %s failed: %s", urlsplit(sub["endpoint"]).hostname, type(e).__name__)
+            return 0
+        if code in (404, 410):
+            self.delete(sub["endpoint"])
+        log.info("welcome push to %s: %s", urlsplit(sub["endpoint"]).hostname, code)
+        return code
+
+    def drain(self, timeout: float = 10) -> None:
+        """Wait for queued welcome pushes (tests/shutdown)."""
+        wait(list(self._welcome_pending), timeout=timeout)
 
     def notify(self, alert: dict, kind: str, when: datetime | None = None) -> dict[str, int]:
         """Fan one NEW/ESCALATED alert out to matching subscriptions. Returns counters."""

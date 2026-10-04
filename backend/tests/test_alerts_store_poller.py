@@ -425,3 +425,61 @@ def test_timer_jitter_does_not_skip_a_cycle(store):
     p.run_due()
     assert nws.calls == 2, "slack is small: no extra fetches"
     p.shutdown()
+
+
+class _StalePragmaConn:
+    """Serves PRAGMA table_info WITHOUT the new columns (another process added them after our check)."""
+
+    HIDE = {"next_due", "inactive_since"}
+
+    def __init__(self, real):
+        self._real = real
+
+    def execute(self, sql, *a):
+        cur = self._real.execute(sql, *a)
+        if sql.startswith("PRAGMA table_info"):
+            return [r for r in cur.fetchall() if r[1] not in self.HIDE]
+        return cur
+
+    def __getattr__(self, k):
+        return getattr(self._real, k)
+
+    def __enter__(self):
+        self._real.__enter__()
+        return self
+
+    def __exit__(self, *exc):
+        return self._real.__exit__(*exc)
+
+
+def test_concurrent_migration_duplicate_column_is_not_fatal(tmp_path):
+    import sqlite3
+    db = tmp_path / "race.db"
+    c = sqlite3.connect(db)
+    c.executescript("CREATE TABLE alerts (id TEXT PRIMARY KEY, source TEXT NOT NULL, payload TEXT NOT NULL, "
+                    "status TEXT NOT NULL, severity TEXT NOT NULL, category TEXT NOT NULL, first_seen TEXT NOT NULL, "
+                    "updated TEXT NOT NULL, expires TEXT, last_pushed_severity TEXT);"
+                    "CREATE TABLE alert_sources (source TEXT PRIMARY KEY, last_run TEXT, last_ok TEXT, last_error TEXT,"
+                    " failures INTEGER NOT NULL DEFAULT 0, alert_count INTEGER NOT NULL DEFAULT 0);"
+                    "INSERT INTO alerts VALUES ('x:1','x','{}','expired','alert','other','t','t',NULL,'alert');")
+    c.commit(); c.close()
+    AlertStore(db)                                   # process 1 migrates (adds both columns)
+
+    class Loser(AlertStore):                         # process 2 checked BEFORE p1 committed: stale view
+        def _conn(self):
+            return _StalePragmaConn(super()._conn())
+
+    Loser(db)                                        # its ALTERs hit "duplicate column name" -> must not raise
+    cols_a = {r[1] for r in sqlite3.connect(db).execute("PRAGMA table_info(alerts)")}
+    cols_s = {r[1] for r in sqlite3.connect(db).execute("PRAGMA table_info(alert_sources)")}
+    assert "inactive_since" in cols_a and "next_due" in cols_s
+    assert sqlite3.connect(db).execute("SELECT inactive_since FROM alerts WHERE id='x:1'").fetchone()[0]
+
+
+def test_other_operational_errors_still_raise(tmp_path):
+    import sqlite3
+    from creekwatch.alerts.store import _add_column
+    c = sqlite3.connect(tmp_path / "e.db")
+    c.execute("CREATE TABLE t (a TEXT)")
+    with pytest.raises(sqlite3.OperationalError):
+        _add_column(c, "t", "b", "NOT A TYPE (((")

@@ -24,6 +24,12 @@ await send(JSON.stringify({ id: 'hab:7', kind: 'new', severity: 'watch', title: 
 await send(JSON.stringify({ id: 'hab:7', kind: 'escalated', severity: 'alert', title: 'Algae danger', summary: 'Danger.' }));
 await send(JSON.stringify({ id: 'evil:1', severity: 'watch', title: '<b>x</b>', summary: 'y', url: 'https://evil.example/phish' }));
 await send('not json at all');
+// Welcome (backend #52): id is null on purpose (an id would deep-link to a non-existent alert); tag carries identity.
+await send(JSON.stringify({ id: null, tag: 'cw-welcome', kind: 'welcome', severity: 'info', title: 'Creek Watch alerts are on',
+  body: "You'll get watch-level and higher alerts for Deer Creek. For emergencies: Nevada County Alerts, AwareCA, 911.",
+  summary: "You'll get watch-level and higher alerts for Deer Creek. For emergencies: Nevada County Alerts, AwareCA, 911.",
+  url: '/#alerts', official: false, notice: 'Emergencies: 911. Official: Nevada County Alerts, AwareCA.', creek_ids: ['deer'] }));
+await send(JSON.stringify({ id: null, tag: 'cw-welcome-nourl', kind: 'welcome', severity: 'info', title: 'Creek Watch alerts are on', body: 'x' }));
 const n = last;
 await b.close(); close();
 const by = (tag) => n.filter((x) => x.tag === tag);
@@ -34,6 +40,11 @@ const checks = {
   offsiteUrlIgnored: by('evil:1')[0]?.url.startsWith(base),
   htmlTitleLiteral: by('evil:1')[0]?.title === 'WATCH: <b>x</b>',
   malformedGeneric: by('creekwatch').length === 1,
+  welcomeShownAsIs: by('cw-welcome')[0]?.title === 'Creek Watch alerts are on' && by('cw-welcome')[0]?.ri === false,
+  welcomeDeferralOnce: (by('cw-welcome')[0]?.body.match(/Nevada County Alerts/g) || []).length === 1,
+  welcomeOpensAlerts: by('cw-welcome')[0]?.url === `${base}#alerts`,
+  welcomeNullIdNoDeepLink: by('cw-welcome').length === 1 && !by('cw-welcome')[0].url.includes('?id='),
+  welcomeNoUrlFallback: by('cw-welcome-nourl')[0]?.url === `${base}#alerts`,
 };
 console.log(JSON.stringify({ notifications: n, checks }, null, 1));
 const ok = Object.values(checks).every(Boolean);
