@@ -1,4 +1,5 @@
 """Oracle gate 13-17 SHOULD-FIX items: IPv6 /64 rate-limit keying and photo decode memory."""
+import collections
 import io
 import threading
 import time
@@ -125,3 +126,48 @@ def test_semaphore_released_after_errors():
         with pytest.raises(photos.PhotoError):
             photos.process_photo(b"not an image")
     assert photos.process_photo(_png(20, 20))  # slots weren't leaked
+
+
+# ---- (3) waiting photo uploads must not hold threadpool threads -------------------
+def test_queued_photo_uploads_do_not_starve_other_endpoints(tmp_path, monkeypatch):
+    """Sync endpoints (/healthz, /api/*) share Starlette's 40-thread pool with photo decoding.
+    A burst of uploads waiting for a decode slot must not occupy that pool."""
+    import anyio
+    import httpx
+
+    def slow(raw, max_px, quality):
+        time.sleep(1.5)
+        return b"jpeg"
+
+    monkeypatch.setattr(photos, "_process_photo", slow)
+    s = Settings(data_dir=tmp_path / "d", web_dir=tmp_path / "w", sites_json=tmp_path / "m.json",
+                 rate_limit_count=10_000, report_budget=10_000, photo_budget=10_000)
+    app = create_app(s)
+    photo = _png(16, 16)
+    result = {}
+
+    async def main():
+        transport = httpx.ASGITransport(app=app)
+        async with app.router.lifespan_context(app):
+            async with httpx.AsyncClient(transport=transport, base_url="http://t") as c:
+                async def upload():
+                    r = await c.post("/api/reports", data=REPORT, files={"photo": ("p.png", photo, "image/png")})
+                    result.setdefault("codes", []).append(r.status_code)
+
+                async with anyio.create_task_group() as tg:
+                    for _ in range(45):
+                        tg.start_soon(upload)
+                    await anyio.sleep(0.5)  # uploads are now queued behind the 2 decode slots
+                    t0 = time.monotonic()
+                    r = await c.get("/healthz")
+                    result["healthz_s"] = time.monotonic() - t0
+                    result["healthz"] = r.status_code
+
+    anyio.run(main)
+    assert result["healthz"] == 200
+    assert result["healthz_s"] < 1.0, f"/healthz took {result['healthz_s']:.1f}s behind queued uploads"
+    # Overflow is refused fast with 503 (not 415), never left to pile up.
+    assert set(result["codes"]) <= {201, 503}
+    # 2 decoding + MAX_QUEUE waiting are accepted; the rest are refused immediately.
+    assert result["codes"].count(201) == photos.DECODE_SLOTS + photos.MAX_QUEUE
+    print("healthz_s", round(result["healthz_s"], 3), "codes", sorted(collections.Counter(result["codes"]).items()))
