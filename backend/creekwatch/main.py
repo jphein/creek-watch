@@ -16,15 +16,16 @@ from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
 from typing import Annotated, Any, Literal
 
+import anyio
 from fastapi import FastAPI, File, Form, HTTPException, Query, Request, UploadFile
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
-from starlette.concurrency import run_in_threadpool
 
 from . import db
 from .config import REPO_ROOT, Settings
 from .data_iface import DataLayer, load_creeks, utcnow_iso
-from .photos import HEIC_SUPPORTED, PhotoError, process_photo
+from . import photos as photos_mod
+from .photos import HEIC_SUPPORTED, PhotoBusy, PhotoError, process_photo
 from .ratelimit import RateLimiter, rate_key
 
 log = logging.getLogger("creekwatch")
@@ -126,6 +127,34 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     creek_by_id = {c["id"]: c for c in creeks}
     data = DataLayer(s.conditions_ttl_s, s.use_data_package)
     client_ip = make_client_ip(s.trusted_proxies)
+    # Photo decode gate. Uploads WAIT here in the event loop (no thread held) and decode on a
+    # dedicated thread limiter, so they never consume Starlette's shared pool, which every
+    # sync endpoint (/healthz, /api/*) and StaticFiles also use. Created lazily inside the loop.
+    gate: dict[str, Any] = {"waiting": 0}
+
+    async def decode_photo(raw: bytes) -> bytes:
+        if "sem" not in gate:
+            gate["sem"] = anyio.Semaphore(photos_mod.DECODE_SLOTS)
+            gate["threads"] = anyio.CapacityLimiter(photos_mod.DECODE_SLOTS)
+        sem: anyio.Semaphore = gate["sem"]
+        busy = "The server is busy processing other photos; please try again in a minute."
+        try:
+            sem.acquire_nowait()  # a free slot: no queueing
+        except anyio.WouldBlock:
+            if gate["waiting"] >= photos_mod.MAX_QUEUE:
+                raise PhotoBusy(busy)
+            gate["waiting"] += 1
+            try:
+                with anyio.fail_after(photos_mod.DECODE_WAIT_S):
+                    await sem.acquire()
+            except TimeoutError:
+                raise PhotoBusy(busy)
+            finally:
+                gate["waiting"] -= 1
+        try:
+            return await anyio.to_thread.run_sync(process_photo, raw, s.photo_max_px, limiter=gate["threads"])
+        finally:
+            sem.release()
     limiter = RateLimiter(s.rate_limit_count, s.rate_limit_window_s)
     photo_budget = RateLimiter(s.photo_budget, s.rate_limit_window_s)
     report_budget = RateLimiter(s.report_budget, s.rate_limit_window_s)
@@ -249,7 +278,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 raise HTTPException(413, f"Photo is larger than {s.max_photo_bytes // (1024 * 1024)} MB.")
             if raw:
                 try:
-                    clean = await run_in_threadpool(process_photo, raw, s.photo_max_px)
+                    clean = await decode_photo(raw)
+                except PhotoBusy as e:
+                    raise HTTPException(503, str(e), headers={"Retry-After": "30"})
                 except PhotoError as e:
                     raise HTTPException(415, str(e))
 

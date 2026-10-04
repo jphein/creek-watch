@@ -25,9 +25,12 @@ MAX_PIXELS = 40_000_000
 # Pillow's own bomb check (in Image.open) stays as a backstop at 2x, so our header-size check
 # below is what normally rejects, with a message that says how big the photo was.
 Image.MAX_IMAGE_PIXELS = 2 * MAX_PIXELS
-# At most this many photos are decoded at once, process-wide. Uploads run in Starlette's
-# threadpool (40 threads by default), so without this, concurrent uploads multiply RSS.
+# At most this many photos are decoded at once, process-wide, so concurrent uploads can't
+# multiply RSS. The API gates and queues uploads in the event loop (main.py) and runs the
+# decode on its own 2-thread limiter; this threading semaphore is the inner backstop for any
+# other caller. MAX_QUEUE bounds how many uploads may wait (each holds up to 10 MB of raw bytes).
 DECODE_SLOTS = 2
+MAX_QUEUE = 8
 DECODE_WAIT_S = 30.0
 _decode_slots = threading.BoundedSemaphore(DECODE_SLOTS)
 ALLOWED_FORMATS = {"JPEG", "PNG", "MPO"} | ({"HEIF", "HEIC"} if HEIC_SUPPORTED else set())
@@ -35,6 +38,10 @@ ALLOWED_FORMATS = {"JPEG", "PNG", "MPO"} | ({"HEIF", "HEIC"} if HEIC_SUPPORTED e
 
 class PhotoError(ValueError):
     pass
+
+
+class PhotoBusy(PhotoError):
+    """All decode slots are taken; the client should retry later (HTTP 503)."""
 
 
 def _too_big(w: int, h: int) -> PhotoError:
@@ -48,7 +55,7 @@ def process_photo(raw: bytes, max_px: int = 1600, quality: int = 85) -> bytes:
     At most DECODE_SLOTS decodes run at once; a request waits up to DECODE_WAIT_S for a slot.
     """
     if not _decode_slots.acquire(timeout=DECODE_WAIT_S):
-        raise PhotoError("The server is busy processing other photos; please try again in a minute.")
+        raise PhotoBusy("The server is busy processing other photos; please try again in a minute.")
     try:
         return _process_photo(raw, max_px, quality)
     finally:
