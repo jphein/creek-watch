@@ -1,7 +1,7 @@
 # Creek Watch field guide (Sunday morning)
 
 **App:** https://creekwatch.realm.watch. Open it on your phone and tap **Report**.
-**Goal:** about 6 real reports with photos, from 2 or 3 spots, ideally on both creeks.
+**Goal:** at least 4 real reports with photos, 1 at each of the 4 spots below (2 per creek). More is better.
 **Time:** about 2 hours, including driving. Be done by about 11:00 so JP can use the reports in the demo.
 
 ---
@@ -20,19 +20,27 @@
 
 ## Where to go
 
-Choose 2 or 3 of these spots. Exact pins come from the app's site list (`data/sites.json`). When you're at a spot, the app picks the nearest one for you.
+Visit **2 spots per creek** (4 total). All four are public, easy walk-in places where you can see the water from the bank, a path or a footbridge. Tap a spot's map link to open it on your phone. The app also picks the nearest spot automatically.
 
 **Wolf Creek, Grass Valley**
-- Memorial Park area
-- Wolf Creek Trail (downtown section)
-- *(JP will confirm the final list Saturday night)*
+1. **Downtown Grass Valley (Elisabeth Daniels Park).** This is a small city park off Bank St, by the Park & Ride. Wolf Creek runs in a pipe under downtown and comes back out here. [Map](https://www.openstreetmap.org/?mlat=39.215525&mlon=-121.063069#map=18/39.215525/-121.063069)
+2. **Wolf Creek Trail at Glen Jones Park / North Star Mining Museum.** This is on Allison Ranch Rd, with a public trail and picnic area. [Map](https://www.openstreetmap.org/?mlat=39.207943&mlon=-121.069626#map=18/39.207943/-121.069626)
 
 **Deer Creek, Nevada City**
-- Deer Creek Tribute Trail
-- Pioneer Park area
-- *(JP will confirm the final list Saturday night)*
+3. **Downtown Nevada City (Calanan Park / Miner's Trail).** This is a city park and footpath at Broad St and Hwy 49. [Map](https://www.openstreetmap.org/?mlat=39.261973&mlon=-121.016514#map=18/39.261973/-121.016514)
+4. **Deer Creek Tribute Trail, Angkula Seo Bridge.** This is a trail footbridge. Start at the Providence Mine Rd trailhead. [Map](https://www.openstreetmap.org/?mlat=39.26031&mlon=-121.033402#map=18/39.26031/-121.033402)
+   - Backup: the Tribute Trail's lower bridge, from the Champion Mine Rd trailhead. [Map](https://www.openstreetmap.org/?mlat=39.254695&mlon=-121.046541#map=18/39.254695/-121.046541)
 
-Tip: one spot on each creek beats three spots on one creek, because the dashboard compares the two creeks.
+**Other spots in the app (skip them Sunday unless JP asks):**
+- **View from the bridge only.** The land on both banks is private, so don't leave the road or bridge:
+  - Allison Ranch Road bridge (Wolf Creek)
+  - Wolf Road bridge (Wolf Creek)
+  - Bitney Springs Road bridge (Deer Creek)
+  - Pleasant Valley Road bridge (Deer Creek)
+- **Pioneer Park, Nevada City.** The water there is *Little Deer Creek*, a side creek, not Deer Creek itself. It's fine as a bonus, but pick Pioneer Park in the app so the report is tagged correctly.
+- **Loma Rica Trail bridge and Daspah Seyo Trail (Wolf Creek).** These are public trails, but farther out.
+
+**Why these spots matter:** Wolf Creek has **no live stream gauge** at all. Deer Creek's only gauge is about 22 km downstream, below Lake Wildwood. Nothing measures these creeks live in town. Your reports fill that gap, and that's the point of the project.
 
 ---
 
@@ -94,12 +102,12 @@ A screenshot plus one sentence is perfect. You are the tester as well as the fie
 - [ ] Location turned on for the browser
 
 **At each spot**
-- [ ] Standing on the bank, on public land
+- [ ] On public land: a park, a trail or a public bridge
 - [ ] 5 photos taken (wide, water, notable, flow, landmark)
 - [ ] 1 report filed with a photo
 - [ ] Confirmation screen seen
 
 **When you're done**
-- [ ] About 6 reports filed, on both creeks if possible
+- [ ] At least 4 reports filed: 2 spots on Wolf Creek, 2 on Deer Creek
 - [ ] Bugs and confusing bits texted to JP
 - [ ] Best photos and short videos shared with JP for the demo

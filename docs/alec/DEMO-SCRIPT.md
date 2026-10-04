@@ -1,6 +1,6 @@
-# Demo video script: about 4 minutes (Alec narrates)
+# Demo video script: about 4½ minutes (Alec narrates)
 
-**Contest rule:** the demo video must be **3 to 5 minutes**. This script runs about **4:00** at a relaxed reading pace of about 140 words a minute. **Never go under 3:00.** If you're short, slow down or let a shot breathe. If you're long, cut the lines marked *(optional)*.
+**Contest rule:** the demo video must be **3 to 5 minutes**. This script is about **4:00 of speech** at a relaxed 140 words a minute, or **4:20–4:40** with pauses and on-screen moments. **Never go under 3:00.** If you're short, slow down or let a shot breathe. If you're long, cut the lines marked *(optional)*.
 
 **How to read it:**
 - **SAY** is what you read aloud. **SHOW** is what's on screen.
@@ -19,16 +19,16 @@
 >
 > We're Creek Watch. / Our project is for **Track 2, Data to Insight**, / with parts of **Track 1, Citizen Science**, / and **Track 6, Resilience and early warning**.
 
-## 2. The problem (0:25 – 1:00)
+## 2. The problem (0:25 – 1:15)
 **SHOW:** your photos: a wide shot of the creek, a close-up of the water, anything notable such as trash or algae.
 **SAY:**
 > Creeks like this connect everything. / Rain washes what's on our streets into them, / fish and birds live in them, / and kids and dogs play in them.
 >
-> There are stream gauges that measure how much water is flowing, / but a gauge can't see trash, / algae, / or a strange smell. / People walking by can. / But most people don't know where to report it, / and the forms that do exist are full of scientific terms.
+> Wolf Creek has no live stream gauge at all. / Deer Creek's only gauge / is twenty-two kilometres downstream, / below a lake. / And even a gauge can't see trash, / algae, / or a strange smell. / People walking by can. / But most people don't know where to report it, / and the forms that do exist are full of scientific terms.
 >
 > So the people who notice first / have no easy way to tell anyone.
 
-## 3. The report flow (1:00 – 1:55)
+## 3. The report flow (1:15 – 2:10)
 **SHOW:** phone-sized screen recording of the full report, step by step. Pause on each step.
 **SAY:**
 > Creek Watch fixes that with a two-minute report / anyone can do on their phone. / No app store, / just open the website.
@@ -41,17 +41,17 @@
 >
 > *(optional)* For privacy, / the app strips the hidden location data out of your photo, / and your name is optional.
 
-## 4. Real reports from the field (1:55 – 2:20)
+## 4. Real reports from the field (2:10 – 2:35)
 **SHOW:** you at the creek (photos or video, filmed from the bank), then the list of real reports in the app.
 **SAY:**
 > On Sunday morning / I went out to Wolf Creek and Deer Creek / and filed the first [N] real reports. / Everything you'll see next / comes from those reports / and from live public data.
 
-## 5. The map (2:20 – 2:45)
+## 5. The map (2:35 – 3:00)
 **SHOW:** the Map page. Zoom to Grass Valley and Nevada City, tap a pin, and show the report with its photo.
 **SAY:**
 > Every report shows up on the map, / coloured by how healthy that spot looks. / Tap a pin / and you see the photo / and exactly what the person reported.
 
-## 6. Dashboard, score and early warning (2:45 – 3:35)
+## 6. Dashboard, score and early warning (3:00 – 3:50)
 **SHOW:** the Dashboard: a creek card, the score gauge, the list of signals with explanations, then the gauge and weather box.
 **SAY:**
 > The dashboard turns all of this into a creek-health score / from zero to a hundred. / Right now Wolf Creek is at [score], / which is "[band]".
@@ -60,12 +60,12 @@
 >
 > It also gives early warnings. / Heavy rain plus brown water / means "watch for runoff". / Lots of algae in warm weather / means "watch for an algae bloom". / And any dead fish, / or a chemical or sewage smell, / is an alert.
 
-## 7. The data (3:35 – 3:55)
+## 7. The data (3:50 – 4:10)
 **SHOW:** the About the data page with its source list and links.
 **SAY:**
-> We combine three kinds of data: / reports from people at the creek, / stream-gauge data from the U.S. Geological Survey, / and weather from the National Weather Service. / The map uses OpenStreetMap. / All the code is open source, / on GitHub.
+> We combine three kinds of data: / reports from people at the creek, / stream-gauge data from the U.S. Geological Survey, / where a gauge exists, / and weather from the National Weather Service. / The map uses OpenStreetMap. / All the code is open source, / on GitHub.
 
-## 8. Impact and close (3:55 – 4:25)
+## 8. Impact and close (4:10 – 4:40)
 **SHOW:** your best creek photo, then the title card with the URL and team names.
 **SAY:**
 > This is One Health: / a healthy creek, / healthy wildlife, / and healthy people / are all connected. / Creek Watch lets the people who already walk by our creeks / become an early-warning system for them.
@@ -76,7 +76,7 @@
 
 ---
 
-**Timing check (counted):** the narration is 520 words. At 140 words a minute that's about 3:45 of speech; the pauses at each `/` and the on-screen moments bring it to about 4:00–4:20. With the optional lines cut it's 500 words, still well over the 3:00 minimum.
+**Timing check (counted):** the narration is 564 words. At 140 words a minute that's about 4:00 of speech; the pauses at each `/` and the on-screen moments bring it to about 4:20–4:40. **That's close to the 5:00 limit. If a take runs over 4:50, first cut the *(optional)* lines (20 words), then cut "The map uses OpenStreetMap. / All the code is open source, / on GitHub." in section 7.** It must land between 3:00 and 5:00.
 
 **Before you record, check with JP:**
 - the real report count `[N]`, and today's `[score]` and `[band]`;
