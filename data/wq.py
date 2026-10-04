@@ -129,7 +129,8 @@ def get_water_quality(creek_id: str, *, timeout_s: float = 10, now: datetime | N
         data, live = None, False
         if st.get("live"):
             data = ingest._cached(f"riverdb:{st['id']}", 86400, lambda ref=st["id"]: fetch(ref))
-            live = data is not None
+            # A stale value served during back-off is NOT live (it's the last good fetch).
+            live = data is not None and not data.get("stale")
         if data is None:
             data = snap.get(st["id"])
         if not data:
@@ -142,6 +143,7 @@ def get_water_quality(creek_id: str, *, timeout_s: float = 10, now: datetime | N
             "date": data["date"], "age_days": age, "readings": data["readings"],
             "visit_count": data.get("visit_count"), "first_date": data.get("first_date"),
             "live": live,
+            "stale": bool(data.get("stale")),
             "credit": f'{ag["name"]} volunteer monitoring, via RiverDB',
             "source_url": f'https://riverdb.org/org/{st["agency"]}',
             "agency_url": ag["url"],

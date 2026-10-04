@@ -199,3 +199,41 @@ def test_backoff_clears_on_success(monkeypatch):
     monkeypatch.setattr(ingest.time, "time", lambda: clock["t"])
     assert ingest._cached("k3", 0, lambda: {"ok": 1}) == {"ok": 1}
     assert "k3" not in ingest._failed
+
+
+
+def test_failure_logs_once_per_backoff_window(monkeypatch, caplog):
+    import logging
+    caplog.set_level(logging.WARNING, logger="creekwatch.data")
+
+    def down():
+        raise OSError("RemoteDisconnected")
+    ingest._cached("riverdb:X", 60, lambda: {"v": 1})
+    clock = {"t": ingest.time.time() + 120}
+    monkeypatch.setattr(ingest.time, "time", lambda: clock["t"])
+    for _ in range(5):
+        ingest._cached("riverdb:X", 60, down)
+    lines = [r for r in caplog.records if "riverdb:X" in r.getMessage()]
+    assert len(lines) == 1 and "RemoteDisconnected" in lines[0].getMessage()
+    assert "last good value" in lines[0].getMessage()
+    clock["t"] += ingest.FAIL_BACKOFF_S + 1
+    ingest._cached("riverdb:X", 60, down)
+    assert len([r for r in caplog.records if "riverdb:X" in r.getMessage()]) == 2
+
+
+def test_stale_riverdb_value_is_not_reported_live(monkeypatch):
+    calls = {"n": 0}
+
+    def gql(ref, timeout):
+        calls["n"] += 1
+        if calls["n"] <= 2:             # first pass: both live stations answer
+            return RIVERDB
+        raise OSError("riverdb refusing")
+    monkeypatch.setattr(wq, "_gql", gql)
+    now = datetime(2026, 10, 4, tzinfo=timezone.utc)
+    first = [s for s in wq.get_water_quality("deer", now=now)["stations"] if s["agency"] == "SYRCL"]
+    assert first and all(s["live"] and not s["stale"] for s in first)
+    clock = {"t": ingest.time.time() + 86400 + 1}                  # past the 24 h ttl
+    monkeypatch.setattr(ingest.time, "time", lambda: clock["t"])
+    again = [s for s in wq.get_water_quality("deer", now=now)["stations"] if s["agency"] == "SYRCL"]
+    assert again and all((not s["live"]) and s["stale"] for s in again)
