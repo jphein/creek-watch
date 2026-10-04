@@ -11,23 +11,31 @@ creekwatch.realm.watch {
 	encode zstd gzip
 	# Keep Cloudflare's edge from caching (it caches .js/.css/.jpg 4 h by default):
 	#  - photos: "private" = browser may cache, edge may not, so deleting/moderating a report takes effect;
-	#  - everything else: revalidate, so a redeploy reaches phones immediately.
+	#  - everything else: revalidate, so a redeploy reaches phones immediately. "private" because CF's zone
+	#    Browser Cache TTL otherwise rewrites no-cache to max-age=14400 on .js/.css (Oracle gate-13-17).
 	# no-transform everywhere: stops Cloudflare injecting its Web Analytics beacon into our HTML (the About
 	# page promises no trackers) and from rewriting images/scripts.
 	@uploads path /uploads/*
 	header @uploads Cache-Control "private, max-age=86400, no-transform"
 	@notuploads not path /uploads/*
-	header @notuploads Cache-Control "no-cache, no-transform"
-	# Public requests arrive from cloudflared on localhost: hand the app the real client IP
-	# (uvicorn --proxy-headers) so the per-IP rate limit doesn't lump every reporter together.
-	# Anything reaching Caddy directly (no CF header) keeps Caddy's own XFF.
-	@viacf header CF-Connecting-IP *
+	header @notuploads Cache-Control "private, no-cache, no-transform"
+	# Client IP for the app's per-IP rate limit. Only cloudflared on localhost is Cloudflare: for those
+	# requests CF-Connecting-IP is the real phone. Anything else hitting Caddy directly (10.0.6.11 is
+	# reachable from other VLANs) could forge that header, so strip it and let Caddy set XFF to the
+	# true peer. (Presence-only matching was spoofable; Oracle gate-13-17.)
+	@viacf {
+		remote_ip 127.0.0.1 ::1
+		header CF-Connecting-IP *
+	}
 	handle @viacf {
 		reverse_proxy 127.0.0.1:8442 {
 			header_up X-Forwarded-For {http.request.header.CF-Connecting-IP}
 		}
 	}
 	handle {
-		reverse_proxy 127.0.0.1:8442
+		reverse_proxy 127.0.0.1:8442 {
+			header_up -CF-Connecting-IP
+			header_up X-Forwarded-For {remote_host}
+		}
 	}
 }

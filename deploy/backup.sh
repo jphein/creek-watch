@@ -56,23 +56,41 @@ docker exec "$NAME" rm -f /tmp/creekwatch-snap.db
 # Everything docker cp hands us is container-controlled: a compromised app could plant symlinks so host-side
 # tools (sqlite, rsync with a trailing slash) follow them into ubox0's own files. Accept only plain files/dirs.
 [ -f "$STAGE/snap.db" ] && [ ! -L "$STAGE/snap.db" ] || { log "FAIL: snapshot is not a regular file"; exit 1; }
-python3 - "$STAGE/snap.db" <<'PY'
+# The snapshot is container-controlled too: open it read-only with trusted_schema=OFF so a planted
+# trigger/view can't call functions from host-side sqlite.
+COUNT=$(python3 - "$STAGE/snap.db" <<'PY'
 import sqlite3, sys
-c = sqlite3.connect(sys.argv[1])
+c = sqlite3.connect(f"file:{sys.argv[1]}?mode=ro", uri=True)
+c.execute("pragma trusted_schema=OFF")
 assert c.execute("pragma integrity_check").fetchone()[0] == "ok", "integrity_check failed"
+print(c.execute("select count(*) from reports").fetchone()[0])
 PY
-COUNT=$(python3 -c "import sqlite3,sys;print(sqlite3.connect(sys.argv[1]).execute('select count(*) from reports').fetchone()[0])" "$STAGE/snap.db")
+)
 
-# 2) Photos.
-docker cp -q "$NAME:$DATADIR/uploads" "$STAGE/uploads"
-[ -d "$STAGE/uploads" ] && [ ! -L "$STAGE/uploads" ] || { log "FAIL: uploads is not a plain directory"; exit 1; }
-links=$(find "$STAGE/uploads" ! -type f ! -type d | wc -l)
-[ "$links" = 0 ] || log "WARN: skipping $links non-regular entries (symlinks/devices) in uploads"
+# 2) Photos. Size-capped: a flood of uploads must not fill ubox0's disk (staging) or disks' RAID.
+MAX_UP="${CW_BACKUP_MAX_UPLOADS_BYTES:-5000000000}"
+claimed=$(docker exec "$NAME" du -sb "$DATADIR/uploads" | cut -f1)
+case "$claimed" in ''|*[!0-9]*) log "FAIL: can't size uploads"; exit 1 ;; esac
+if [ "$claimed" -gt "$MAX_UP" ]; then
+  log "WARN: uploads are $claimed bytes (> cap $MAX_UP): photo mirror SKIPPED this run, DB still backed up"
+  SKIP_UPLOADS=1
+else
+  SKIP_UPLOADS=0
+  docker cp -q "$NAME:$DATADIR/uploads" "$STAGE/uploads"
+fi
+if [ "$SKIP_UPLOADS" = 0 ]; then
+  [ -d "$STAGE/uploads" ] && [ ! -L "$STAGE/uploads" ] || { log "FAIL: uploads is not a plain directory"; exit 1; }
+  # du inside the container is container-reported; re-measure what actually landed on the host.
+  actual=$(du -sb "$STAGE/uploads" | cut -f1)
+  [ "$actual" -le "$MAX_UP" ] || { log "FAIL: staged uploads $actual bytes exceed cap $MAX_UP"; rm -rf "${STAGE:?}/uploads"; exit 1; }
+  links=$(find "$STAGE/uploads" ! -type f ! -type d | wc -l)
+  [ "$links" = 0 ] || log "WARN: skipping $links non-regular entries (symlinks/devices) in uploads"
+fi
 
 # 3) Ship off-host.
 ssh "$DEST_HOST" "mkdir -p $DEST/db $DEST/uploads"
 rsync -a --no-links --no-devices --no-specials "$STAGE/snap.db" "$DEST_HOST:$DEST/db/creekwatch-$STAMP.db"
-rsync -a --no-links --no-devices --no-specials --delete "$STAGE/uploads/" "$DEST_HOST:$DEST/uploads/"
+[ "$SKIP_UPLOADS" = 1 ] || rsync -a --no-links --no-devices --no-specials --delete "$STAGE/uploads/" "$DEST_HOST:$DEST/uploads/"
 ssh "$DEST_HOST" "echo '$STAMP reports=$COUNT' > $DEST/LATEST; find $DEST/db -name 'creekwatch-*.db' -mtime +$KEEP_DAYS -delete"
 rm -rf "${STAGE:?}/uploads" "$STAGE"/snap.db
 log "OK $STAMP reports=$COUNT photos=$(ssh "$DEST_HOST" "ls $DEST/uploads | wc -l") -> $DEST_HOST:$DEST"

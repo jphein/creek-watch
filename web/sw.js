@@ -1,7 +1,7 @@
 // Creek Watch service worker: app shell cache-first, API network-first with
 // a cached fallback for GETs. POSTs (reports) always go to the network; the
 // page keeps its own offline outbox in IndexedDB.
-const VERSION = 'cw-v2';
+const VERSION = 'cw-v3';
 const SHELL = [
   './', 'index.html', 'css/app.css', 'manifest.webmanifest',
   'js/app.js', 'js/api.js', 'js/ui.js', 'js/icons.js', 'js/store.js',
@@ -9,8 +9,17 @@ const SHELL = [
   'icons/favicon.svg', 'icons/icon-192.png', 'icons/icon-512.png',
 ];
 
+// Always revalidate with the server, past the browser's HTTP cache: Cloudflare's zone Browser Cache TTL
+// stamped max-age=14400 on our assets before 2026-10-03, so phones may still hold 4-hour copies.
+// (A navigate-mode Request can't take a RequestInit, so navigations use plain fetch; HTML is no-cache.)
+const fresh = (req) => (req.mode === 'navigate' ? fetch(req) : fetch(req, { cache: 'no-cache' }));
+
 self.addEventListener('install', (e) => {
-  e.waitUntil(caches.open(VERSION).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));
+  e.waitUntil(
+    caches.open(VERSION)
+      .then((c) => c.addAll(SHELL.map((u) => new Request(u, { cache: 'reload' }))))
+      .then(() => self.skipWaiting())
+  );
 });
 
 self.addEventListener('activate', (e) => {
@@ -29,7 +38,7 @@ self.addEventListener('fetch', (e) => {
 
   if (url.pathname.startsWith('/api/')) {
     e.respondWith(
-      fetch(req)
+      fresh(req)
         .then((res) => {
           if (res.ok) { const copy = res.clone(); caches.open(VERSION).then((c) => c.put(req, copy)); }
           return res;
@@ -41,7 +50,7 @@ self.addEventListener('fetch', (e) => {
   // Shell: stale-while-revalidate so deploys show up on the next load.
   e.respondWith(
     caches.match(req, { ignoreSearch: true }).then((cached) => {
-      const net = fetch(req)
+      const net = fresh(req)
         .then((res) => {
           if (res.ok && res.type === 'basic') { const copy = res.clone(); caches.open(VERSION).then((c) => c.put(req, copy)); }
           return res;
