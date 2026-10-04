@@ -1,8 +1,7 @@
 # Devpost submission: Creek Watch
 
 > Staging copy for JP's one-click submit. Each `##` section maps to a Devpost field.
-> Lines marked **⟨fill⟩** need a real value on Sunday. Nothing here is a guess presented as fact.
-> Before pasting, check every **⟨fill⟩** and the [links](#links).
+> Final text, 2026-10-03. Nothing here is a guess presented as fact. The only value that isn't in this file is the video link, which goes in Devpost's own video field.
 
 ---
 
@@ -15,7 +14,7 @@ Anyone at the creek files a 2-minute photo report; Creek Watch fuses it with liv
 ## Links
 - **Live prototype:** https://creekwatch.realm.watch
 - **Code (public, MIT):** https://github.com/jphein/creek-watch
-- **Demo video (3–5 min):** ⟨fill: YouTube/Vimeo URL⟩
+- **Demo video (3–5 min):** narrated with text-to-speech from the team's script ([docs/alec/DEMO-SCRIPT.md](https://github.com/jphein/creek-watch/blob/main/docs/alec/DEMO-SCRIPT.md)). The link is in Devpost's video field.
 
 ---
 
@@ -55,11 +54,11 @@ All code was written new for this hackathon on October 3–4, 2026, during the e
 
 - **Backend:** Python 3.12, FastAPI and SQLite, run with uv. One process serves the JSON API (`/api/*`) and the static web app. Photo uploads are re-encoded with Pillow (with HEIC support), which strips EXIF and caps the size. Enum validation, per-IP rate limiting and a geofence reject reports far from the creeks.
 - **Frontend:** a no-build progressive web app in plain HTML, CSS and ES modules, with Leaflet and OpenStreetMap tiles. It is mobile-first and installable, with light and dark themes.
-- **Data and score:** creek lines and 12 public access sites were built from OpenStreetMap (Overpass API). Each site was snapped to the open channel and checked for public access; road bridges with private banks are marked "view from the bridge only". Ingest modules pull USGS stream-gauge readings (discharge and gage height from the new USGS Water Data API and legacy NWIS Water Services, with either one as a fallback for the other), National Weather Service current conditions from station KGOO (Nevada County Air Park) plus gridpoint short forecasts for each town, and Open-Meteo hourly rainfall estimates for the past and next 24 h. All are keyless, and the results are cached. A transparent, weighted, rule-based score combines them with recent citizen reports. Each signal records its name, value, weight, explanation and source. The score and ingest have 29 tests (21 for the score, 8 for ingest), and the API has 16 more. All 45 pass (`uv run pytest`, 2026-10-03).
+- **Data and score:** creek lines and 12 public access sites were built from OpenStreetMap (Overpass API). Each site was snapped to the open channel and checked for public access; road bridges with private banks are marked "view from the bridge only". Ingest modules pull USGS stream-gauge readings (discharge and gage height from the new USGS Water Data API and legacy NWIS Water Services, with either one as a fallback for the other), National Weather Service current conditions from station KGOO (Nevada County Air Park) plus gridpoint short forecasts for each town, and Open-Meteo hourly rainfall estimates for the past and next 24 h. All are keyless, and the results are cached. A transparent, weighted, rule-based score combines them with recent citizen reports. Each signal records its name, value, weight, explanation and source. There are 56 automated tests: 26 for the score, 14 for data ingest and 16 for the API. All pass (`uv run --group dev pytest`, 2026-10-03).
 - **Honest gauge mapping:** a USGS site-inventory query over the area returns only 4 active real-time stream gauges. Deer Creek uses 11418500, which is on Deer Creek but 22 km downstream and regulated. Wolf Creek has no live gauge (former station 11423150 holds only 3 water-quality samples), so Bear River near Wheatland (11424000) is shown as low-weight regional context only. The score says so in its explanations rather than pretending a distant gauge describes the creek in town.
 - **Deploy:** a Docker container on a small always-on home server, behind Caddy with TLS and a Cloudflare tunnel, at https://creekwatch.realm.watch.
 - **Team prior work:** the team already runs [Forage for All](https://forage.techempower.org/), an open-source (AGPL-3.0) community map of edible plants on public land, built with privacy-first design: fuzzy locations by default, anonymous reports allowed, no trackers. Creek Watch carries over those principles (locations rounded to about 110 m, photo metadata stripped, optional names). **No code was reused.** Creek Watch is a separate codebase written for this hackathon.
-- **AI assistance:** the code and docs were written with AI coding assistants (Anthropic's Claude, via Claude Code) under human direction and review. The app itself uses **no AI** in the scoring: the score is deterministic rules, so every result can be explained.
+- **AI assistance:** the code and docs were written with AI coding assistants (Anthropic's Claude, via Claude Code) under human direction and review. The demo video's narration is text-to-speech reading the team's script. The app itself uses **no AI** in the scoring: the score is deterministic rules, so every result can be explained.
 
 ## Data sources
 | Source | What we use | Terms |
@@ -74,15 +73,27 @@ All code was written new for this hackathon on October 3–4, 2026, during the e
 Details and retrieval URLs: [`data/SOURCES.md`](https://github.com/jphein/creek-watch/blob/main/data/SOURCES.md).
 
 ## Challenges we ran into
-- ⟨fill on Sunday from the real build log. Candidates: finding public stream gauges on or near two small creeks; making the score explainable instead of a black box; HEIC photos from iPhones; GPS accuracy beside a creek; keeping the report flow to about 2 minutes.⟩
+- **There's no live gauge where the people are.** Wolf Creek has no real-time USGS stream gauge at all, and Deer Creek's only one is about 22 km downstream, below Lake Wildwood. Instead of passing off a distant gauge as local truth, we show the Bear River gauge as low-weight background only and say so in the score's explanations. That gap became the reason the app exists.
+- **An unreliable federal API, mid-build.** USGS's legacy NWIS Water Services returned intermittent HTTP 503s and took 0.6–7.6 s. We added the new USGS Water Data (OGC) API, which gave identical values in about 0.25 s, and made it the primary with NWIS as the fallback. A cold conditions lookup went from 4–8 s to about 0.9 s.
+- **Finding the right creeks and safe spots.** California has several Wolf Creeks and Deer Creeks, and Wolf Creek runs in a culvert under downtown Grass Valley. We built the creek lines from OpenStreetMap with a "within 0.5 km of the town centre" check, snapped every site onto the open channel, and marked road bridges with private banks as "view from the bridge only". Two spots from our original plan turned out wrong: one park is 0.56 km from the creek, and another is on a tributary.
+- **Photo privacy, including iPhone HEIC.** Phone photos carry GPS and device metadata. The server re-encodes every upload from raw pixels to a JPEG of at most 1600 px, which removes all EXIF. We tested it with real iPhone HEIC samples that carry GPS: the output had no EXIF and no GPS, and was correctly rotated. Public report locations are rounded to about 110 m.
+- **Fair rate limits behind Cloudflare.** Behind the tunnel, every request looks like it comes from one address. We trust Cloudflare's client-IP header only when it arrives from the local proxy. We also set separate global budgets so junk requests can't use up the capacity that real reports need.
+- **A split-DNS TLS bug on our own network.** Chrome on our home network failed with `ERR_SSL_PROTOCOL_ERROR` while `curl` worked. We traced it to local DNS rewriting the address but passing through Cloudflare's HTTPS (SVCB) record and its ECH settings. Disabling just that DNS feature in the browser fixed it. Phones on cellular were never affected, and the fix belongs in the local DNS, not the app.
+- **The name.** "Creek Watch" was also the name of a 2010 IBM Research app. We checked: that app is no longer available, and we found no live trademark. We kept the name and credit IBM's work openly ([prior art](https://github.com/jphein/creek-watch/blob/main/docs/devpost/PRIOR-ART.md)).
 
 ## Accomplishments we're proud of
-- Real field reports with photos from Wolf Creek and Deer Creek, filed on a phone at the creek on ⟨fill: date⟩ (⟨fill: N⟩ reports).
-- A health score that explains every point it gives or takes away.
-- A live, public, phone-usable prototype, not a mockup.
+- **A live, public, phone-usable prototype, not a mockup,** at https://creekwatch.realm.watch, with real data from USGS, NWS, Open-Meteo, OpenStreetMap and local volunteer monitoring groups.
+- **Ready for the field.** The report flow has passed an end-to-end test at phone size over the public Cloudflare path, the same path a phone on cellular uses, and our teammate's first real field reports from Wolf Creek and Deer Creek begin on the morning of Sunday, October 4, 2026. The live map shows every report filed so far.
+- **A health score that explains every point it gives or takes**, built from simple fixed rules and covered by 56 automated tests.
+- **Honest about what we can't measure:** the gauge gap and the model-based rain estimates are stated in the app, not hidden.
+- **Credit where it's due:** more than 20 years of local volunteer water tests (South Yuba River Citizens League, Sierra Streams Institute, Wolf Creek Community Alliance) appear next to citizen reports, credited by name.
 
 ## What we learned
-- ⟨fill: Alec, one or two lines in your own words; JP, one or two lines.⟩
+- Small creeks, the ones people actually walk beside, are often the least instrumented. Citizen observations aren't a gimmick there; they're the only near-real-time signal.
+- An explanation beats a number. A score people can check by hand ("brown water plus heavy rain, so a runoff watch") is easier to trust than a model's output.
+- Check the ground truth before you map it. Two of our first spots were wrong (one off-creek, one on a tributary), and only checking each spot against the map caught it.
+- Public data needs a plan B. A federal API can return 503s on a Saturday, and credits and licences (CC BY 4.0, ODbL) are part of the work, not an afterthought.
+- Real monitoring already exists. Local groups have sampled these creeks for about 20 years. The useful thing to build is the everyday layer between their samples, not a replacement for them.
 
 ## What's next for Creek Watch
 - Partner with local creek volunteer groups to calibrate the score against their monitoring. Their published tests already appear on each creek card, via RiverDB.
@@ -94,11 +105,11 @@ Details and retrieval URLs: [`data/SOURCES.md`](https://github.com/jphein/creek-
 
 ## Team
 - **Jeffrey "JP" Hein:** Sierra College student, full-stack developer, and founder of TechEMPOWER. Design and development.
-- **Alec:** student. Field reports, project description, demo narration, and testing.
+- **Alec:** student. Field reports, writing, and testing.
 
 ## Built with
 `python` · `fastapi` · `sqlite` · `uv` · `pillow` · `javascript` · `html5` · `css3` · `leaflet` · `openstreetmap` · `usgs-water-services` · `national-weather-service-api` · `open-meteo` · `pwa` · `docker` · `caddy` · `cloudflare` · `claude-code`
 
 ---
 
-**Pre-submit check for the person staging this:** every ⟨fill⟩ is resolved; the video link is public and 3:00–5:00 long; the repo is public; the live URL loads on a phone; and the RULES-CHECK.md open items are closed or accepted.
+**Pre-submit check for the person staging this:** the video link is public and 3:00–5:00 long; the repo is public; the live URL loads on a phone; and the RULES-CHECK.md open items are closed or accepted.
