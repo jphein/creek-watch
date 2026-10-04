@@ -12,6 +12,7 @@ Design rules:
 from __future__ import annotations
 
 import json
+import logging
 import threading
 import time
 import urllib.request
@@ -19,6 +20,7 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
+log = logging.getLogger("creekwatch.data")
 PACIFIC = ZoneInfo("America/Los_Angeles")
 UA = "creekwatch/0.1 (+https://github.com/jphein/creek-watch)"
 
@@ -104,16 +106,22 @@ def _cached(key: str, ttl: float, fn):
         return hit[1]
     if failed_at is not None and now - failed_at < FAIL_BACKOFF_S:
         return _stale(hit)
+    err = None
     try:
         val = fn()
-    except Exception:  # noqa: BLE001 - any upstream failure degrades to stale/None
-        val = None
+    except Exception as e:  # noqa: BLE001 - any upstream failure degrades to stale/None
+        val, err = None, e
     with _lock:
         if val is not None:
             _cache[key] = (now, val)
             _failed.pop(key, None)
         else:
             _failed[key] = now
+    if val is None:
+        # At most one line per upstream per FAIL_BACKOFF_S: the back-off above stops re-calls.
+        log.warning("upstream %s failed (%s); serving %s for %d min", key,
+                    f"{type(err).__name__}: {err}"[:200] if err else "no data",
+                    "last good value" if hit else "nothing", FAIL_BACKOFF_S // 60)
     return val if val is not None else _stale(hit)
 
 
