@@ -44,6 +44,15 @@ before=$(ssh "$host" "sha256sum < $F")
 printf 'CREEKWATCH_VAPID_PRIVATE=has space\n' | CW_APP_ENV_REMOTE="$F" CW_NO_APPLY=1 "$S" install-lines >/dev/null 2>&1 && bad "malformed line accepted"
 [ "$(ssh "$host" "sha256sum < $F")" = "$before" ] || bad "file changed after a refused write"
 
+# 3b) a write that fails AFTER the temp file exists (ulimit -f 0 -> EFBIG; CPython ignores SIGXFSZ)
+#     must leave no secret-bearing temp file behind. Runs the same WRITER via write-env on the host.
+D="~/creekwatch/test-dir-$$"
+ssh "$host" "mkdir -p $D" && scp -q "$S" "$host:${D#\~/}/secrets.sh"
+ssh "$host" "cd $D && printf 'CREEKWATCH_VAPID_PUBLIC=abc\n' | bash -c 'ulimit -f 0; CW_APP_ENV=$D/app.env bash ./secrets.sh write-env'" >/dev/null 2>&1 \
+  && bad "a write that hit EFBIG reported success"
+left=$(ssh "$host" "ls -A $D | grep -c '^\.app\.env\.' || true"); ssh "$host" "rm -rf $D"
+[ "$left" = 0 ] || bad "failed write left $left temp file(s) behind"
+
 # 4) value reaches a hardened scratch container intact; 5) never in logs
 want=$(ssh "$host" "grep ^CREEKWATCH_VAPID_PRIVATE= $F | cut -d= -f2- | tr -d '\n' | sha256sum | cut -d' ' -f1")
 ssh "$host" "img=\$(docker inspect -f '{{.Config.Image}}' creekwatch)
@@ -54,5 +63,5 @@ leaks=$(ssh "$host" "v=\$(grep ^CREEKWATCH_VAPID_PRIVATE= $F | cut -d= -f2-)
   { sudo journalctl --since '$start' --no-pager -o cat; docker logs cw-sectest-$$ 2>&1; } | grep -cF -f <(printf '%s\n' \"\$v\") || true")
 [ "$leaks" = 0 ] || bad "private value found $leaks time(s) in journal/container logs"
 
-[ $fails = 0 ] && echo "PASS: transport via ssh stdin, 0600+owner, merge keeps other keys, re-install replaces, malformed refused, value intact in a hardened container, 0 log leaks"
+[ $fails = 0 ] && echo "PASS: transport via ssh stdin, 0600+owner, merge keeps other keys, re-install replaces, malformed refused, failed write leaves no temp file, value intact in a hardened container, 0 log leaks"
 [ $fails = 0 ]
