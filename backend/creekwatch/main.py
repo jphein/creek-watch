@@ -41,7 +41,9 @@ Flow = Literal["dry", "low", "normal", "high", "flood"]
 Odor = Literal["none", "earthy", "sewage", "chemical", "rotten", "other"]
 
 REPORT_COLUMNS = ("id", "creek_id", "site_id", "lat", "lon", "observed_at", "created_at", "water_color", "algae",
-                  "trash", "flow", "odor", "dead_fish", "wildlife_seen", "notes", "reporter_name", "photo_file", "flags")
+                  "trash", "flow", "odor", "dead_fish", "wildlife_seen", "notes", "reporter_name", "photo_file", "flags",
+                  "trash_removed", "trash_bags")
+MAX_TRASH_BAGS = 20
 HEALTH_WINDOW = timedelta(days=14)  # data.score windows to 7 days itself, with recency decay
 _START = time.time()
 _START_ISO = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -188,6 +190,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     def row_to_report(row: Any) -> dict[str, Any]:
         r = dict(zip(REPORT_COLUMNS, row))
         r["dead_fish"] = bool(r["dead_fish"])
+        r["trash_removed"] = bool(r["trash_removed"])
         # Privacy: never publish the reporter's exact GPS fix (could be their doorstep).
         r["lat"], r["lon"] = round(r["lat"], s.public_coord_decimals), round(r["lon"], s.public_coord_decimals)
         r["flags"] = json.loads(r["flags"] or "[]")
@@ -279,6 +282,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         observed_at: Annotated[str | None, Form()] = None,
         site_id: Annotated[str | None, Form()] = None,
         dead_fish: Annotated[bool, Form()] = False,
+        trash_removed: Annotated[bool, Form()] = False,
+        trash_bags: Annotated[str | None, Form(max_length=4)] = None,
         wildlife_seen: Annotated[str | None, Form(max_length=500)] = None,
         notes: Annotated[str | None, Form(max_length=1000)] = None,
         reporter_name: Annotated[str | None, Form(max_length=60)] = None,
@@ -290,6 +295,16 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                                 headers={"Retry-After": str(int(retry))})
 
         creek = require_creek(creek_id)
+        # Cleanup fields (validated before any photo work or budget spend)
+        bags: int | None = None
+        if trash_bags is not None and trash_bags.strip() != "":
+            if not trash_bags.strip().isdigit() or not 0 <= int(trash_bags) <= MAX_TRASH_BAGS:
+                raise HTTPException(422, f"trash_bags must be a whole number from 0 to {MAX_TRASH_BAGS}")
+            bags = int(trash_bags)
+        if trash_removed and trash == "none":
+            raise HTTPException(422, "trash_removed needs trash to be 'some' or 'lots' (there was trash to pick up)")
+        if bags is not None and not trash_removed:
+            raise HTTPException(422, "trash_bags is only for reports where you removed the trash (trash_removed=true)")
         if not (math.isfinite(lat) and math.isfinite(lon)):
             raise HTTPException(422, "lat/lon must be numbers")
         pts = [(st["lat"], st["lon"]) for st in creek["sites"]] + _line_points(creek.get("geojson_line"))
@@ -346,12 +361,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             "water_color": water_color, "algae": algae, "trash": trash, "flow": flow, "odor": odor,
             "dead_fish": bool(dead_fish), "wildlife_seen": clean_text(wildlife_seen), "notes": clean_text(notes),
             "reporter_name": clean_text(reporter_name), "photo_file": photo_file,
+            "trash_removed": bool(trash_removed), "trash_bags": bags,
         }
         rec["flags"] = json.dumps(data.report_flags(rec))
         cols = [c for c in REPORT_COLUMNS if c != "id"]
         with db.connect(s.db_path) as conn:
             cur = conn.execute(f"INSERT INTO reports ({', '.join(cols)}) VALUES ({', '.join('?' * len(cols))})",
-                               [int(rec[c]) if c == "dead_fish" else rec[c] for c in cols])
+                               [int(rec[c]) if c in ("dead_fish", "trash_removed") else rec[c] for c in cols])
             rid = cur.lastrowid
             row = conn.execute(f"SELECT {', '.join(REPORT_COLUMNS)} FROM reports WHERE id = ?", (rid,)).fetchone()
         log.info("report %s creek=%s site=%s photo=%s", rid, creek_id, site_id, bool(photo_file))
@@ -403,6 +419,21 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             require_creek(creek_id)
             return _health(creek_id)
         return {cid: _health(cid) for cid in creek_by_id}
+
+    @app.get("/api/stats/cleanups")
+    def cleanup_stats(creek_id: str | None = None) -> JSONResponse:
+        """Public community counter: how many reports removed trash, and how many bags. Aggregates
+        only (no ids, names, places or photos)."""
+        q = "SELECT COUNT(*), COALESCE(SUM(trash_bags), 0), MIN(observed_at) FROM reports WHERE trash_removed = 1"
+        args: list[Any] = []
+        if creek_id:
+            require_creek(creek_id)
+            q += " AND creek_id = ?"
+            args.append(creek_id)
+        with db.connect(s.db_path) as conn:
+            n, bags, since = conn.execute(q, args).fetchone()
+        return JSONResponse({"cleanups": n, "bags": bags, "since": since},
+                            headers={"Cache-Control": "public, max-age=60"})
 
     @app.get("/api/meta", include_in_schema=False)
     def meta() -> dict[str, Any]:

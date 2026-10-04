@@ -1,6 +1,7 @@
 import io
 from datetime import datetime, timedelta, timezone
 
+import pytest
 from PIL import Image
 
 from conftest import REPORT, gps_jpeg
@@ -195,3 +196,66 @@ def test_client_ip_trust():
     assert ip(req("172.17.0.1", cf_connecting_ip="not-an-ip")) == "172.17.0.1"
     # untrusted peer can't spoof
     assert ip(req("203.0.113.99", cf_connecting_ip="1.2.3.4", x_forwarded_for="5.6.7.8")) == "203.0.113.99"
+
+
+# ---- cleanups: trash_removed / trash_bags (JP request) ------------------------------------------
+
+def test_trash_removed_roundtrip_and_defaults(client):
+    r = client.post("/api/reports", data=dict(REPORT, trash="lots", trash_removed="true", trash_bags="3"))
+    assert r.status_code == 201, r.text
+    rep = r.json()
+    assert rep["trash_removed"] is True and rep["trash_bags"] == 3
+    assert client.get(f"/api/reports/{rep['id']}").json()["trash_bags"] == 3
+    plain = client.post("/api/reports", data=REPORT).json()
+    assert plain["trash_removed"] is False and plain["trash_bags"] is None
+    empty_bags = client.post("/api/reports", data=dict(REPORT, trash_removed="true", trash_bags=""))
+    assert empty_bags.status_code == 201 and empty_bags.json()["trash_bags"] is None
+
+
+@pytest.mark.parametrize("extra,msg", [
+    ({"trash": "none", "trash_removed": "true"}, "trash_removed"),
+    ({"trash_bags": "2"}, "only for reports where you removed"),
+    ({"trash_removed": "true", "trash_bags": "21"}, "0 to 20"),
+    ({"trash_removed": "true", "trash_bags": "-1"}, "0 to 20"),
+    ({"trash_removed": "true", "trash_bags": "two"}, "0 to 20"),
+    ({"trash_removed": "true", "trash_bags": "2.5"}, "0 to 20"),
+])
+def test_trash_removed_validation(client, extra, msg):
+    r = client.post("/api/reports", data=dict(REPORT, **extra))
+    assert r.status_code == 422 and msg in r.text
+
+
+def test_cleanup_stats(client):
+    assert client.get("/api/stats/cleanups").json() == {"cleanups": 0, "bags": 0, "since": None}
+    from datetime import datetime, timedelta, timezone
+    t0 = (datetime.now(timezone.utc) - timedelta(days=2)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    client.post("/api/reports", data=dict(REPORT, trash="some", trash_removed="true", trash_bags="2", observed_at=t0))
+    client.post("/api/reports", data=dict(REPORT, trash="lots", trash_removed="true"))              # bags unknown
+    client.post("/api/reports", data=dict(REPORT, trash="lots"))                                     # seen, not removed
+    wolf = client.post("/api/reports", data=dict(REPORT, creek_id="wolf", lat="39.2253", lon="-121.0607",
+                                                 trash="some", trash_removed="true", trash_bags="5"))
+    assert wolf.status_code == 201, wolf.text
+    allc = client.get("/api/stats/cleanups").json()
+    assert allc == {"cleanups": 3, "bags": 7, "since": t0}
+    assert set(allc) == {"cleanups", "bags", "since"}              # aggregates only, no personal data
+    assert client.get("/api/stats/cleanups", params={"creek_id": "wolf"}).json()["cleanups"] == 1
+    assert client.get("/api/stats/cleanups", params={"creek_id": "deer"}).json() == {"cleanups": 2, "bags": 2, "since": t0}
+    assert client.get("/api/stats/cleanups", params={"creek_id": "mars"}).status_code == 404
+
+
+def test_reports_migration_adds_cleanup_columns(tmp_path):
+    import sqlite3
+    from creekwatch import db
+    p = tmp_path / "old.db"
+    c = sqlite3.connect(p)
+    c.executescript("""CREATE TABLE reports (id INTEGER PRIMARY KEY AUTOINCREMENT, creek_id TEXT NOT NULL,
+        site_id TEXT, lat REAL NOT NULL, lon REAL NOT NULL, observed_at TEXT NOT NULL, created_at TEXT NOT NULL,
+        water_color TEXT NOT NULL, algae TEXT NOT NULL, trash TEXT NOT NULL, flow TEXT NOT NULL, odor TEXT NOT NULL,
+        dead_fish INTEGER NOT NULL DEFAULT 0, wildlife_seen TEXT, notes TEXT, reporter_name TEXT, photo_file TEXT,
+        flags TEXT NOT NULL DEFAULT '[]');
+        INSERT INTO reports (creek_id, lat, lon, observed_at, created_at, water_color, algae, trash, flow, odor)
+        VALUES ('deer', 39.26, -121.02, '2026-10-01T00:00:00Z', '2026-10-01T00:00:00Z', 'clear','none','some','normal','none');""")
+    c.commit(); c.close()
+    db.init(p); db.init(p)                                         # idempotent
+    row = sqlite3.connect(p).execute("SELECT trash_removed, trash_bags FROM reports").fetchone()
+    assert row == (0, None)
