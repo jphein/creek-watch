@@ -1,0 +1,10 @@
+[Unit]
+Description=Creek Watch: poll main every 2 minutes and redeploy on change
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=2min
+RandomizedDelaySec=15s
+
+[Install]
+WantedBy=timers.target
