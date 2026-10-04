@@ -28,6 +28,8 @@ All three were read on Sat 2026-10-03, about 17:20 PDT.
 | 9c5 | CA freshwater HABs (data.ca.gov) | Licence listed as "Other (Public Domain)" (per data/alerts/SOURCES.md); linked to the HABs portal | ✅ |
 | 9c6 | OEHHA fish-consumption advisories (data.ca.gov) | Public domain; advisory text not reproduced, only linked; no reasons stated by us | ✅ |
 | 9c7 | NWS alerts and NOAA NWPS | U.S. Government, public domain; official alerts passed through and linked, not reworded in meaning; no endorsement implied | ✅ |
+| 9c8 | CEDEN fecal-indicator-bacteria results (data.ca.gov) | The portal lists **no licence** for this dataset; it's State Water Board public data, credited "Central Valley Regional Water Quality Control Board via CEDEN" and linked. Shown as dated history only. Single samples above 320 are framed as "not by itself a violation" | 🟡 low risk: attributed, no licence stated |
+| 9c9 | CDEC (California Department of Water Resources) | State public data, credited to DWR CDEC with station links. We found no licence text. Regional context only, with observation times shown | 🟡 low risk: attributed, terms not found |
 | 9d | Leaflet (BSD-2-Clause) and Python dependencies (FastAPI MIT, Pillow MIT-CMU, and others) | Permissive licences, compatible with MIT. Not vendored into the repo (loaded from a CDN or installed by uv) | ✅ (inferred from the known licences, not audited per package) |
 | 9e | Photos | Only photos the team took, or citizen reports submitted through the app. No stock or web images | 🟡 keep it that way in the video and screenshots |
 | 10 | **Track alignment:** "Clearly state the track you've chosen" (O) | Primary Track 2, plus 1 and 6, stated first in SUBMISSION.md | ✅ |
