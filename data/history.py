@@ -51,7 +51,7 @@ STATIONS = {
     "516NEV101": {"creek_id": "wolf", "site_id": "wolf-wolf-rd", "waterbody": "Wolf Creek"},
 }
 # The study's other 7 stations in the Wolf Creek watershed. No Creek Watch site there (site_id None): shown in the
-# same dated past-study panel (and as dated map pins), never as a site's current conditions. Upstream -> downstream.
+# same dated past-study panel, never as a site's current conditions. Upstream -> downstream.
 STUDY_ONLY_STATIONS = {
     "516NEV114": {"creek_id": "wolf", "site_id": None, "waterbody": "French Ravine (tributary)"},
     "516NEV107": {"creek_id": "wolf", "site_id": None, "waterbody": "Wolf Creek"},
@@ -82,11 +82,15 @@ def summarise(samples: list[dict]) -> dict:
     ec = [s for s in samples if s.get("ecoli") is not None]
     qualified = [s for s in ec if (s.get("gm6w_n") or 0) >= GM_MIN_SAMPLES and s.get("gm6w") is not None]
     over = [s for s in qualified if s["gm6w"] > OBJECTIVE["gm_six_week"]]
+    # Censored results: CEDEN qual ">" = above the test's upper limit (true value higher), "<" = below its lower limit.
+    # On a tie for the highest value prefer ">", so a censored maximum is never presented as exact.
+    top = max(ec, key=lambda s: (s["ecoli"], s.get("qual") == ">"), default=None)
     return {
         "n_samples": len(ec),
         "first_date": ec[0]["date"] if ec else None,
         "last_date": ec[-1]["date"] if ec else None,
-        "max_ecoli": max((s["ecoli"] for s in ec), default=None),
+        "max_ecoli": top["ecoli"] if top else None,
+        "max_qual": (top.get("qual") if top and top.get("qual") in (">", "<") else None),
         "n_over_stv": sum(1 for s in ec if s["ecoli"] > OBJECTIVE["stv"]),
         "season_gmean": round(_gmean([s["ecoli"] for s in ec]), 1) if ec else None,
         "gm6w_max_qualified": round(max((s["gm6w"] for s in qualified), default=0), 1) if qualified else None,
@@ -99,8 +103,10 @@ def summarise(samples: list[dict]) -> dict:
 def _sentence(name: str, sm: dict) -> str:
     if not sm["n_samples"]:
         return f"No E. coli results for {name}."
-    parts = [f"{sm['n_samples']} E. coli samples at {name} ({sm['first_date']} to {sm['last_date']}), "
-             f"highest {sm['max_ecoli']:g} MPN/100 mL"]
+    highest = {">": f"highest above {sm['max_ecoli']:g} MPN/100 mL (the test's upper limit)",
+               "<": f"highest below {sm['max_ecoli']:g} MPN/100 mL (the test's lower limit)"}.get(
+        sm.get("max_qual"), f"highest {sm['max_ecoli']:g} MPN/100 mL")
+    parts = [f"{sm['n_samples']} E. coli samples at {name} ({sm['first_date']} to {sm['last_date']}), {highest}"]
     if sm["weeks_gm_over_objective"]:
         parts.append(f"the 6-week geometric mean was above the state objective of {OBJECTIVE['gm_six_week']} "
                      f"in {sm['weeks_gm_over_objective']} weekly calculations with at least {GM_MIN_SAMPLES} "

@@ -102,3 +102,24 @@ def test_builder_main_fetches_all_nine_codes(tmp_path):
     doc = builder.main(lambda codes: asked.extend(codes) or FIX, out=tmp_path / "snap.json")
     assert sorted(asked) == sorted(history.ALL_STATIONS) and len(asked) == 9
     assert json.loads((tmp_path / "snap.json").read_text())["stations"] == doc["stations"] == builder.build(FIX)
+
+
+def test_censored_maximum_is_never_shown_as_exact():
+    """Oracle S1 on #109: French Ravine 2024-07-10 is ">2419.6" (above the test's upper limit)."""
+    (study,) = history.get_bacteria_history("wolf")["studies"]
+    st = {s["station_code"]: s for s in study["stations"]}
+    fr = st["516NEV114"]
+    assert fr["summary"]["max_qual"] == ">"
+    assert "highest above 2419.6 MPN/100 mL (the test's upper limit)" in fr["text"]
+    assert "highest 2419.6" not in fr["text"]
+    wolf_rd = st["516NEV101"]                                   # an exact maximum keeps the plain wording
+    assert wolf_rd["summary"]["max_qual"] is None and "highest 648.8 MPN/100 mL" in wolf_rd["text"]
+
+
+def test_censored_low_and_ties():
+    base = {"gm6w": None, "gm6w_n": None}
+    low = [dict(base, date="2024-06-01", ecoli=1.0, qual="<"), dict(base, date="2024-06-08", ecoli=1.0, qual="<")]
+    sm = history.summarise(low)
+    assert sm["max_qual"] == "<" and "highest below 1 MPN/100 mL (the test's lower limit)" in history._sentence("X", sm)
+    tie = [dict(base, date="2024-06-01", ecoli=2419.6, qual="="), dict(base, date="2024-06-08", ecoli=2419.6, qual=">")]
+    assert history.summarise(tie)["max_qual"] == ">"           # a censored tie wins: never shown as exact
