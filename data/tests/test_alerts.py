@@ -416,3 +416,27 @@ def test_bacteria_ages_and_dedupes(monkeypatch):
         lvl = [w["level"] for w in h["warnings"] if w["id"] == "bacteria_watch"]
         assert lvl == ([want] if want else [])
         assert not [a for a in creekwatch_alerts("deer", h, NOW) if a["category"] == "bacteria"]  # no double report
+
+
+@pytest.mark.parametrize("url,kept", [
+    ("https://evil.example\\@forecast.weather.gov/x", False),   # browsers: '\' == '/', host evil.example
+    ("https://evil.example\\.forecast.weather.gov/", False),
+    ("https://user:pw@forecast.weather.gov/", False),           # userinfo
+    ("https://forecast.weather.gov@evil.example/", False),
+    ("https://forecast.weather.gov:8443/", False),              # non-443 port
+    ("https://forecast.weather.gov/\t", False),                 # control char (WHATWG strips tabs)
+    ("https://forecäst.weather.gov/", False),              # non-ASCII / IDN
+    ("javascript:alert(1)", False),
+    ("https://forecast.weather.gov/MapClick.php?lat=39.2&lon=-121.0", True),
+    ("https://forecast.weather.gov:443/x", True),
+    ("https://FORECAST.weather.gov/x", True),
+])
+def test_safe_url_rejects_parser_differentials(url, kept):
+    """Regression for the background security review: urlsplit vs browser host disagreement."""
+    assert (model.safe_url("nws", url) == url) is kept
+
+
+def test_real_adapter_urls_survive_strict_check():
+    for src in (NWS(), HAB(), OEHHA()):
+        for a in src.run(NOW):
+            assert a["url"] != model.SOURCE_URLS[src.id][1] or src.id == "hab", (src.id, a["url"])

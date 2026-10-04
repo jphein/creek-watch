@@ -87,16 +87,31 @@ SOURCE_URLS = {
     "oehha": ({"oehha.ca.gov"}, "https://oehha.ca.gov/fish/advisories"),
     "creekwatch": ({"creekwatch.realm.watch"}, "https://creekwatch.realm.watch/"),
 }
-_BAD_URL_CHARS = set('<>"\' \t\r\n`')
+_BAD_URL_CHARS = set('<>"\'`\\ ')   # plus every control / non-ASCII char (checked below)
 
 
 def safe_url(source: str, url: str | None) -> str:
+    """Return url only if it is unambiguous to EVERY URL parser, else the source's portal.
+
+    Python's urlsplit and browsers (WHATWG) disagree on edge cases: for https a browser treats
+    '\\' as '/', so 'https://evil.example\\@good.gov/' is host good.gov to urlsplit but
+    evil.example to a browser. So we only accept printable ASCII with no backslash, no
+    userinfo ('@'), no port other than 443, and a netloc that IS an allowlisted host.
+    """
     hosts, portal = SOURCE_URLS.get(source, (set(), "https://creekwatch.realm.watch/"))
+    if not isinstance(url, str) or not url or len(url) > 2000:
+        return portal
+    if any(ord(c) < 0x21 or ord(c) > 0x7E or c in _BAD_URL_CHARS for c in url):
+        return portal
     try:
-        u = urllib.parse.urlsplit(url or "")
+        u = urllib.parse.urlsplit(url)
+        port = u.port
     except ValueError:
         return portal
-    if u.scheme != "https" or u.hostname not in hosts or any(c in _BAD_URL_CHARS for c in (url or "")):
+    netloc = u.netloc.lower()
+    if u.scheme != "https" or "@" in netloc or port not in (None, 443):
+        return portal
+    if netloc.removesuffix(":443") not in hosts:
         return portal
     return url
 
