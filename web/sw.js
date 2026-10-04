@@ -84,10 +84,11 @@ self.addEventListener('push', (e) => {
   const title = String(d.title || 'Creek Watch alert').slice(0, 110);
   let body = String(d.summary || d.body || 'Open Creek Watch for details.').slice(0, 200);
   if (sev === 'alert') body += OFFICIAL_SUFFIX; // never imply we replace official warnings
-  const deep = id ? `/#alerts?id=${encodeURIComponent(id)}` : d.url;
+  // Backend sends url "/#alerts?id=<id>" (same-origin enforced below); build it from id if it doesn't. source_url is ignored.
+  const deep = typeof d.url === 'string' && d.url.includes('?id=') ? d.url : id ? `/#alerts?id=${encodeURIComponent(id)}` : d.url;
   e.waitUntil(self.registration.showNotification(`${SEV_LABEL[sev]}: ${title}`, {
     body,
-    tag: String(id || d.tag || 'creekwatch'),        // same id → an escalation replaces the earlier notification
+    tag: String(d.tag || id || 'creekwatch'),        // same tag/id → an escalation replaces the earlier notification
     renotify: sev === 'alert' || d.kind === 'escalated',
     requireInteraction: sev === 'alert',
     icon: 'icons/icon-192.png',

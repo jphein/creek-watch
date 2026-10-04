@@ -1,6 +1,6 @@
 // Alerts page: every active water alert (official feeds + Creek Watch early
 // warnings), filterable, deep-linkable (#alerts?id=… / #alerts?creek=…).
-import { getAlerts, getCreeks, SEVERITIES, feedUrls } from './api.js';
+import { getAlerts, getAlertItem, getCreeks, SEVERITIES, feedUrls } from './api.js';
 import { esc, SEV, CATEGORY_LABEL, alertHTML, officialLine } from './ui.js';
 import { mountSubscribe } from './subscribe.js';
 
@@ -26,6 +26,7 @@ export async function mountAlerts(el, qs) {
         ${SEVERITIES.map((s) => `<button type="button" class="chip sev-${s}" data-sev="${s}" aria-pressed="true"><span aria-hidden="true">${SEV[s].glyph}</span> ${SEV[s].label}</button>`).join('')}
       </fieldset>
     </form>
+    <div class="linked-alert" hidden></div>
     <p class="alerts-count" role="status" aria-live="polite"></p>
     <div class="alerts-list"><p class="muted">Loading alerts…</p></div>
     <p class="feeds small">Subscribe via feed: <span class="feed-links"></span></p>`;
@@ -56,10 +57,22 @@ export function showAlerts(qs) {
   getAlerts().then((a) => { all = a; render(); focusAlert(qs?.get('id')); }).catch(() => {});
 }
 
-function focusAlert(id) {
-  if (!id) return;
-  const el = root.querySelector(`[data-id="${CSS.escape(id)}"]`);
-  if (!el) return;
+async function focusAlert(id) {
+  const box = root.querySelector('.linked-alert');
+  if (!id) { box.hidden = true; return; }
+  let el = root.querySelector(`.alerts-list [data-id="${CSS.escape(id)}"]`);
+  if (!el) {
+    // Not in the active list (ended, or filtered out): fetch it so a notification tap never lands on nothing.
+    const a = await getAlertItem(id).catch(() => null);
+    box.hidden = false;
+    if (!a) {
+      box.innerHTML = `<p class="banner error" role="status">That alert is no longer available. It may have ended. Current alerts are below.</p>`;
+      return;
+    }
+    const ended = (a.status || 'active') !== 'active';
+    box.innerHTML = `<p class="linked-note">${ended ? `This alert has ${esc(a.status === 'cancelled' ? 'been cancelled' : 'ended')}. Shown for reference.` : 'The alert you opened:'}</p>${alertHTML(a, { open: true })}`;
+    el = box.querySelector('[data-id]');
+  } else box.hidden = true;
   el.querySelector('details')?.setAttribute('open', '');
   el.classList.add('focus-flash');
   el.scrollIntoView({ block: 'center' });
