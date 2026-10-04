@@ -39,6 +39,7 @@ With Docker:
 
 ```bash
 docker compose up --build
+# open http://localhost:8080
 ```
 
 The SQLite database (`data/creekwatch.db`) and photo uploads (`uploads/`) are created locally and are git-ignored.
@@ -73,9 +74,13 @@ docs/      spec, submission text, demo script, field guide
 | Source | Used for | Terms |
 |---|---|---|
 | Citizen reports (Creek Watch users) | Observations and photos | Submitted by users; EXIF stripped; names optional |
-| [USGS Water Services](https://waterservices.usgs.gov/) | Stream discharge and gage height | [U.S. public domain](https://www.usgs.gov/information-policies-and-instructions/copyrights-and-credits) |
+| [USGS Water Services](https://waterservices.usgs.gov/) | Discharge and gage height. Deer Creek: gauge 11418500 near Smartsville (about 22 km downstream, regulated by Lake Wildwood). Wolf Creek: **no live gauge**; Bear River near Wheatland (11424000) is shown as low-weight regional context only | [U.S. public domain](https://www.usgs.gov/information-policies-and-instructions/copyrights-and-credits) |
 | [National Weather Service API](https://www.weather.gov/documentation/services-web-api) | Temperature, rainfall, forecast | [Public domain](https://www.weather.gov/disclaimer); no endorsement implied |
-| [OpenStreetMap](https://www.openstreetmap.org/copyright) | Base map | © OpenStreetMap contributors, [ODbL](https://opendatacommons.org/licenses/odbl/) |
+| [OpenStreetMap](https://www.openstreetmap.org/copyright) | Base map; creek lines and the 12 access sites (via Overpass) | © OpenStreetMap contributors, [ODbL](https://opendatacommons.org/licenses/odbl/) |
+
+Details, retrieval URLs and the right-creek checks: [data/SOURCES.md](data/SOURCES.md).
+
+**Why citizen reports matter here:** neither creek has a live instrument in town, so a real-time gauge can't tell you what Wolf Creek or Deer Creek looks like downtown. People at the water can.
 
 Creek Watch is not affiliated with or endorsed by USGS, NOAA/NWS or OpenStreetMap.
 

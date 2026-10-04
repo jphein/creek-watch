@@ -27,7 +27,7 @@ Anyone at the creek files a 2-minute photo report; Creek Watch fuses it with liv
 - **Track 6, Resilience Informatics:** rule-based early-warning signals that combine citizen reports with environmental data. Heavy rain in the last 24 h plus brown-water reports raises a *runoff/sediment watch*. Heavy algae plus warm temperatures raises an *algal-bloom watch*. Any dead fish, or a chemical or sewage odour, raises an *alert*.
 
 ## Inspiration
-Wolf Creek runs through downtown Grass Valley, and Deer Creek runs through downtown Nevada City, in California's Sierra foothills. Both pass parks, trails, streets and homes, and people walk beside them every day. Those walkers see things an instrument can't: trash, algae, foam, an odd smell, a dead fish. But there's no simple way to record what they saw or to connect it with the stream-gauge and weather data that already exist. We wanted the people who notice first to become part of the early-warning system.
+Wolf Creek runs through downtown Grass Valley, and Deer Creek runs through downtown Nevada City, in California's Sierra foothills. Both pass parks, trails, streets and homes, and people walk beside them every day. Yet neither is monitored live where people are. **Wolf Creek has no real-time USGS stream gauge at all.** **Deer Creek's only real-time gauge (USGS 11418500, near Smartsville) is about 22 km downstream of Nevada City, below Lake Wildwood, whose regulation damps and delays what happens in town.** Those walkers see things an instrument can't: trash, algae, foam, an odd smell, a dead fish. But there's no simple way to record what they saw or to connect it with the stream-gauge and weather data that already exist. We wanted the people who notice first to become part of the early-warning system.
 
 ## What it does
 - **Report (phone-first):** take or choose a photo, then answer six quick questions: water colour, algae, trash, flow, odour, and dead fish. An optional note and wildlife sighting can be added. GPS fills the location and the app picks the nearest named spot. Photos have their EXIF metadata stripped on the server, and the reporter's name is optional.
@@ -43,7 +43,7 @@ Wolf Creek runs through downtown Grass Valley, and Deer Creek runs through downt
 
 ## Impact on ecosystem and human health (One Health)
 Creek health, wildlife health and human health are linked. Storm runoff carries sediment and street pollutants into the same water where fish and birds live and where children and dogs play. Algal blooms can harm wildlife, pets and people. Sewage or chemical odours point to contamination that matters to everyone downstream. Creek Watch makes these links visible at the neighbourhood scale:
-- **Earlier detection:** many casual observers can report between official samples, and each report carries a photo.
+- **Fills a real monitoring gap:** in town, these creeks have no live instrument (see Inspiration). Many casual observers can report between official samples, and each report carries a photo.
 - **Explainable, not black-box:** every score change says why, so residents and officials can trust it and act on it.
 - **Awareness and stewardship:** filing a report teaches people what a healthy creek looks like.
 
@@ -52,7 +52,8 @@ All code was written new for this hackathon on October 3–4, 2026, during the e
 
 - **Backend:** Python 3.12, FastAPI and SQLite, run with uv. One process serves the JSON API (`/api/*`) and the static web app. Photo uploads are re-encoded with Pillow (with HEIC support), which strips EXIF and caps the size. Enum validation, per-IP rate limiting and a geofence reject reports far from the creeks.
 - **Frontend:** a no-build progressive web app in plain HTML, CSS and ES modules, with Leaflet and OpenStreetMap tiles. It is mobile-first and installable, with light and dark themes.
-- **Data and score:** ingest modules pull USGS Water Services instantaneous values (discharge, gage height) and National Weather Service observations and forecasts, cached in SQLite. A transparent, weighted, rule-based score combines them with recent citizen reports. Each signal records its name, value, weight, explanation and source. The score has unit tests.
+- **Data and score:** creek lines and 12 public access sites were built from OpenStreetMap (Overpass API). Each site was snapped to the open channel and checked for public access; road bridges with private banks are marked "view from the bridge only". Ingest modules pull USGS Water Services instantaneous values (discharge, gage height) and National Weather Service data, cached in SQLite. A transparent, weighted, rule-based score combines them with recent citizen reports. Each signal records its name, value, weight, explanation and source. ⟨verify: "the score has unit tests" once the data lane's score PR lands⟩
+- **Honest gauge mapping:** a USGS site-inventory query over the area returns only 4 active real-time stream gauges. Deer Creek uses 11418500, which is on Deer Creek but 22 km downstream and regulated. Wolf Creek has no live gauge (former station 11423150 holds only 3 water-quality samples), so Bear River near Wheatland (11424000) is shown as low-weight regional context only. The score says so in its explanations rather than pretending a distant gauge describes the creek in town.
 - **Deploy:** a Docker container on a small always-on home server, behind Caddy with TLS and a Cloudflare tunnel, at https://creekwatch.realm.watch.
 - **AI assistance:** the code and docs were written with AI coding assistants (Anthropic's Claude, via Claude Code) under human direction and review. The app itself uses **no AI** in the scoring: the score is deterministic rules, so every result can be explained.
 
@@ -60,11 +61,11 @@ All code was written new for this hackathon on October 3–4, 2026, during the e
 | Source | What we use | Terms |
 |---|---|---|
 | **Citizen reports** (Creek Watch users) | Photos and observations | Submitted by users. EXIF stripped, names optional |
-| **USGS Water Services** ([waterservices.usgs.gov](https://waterservices.usgs.gov/)) | Stream discharge (cfs) and gage height (ft) | U.S. public domain ([USGS policy](https://www.usgs.gov/information-policies-and-instructions/copyrights-and-credits)) |
+| **USGS Water Services** ([waterservices.usgs.gov](https://waterservices.usgs.gov/)) | Discharge (cfs) and gage height (ft), provisional. Deer Creek: [11418500](https://waterdata.usgs.gov/monitoring-location/11418500/) near Smartsville, about 22 km downstream and regulated by Lake Wildwood. Wolf Creek: no live gauge; Bear River near Wheatland [11424000](https://waterdata.usgs.gov/monitoring-location/11424000/) as low-weight regional context only | U.S. public domain ([USGS policy](https://www.usgs.gov/information-policies-and-instructions/copyrights-and-credits)) |
 | **National Weather Service API** ([api.weather.gov](https://www.weather.gov/documentation/services-web-api)) | Temperature, 24-h precipitation, short forecast | Public domain ([NWS disclaimer](https://www.weather.gov/disclaimer)) |
-| **OpenStreetMap** ([openstreetmap.org](https://www.openstreetmap.org/copyright)) | Base map tiles | © OpenStreetMap contributors, ODbL. Attribution shown on the map |
+| **OpenStreetMap** ([openstreetmap.org](https://www.openstreetmap.org/copyright)) | Base map tiles; creek lines and access sites (via Overpass API) | © OpenStreetMap contributors, ODbL. Attribution shown on the map |
 
-⟨fill: the data lane confirms the exact USGS site numbers used, and whether any gauge is on these creeks or a nearby proxy.⟩
+Details and retrieval URLs: [`data/SOURCES.md`](https://github.com/jphein/creek-watch/blob/main/data/SOURCES.md).
 
 ## Challenges we ran into
 - ⟨fill on Sunday from the real build log. Candidates: finding public stream gauges on or near two small creeks; making the score explainable instead of a black box; HEIC photos from iPhones; GPS accuracy beside a creek; keeping the report flow to about 2 minutes.⟩
