@@ -47,9 +47,11 @@ Values travel only through pipes: never through argv, logs, the repo or the imag
 
 ## Alert poller
 
-`creekwatch-poll.timer` runs `deploy/poll.sh` every **10 min**, which does `python -m creekwatch.alerts.poller --once` *inside* the live container, so it gets the container's env, hardening and network. Leave `CREEKWATCH_POLLER` unset. The in-app poller is avoided because during a redeploy the staging container runs beside the live one on the same DB, and two in-app pollers could double-send pushes. Push dedupe (`alerts.last_pushed_severity`) and per-source state (`alert_sources`) live in the DB, so separate passes are safe. Overlapping passes are prevented by a lock; a skipped pass exits 75, which shows as a failed unit. Builds without the poller no-op. Logs: `journalctl -u creekwatch-poll`.
+**Decision (2026-10-03, jp-main): the in-app poller**, with `CREEKWATCH_POLLER=1` in `~/creekwatch/app.env`, set via `deploy/secrets.sh install-lines`. The env file is non-secret but takes the same 0600 path. **This holds only on one condition:** the Oracle must pass #39's atomic push claim. That claim is a single `UPDATE alerts SET last_pushed_severity=? WHERE id=? AND <rank(last) < rank(new)>`, with the rank comparison inside the `WHERE` and a push sent only when `rowcount == 1`. That claim is what stops the redeploy's staging container, which briefly runs a second poller on the same DB, from double-sending. If the claim ever changes, re-check this decision.
 
-**Not enabled by `install.sh`.** Enable it only once the poller honours DB-persisted due times and backoff, since `--once` currently refetches every source, including a 10 MB file, every pass: `sudo systemctl enable --now creekwatch-poll.timer`. The pass deadline runs inside the container (`timeout -k 10`), so a hung poller is killed there and passes can't pile up.
+Why in-app: it keeps per-source intervals and backoff, which `--once` doesn't. Without them, every source would be refetched every pass, including a 10 MB file every 10 min. During the redeploy overlap, both containers may *fetch*, which is harmless because the upserts are idempotent.
+
+**Fallback (installed, DISABLED):** `creekwatch-poll.timer` runs `deploy/poll.sh`, which does `docker exec … timeout -k 10 300 python -m creekwatch.alerts.poller --once` every 10 min. It's hardened, takes a lock (a skipped pass exits 75), fails loudly if it can't reach the container, and no-ops on builds without the poller. **Never run both:** to switch, remove `CREEKWATCH_POLLER` from app.env, redeploy, then run `sudo systemctl enable --now creekwatch-poll.timer`. Logs: `docker logs creekwatch | grep -i poller` (in-app) or `journalctl -u creekwatch-poll` (timer). Health of the sources: `GET /api/alerts/sources`.
 
 ## Backups
 
