@@ -1,7 +1,7 @@
 // Alerts page: every active water alert (official feeds + Creek Watch early
 // warnings), filterable, deep-linkable (#alerts?id=… / #alerts?creek=…).
 import { getAlerts, getCreeks, SEVERITIES, feedUrls } from './api.js';
-import { esc, SEV, CATEGORY_LABEL, alertHTML } from './ui.js';
+import { esc, SEV, CATEGORY_LABEL, alertHTML, officialLine } from './ui.js';
 import { mountSubscribe } from './subscribe.js';
 
 let root, all = [], creeks = [];
@@ -14,6 +14,7 @@ export async function mountAlerts(el, qs) {
     <header class="alerts-head">
       <h2 id="alerts-h">Water alerts</h2>
       <p class="lead">Official alerts and Creek Watch early warnings for Nevada County creeks, rivers and reservoirs, in one place.</p>
+      ${officialLine()}
       <button type="button" class="btn primary big" data-act="get-alerts" aria-expanded="false" aria-controls="get-alerts">
         <span aria-hidden="true">🔔</span><span>Get alerts on this phone</span></button>
     </header>

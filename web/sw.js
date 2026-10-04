@@ -61,10 +61,12 @@ self.addEventListener('fetch', (e) => {
   );
 });
 
-/* ---------- Web Push (docs/ALERTS-SPEC.md) ---------- */
-// Payload: {alert_id, title, body, severity, url:"/#alerts?id=…", tag}. Anything malformed still
-// shows a generic, safe notification: a push must always produce a visible notification.
-const SEV_LABEL = { alert: 'Alert', watch: 'Watch', advisory: 'Advisory', info: 'Info' };
+/* ---------- Web Push (docs/ALERTS-SPEC.md, contract from the api lane) ---------- */
+// Payload: {id, kind:"new"|"escalated", severity, category, title, summary, source_name, url:"/#alerts", source_url, creek_ids}.
+// Untrusted: everything is treated as plain text; the target URL must be same-origin. A push must always
+// produce a visible notification, so malformed payloads fall back to a generic one.
+const SEV_LABEL = { alert: 'ALERT', watch: 'WATCH', advisory: 'ADVISORY', info: 'INFO' };
+const OFFICIAL_SUFFIX = ' · Emergencies: Nevada County Alerts, AwareCA, 911.';
 
 function safeTarget(u) {
   try {
@@ -75,18 +77,22 @@ function safeTarget(u) {
 
 self.addEventListener('push', (e) => {
   let d = {};
-  try { d = e.data ? e.data.json() : {}; } catch { d = { body: e.data ? e.data.text() : '' }; }
+  try { d = e.data ? e.data.json() : {}; } catch { d = { summary: e.data ? e.data.text() : '' }; }
+  if (!d || typeof d !== 'object') d = {};
   const sev = SEV_LABEL[d.severity] ? d.severity : 'info';
-  const title = String(d.title || 'Creek Watch alert').slice(0, 120);
-  const body = String(d.body || 'Open Creek Watch for details.').slice(0, 240);
+  const id = d.id || d.alert_id || null;
+  const title = String(d.title || 'Creek Watch alert').slice(0, 110);
+  let body = String(d.summary || d.body || 'Open Creek Watch for details.').slice(0, 200);
+  if (sev === 'alert') body += OFFICIAL_SUFFIX; // never imply we replace official warnings
+  const deep = id ? `/#alerts?id=${encodeURIComponent(id)}` : d.url;
   e.waitUntil(self.registration.showNotification(`${SEV_LABEL[sev]}: ${title}`, {
     body,
-    tag: String(d.tag || d.alert_id || 'creekwatch'),
-    renotify: sev === 'alert',
+    tag: String(id || d.tag || 'creekwatch'),        // same id → an escalation replaces the earlier notification
+    renotify: sev === 'alert' || d.kind === 'escalated',
     requireInteraction: sev === 'alert',
     icon: 'icons/icon-192.png',
     badge: 'icons/badge-96.png',
-    data: { url: safeTarget(d.url || (d.alert_id ? `/#alerts?id=${encodeURIComponent(d.alert_id)}` : '/#alerts')), alert_id: d.alert_id || null },
+    data: { url: safeTarget(deep), id },
   }));
 });
 
@@ -119,7 +125,8 @@ self.addEventListener('pushsubscriptionchange', (e) => {
       r.onerror = () => res(null);
     });
     if (!filters) return;
-    if (old) await fetch('/api/push/unsubscribe', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ endpoint: old.endpoint }) }).catch(() => {});
-    await fetch('/api/push/subscribe', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ subscription: sub.toJSON(), filters }) }).catch(() => {});
+    if (old) await fetch('/api/push/subscriptions', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ endpoint: old.endpoint }) }).catch(() => {});
+    const { creek_ids = [], min_severity = 'watch', quiet_hours = null } = filters;
+    await fetch('/api/push/subscriptions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ subscription: sub.toJSON(), creek_ids, min_severity, quiet_hours }) }).catch(() => {});
   })());
 });

@@ -154,7 +154,7 @@ export async function getAlerts({ creek_id, severity, category, status = 'active
   if (MOCK) {
     list = await mockJson('alerts');
     if (creek_id) list = list.filter((a) => a.area?.creek_ids?.includes(creek_id));
-    if (severity) list = list.filter((a) => a.severity === severity);
+    if (severity) list = list.filter((a) => (SEV_RANK[a.severity] ?? 9) <= (SEV_RANK[severity] ?? 9)); // severity = minimum
     if (category) list = list.filter((a) => a.category === category);
     if (status) list = list.filter((a) => (a.status || 'active') === status);
   } else {
@@ -173,20 +173,21 @@ export async function getVapidKey() {
   return (await request('/api/push/vapid-public-key')).key;
 }
 
-export async function pushSubscribe(subscription, filters) {
-  const body = { subscription, filters };
+/** filters: {creek_ids: [] = all, min_severity, quiet_hours: {start,end,tz}|null}. 201 created / 200 updated. */
+export async function pushSubscribe(subscription, { creek_ids = [], min_severity = 'watch', quiet_hours = null } = {}) {
+  const body = { subscription, creek_ids, min_severity, quiet_hours };
   if (MOCK) {
     await sleep(300);
     sessionStorage.setItem('cw-mock-push', JSON.stringify(body));
-    return { id: 'mock', filters };
+    return body;
   }
-  return request('/api/push/subscribe', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  return request('/api/push/subscriptions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
 }
 
 export async function pushUnsubscribe(endpoint) {
   if (MOCK) { sessionStorage.removeItem('cw-mock-push'); return; }
-  const res = await fetch('/api/push/unsubscribe', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ endpoint }) }).catch(() => null);
-  if (res && !res.ok && res.status !== 404) throw new ApiError('Couldn’t reach Creek Watch to stop alerts. Try again.', { status: res.status });
+  const res = await fetch('/api/push/subscriptions', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ endpoint }) }).catch(() => null);
+  if (!res) throw new ApiError('Couldn’t reach Creek Watch to stop alerts. Try again.', { offline: true });
 }
 
 export function feedUrls(creek_id) {

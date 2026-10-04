@@ -12,6 +12,24 @@ export function safeUrl(u) {
   } catch { return ''; }
 }
 
+// Upstream alert links: absolute https:// only (re-checked client-side even though the API validates).
+export function httpsUrl(u) {
+  try { const x = new URL(String(u || '')); return x.protocol === 'https:' ? x.href : ''; } catch { return ''; }
+}
+
+// Life-safety warnings have official channels; Creek Watch defers to them (PRIOR-ART §2b).
+export const OFFICIAL = {
+  nca: 'https://www.nevadacountyca.gov/3780/Emergency-Alerts',
+  aware: 'https://aware.ca.gov/',
+};
+export function officialLine({ compact = false } = {}) {
+  return `<p class="official-line${compact ? ' compact' : ''}"><span aria-hidden="true">☎</span> <span>For emergencies and evacuations, sign up for
+    <a href="${OFFICIAL.nca}" target="_blank" rel="noopener noreferrer">Nevada County Alerts</a> and
+    <a href="${OFFICIAL.aware}" target="_blank" rel="noopener noreferrer">AwareCA</a> · call <a href="tel:911">911</a>.${
+      compact ? '' : ' Creek Watch is the everyday water-health layer between those, not a replacement for official warnings.'
+    }</span></p>`;
+}
+
 export function haversineKm(lat1, lon1, lat2, lon2) {
   const R = 6371, rad = Math.PI / 180;
   const dLat = (lat2 - lat1) * rad, dLon = (lon2 - lon1) * rad;
@@ -165,10 +183,9 @@ export function fmtWhen(iso) {
 export function alertHTML(a, { compact = false, open = false } = {}) {
   const sev = SEV[a.severity] ? a.severity : 'info';
   const s = SEV[sev];
-  const href = safeUrl(a.url);
-  const src = href
-    ? `<a href="${esc(href)}" target="_blank" rel="noopener noreferrer">${esc(a.source_name || a.source || 'Source')}</a>`
-    : esc(a.source_name || a.source || '');
+  const href = httpsUrl(a.url);
+  const srcName = a.source === 'creekwatch' ? 'Creek Watch early warning (not official)' : a.source_name || a.source || 'Source';
+  const src = href ? `<a href="${esc(href)}" target="_blank" rel="noopener noreferrer">${esc(srcName)}</a>` : esc(srcName);
   const when = [a.effective ? `From ${esc(fmtWhen(a.effective))}` : '', a.expires ? `until ${esc(fmtWhen(a.expires))}` : 'until further notice']
     .filter(Boolean).join(' ');
   if (compact) {
@@ -177,7 +194,7 @@ export function alertHTML(a, { compact = false, open = false } = {}) {
       <div><p class="a-kicker"><span class="a-sev">${s.label}</span> · ${esc(CATEGORY_LABEL[a.category] || 'Alert')}</p>
       <strong class="a-title">${esc(a.title)}</strong>
       ${a.summary ? `<p class="a-sum">${esc(a.summary)}</p>` : ''}
-      <p class="a-src">Source: ${src}</p></div></div>`;
+      <p class="a-src">Source: ${src}</p>${sev === 'alert' ? officialLine({ compact: true }) : ''}</div></div>`;
   }
   return `<article class="alert-item sev-${sev}" id="alert-${esc(a.id)}" data-id="${esc(a.id)}" tabindex="-1">
     <span class="a-glyph" aria-hidden="true">${s.glyph}</span>
@@ -189,6 +206,7 @@ export function alertHTML(a, { compact = false, open = false } = {}) {
       ${a.summary ? `<p class="a-sum">${esc(a.summary)}</p>` : ''}
       ${a.instruction ? `<p class="a-do"><strong>What to do:</strong> ${esc(a.instruction)}</p>` : ''}
       <p class="a-when">${when}</p>
+      ${sev === 'alert' ? officialLine({ compact: true }) : ''}
       <details class="a-more" ${open ? 'open' : ''}><summary>Source and details</summary>
         <p class="a-src">Official source: ${src}${href ? ' (opens the original alert)' : ''}</p>
         ${a.updated ? `<p class="a-src">Updated ${esc(fmtWhen(a.updated))}</p>` : ''}

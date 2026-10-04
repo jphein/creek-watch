@@ -792,3 +792,6 @@ html[data-save-data] .photo-figure { display: none; }
 .ga-steps li { margin-bottom: 8px; }
 .ios-share { display: inline-grid; place-items: center; width: 26px; height: 26px; border-radius: 6px; border: 2px solid currentColor; font-size: 0.85rem; vertical-align: middle; }
 .ga-times[hidden] { display: none; }
+.official-line { display: flex; gap: 8px; align-items: flex-start; margin: 10px 0 14px; padding: 10px 12px; border-radius: 12px; background: var(--surface-2); border: 1px solid var(--line); font-size: 0.92rem; color: var(--ink-2); }
+.official-line a { font-weight: 700; }
+.official-line.compact { margin: 8px 0 0; padding: 6px 8px; font-size: 0.82rem; background: color-mix(in srgb, var(--surface) 70%, transparent); }

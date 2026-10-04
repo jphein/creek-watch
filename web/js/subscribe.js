@@ -1,11 +1,12 @@
 // "Get alerts": opt-in Web Push with per-creek / per-severity filters and quiet hours.
 // No account. The server stores only the browser's push endpoint + keys and these filters.
 import { getCreeks, getVapidKey, pushSubscribe, pushUnsubscribe, feedUrls, SEVERITIES, ApiError } from './api.js';
-import { esc, SEV, toast } from './ui.js';
+import { esc, SEV, toast, officialLine } from './ui.js';
 import { kvSet, kvDel } from './store.js';
 
 const LS = 'cw-push-filters';
-const DEFAULT = { creek_ids: null, severities: ['alert', 'watch'], quiet_hours: null };
+const DEFAULT = { creek_ids: [], min_severity: 'watch', quiet_hours: null }; // creek_ids [] = all creeks
+const LEVELS = { alert: 'Only Alerts', watch: 'Watch and Alert', advisory: 'Advisory and up', info: 'Everything, including info' };
 let box, creeks = [], editing = false;
 
 const loadFilters = () => { try { return JSON.parse(localStorage.getItem(LS)) || null; } catch { return null; } };
@@ -48,7 +49,7 @@ const honesty = `
       <li><strong>No account, no email, no name, no location.</strong></li>
       <li>We store only your browser’s push address (a random URL from your phone’s push service, plus its encryption keys) and the creeks, severities and quiet hours you pick.</li>
       <li>Tap <strong>Stop alerts</strong> here at any time and we delete them. Blocking notifications for this site in your browser settings also stops them.</li>
-      <li>Alerts link to the official source (National Weather Service, State Water Board and others). Creek Watch is not an emergency service: in an emergency, call 911.</li>
+      <li>Alerts link to the official source (National Weather Service, State Water Board and others). Creek Watch is <strong>not</strong> an emergency warning service and doesn’t replace one: for emergencies and evacuations use Nevada County Alerts and AwareCA, and call 911.</li>
     </ul>
   </details>`;
 
@@ -58,7 +59,7 @@ function feedsHTML() {
 }
 
 async function render() {
-  const head = `<h3 id="ga-h">Get alerts on this phone</h3>`;
+  const head = `<h3 id="ga-h">Get alerts on this phone</h3>${officialLine({ compact: true })}`;
   if (!pushCapable() && isIOS() && !isStandalone()) {
     box.innerHTML = `${head}
       <div class="ga-ios">
@@ -88,11 +89,11 @@ async function render() {
   const sub = await currentSub();
   const saved = loadFilters();
   if (sub && saved && !editing) {
-    const names = (saved.creek_ids || creeks.map((c) => c.id)).map((id) => creeks.find((c) => c.id === id)?.name || id);
+    const names = saved.creek_ids?.length ? saved.creek_ids.map((id) => creeks.find((c) => c.id === id)?.name || id) : ['All creeks'];
     box.innerHTML = `${head}
       <div class="ga-on" role="status"><span class="ga-check" aria-hidden="true">✓</span><div>
         <strong>Alerts are on for this phone</strong>
-        <p>${esc(names.join(', '))} · ${esc(saved.severities.map((s) => SEV[s]?.label || s).join(', '))}${
+        <p>${esc(names.join(', '))} · ${esc(LEVELS[saved.min_severity] || saved.min_severity)}${
           saved.quiet_hours ? ` · quiet ${esc(saved.quiet_hours.start)}–${esc(saved.quiet_hours.end)}` : ''
         }</p></div></div>
       <div class="ga-actions"><button type="button" class="btn secondary" data-ga="edit">Change</button>
@@ -101,7 +102,7 @@ async function render() {
     return;
   }
   const f = saved || DEFAULT;
-  const checkedCreek = (id) => !f.creek_ids || f.creek_ids.includes(id);
+  const checkedCreek = (id) => !f.creek_ids?.length || f.creek_ids.includes(id);
   box.innerHTML = `${head}
     <form class="ga-form" novalidate>
       <fieldset><legend>Which waters?</legend>
@@ -109,8 +110,8 @@ async function render() {
         <p class="small muted">Area-wide alerts (like a flood watch for the county) come with any creek you pick.</p>
       </fieldset>
       <fieldset><legend>How serious?</legend>
-        ${SEVERITIES.map((s) => `<label class="ga-check-row sev-${s}"><input type="checkbox" name="sev" value="${s}" ${f.severities.includes(s) ? 'checked' : ''}>
-          <span class="ga-glyph" aria-hidden="true">${SEV[s].glyph}</span> ${SEV[s].label} <span class="muted">· ${SEV[s].say}</span></label>`).join('')}
+        ${SEVERITIES.map((s) => `<label class="ga-check-row sev-${s}"><input type="radio" name="minsev" value="${s}" ${f.min_severity === s ? 'checked' : ''}>
+          <span class="ga-glyph" aria-hidden="true">${SEV[s].glyph}</span> ${esc(LEVELS[s])}</label>`).join('')}
       </fieldset>
       <fieldset><legend>Quiet hours</legend>
         <label class="ga-check-row"><input type="checkbox" name="quiet" ${f.quiet_hours ? 'checked' : ''}> Don’t buzz me at night</label>
@@ -118,7 +119,7 @@ async function render() {
           <label>From <input type="time" name="qstart" value="${esc(f.quiet_hours?.start || '22:00')}"></label>
           <label>to <input type="time" name="qend" value="${esc(f.quiet_hours?.end || '07:00')}"></label>
         </div>
-        <p class="small muted">Alerts (✕) always come through, even in quiet hours.</p>
+        <p class="small muted">Only Alerts (✕) come through during quiet hours.</p>
       </fieldset>
       <p class="need-hint" aria-live="polite"></p>
       <button type="submit" class="btn primary big"><span aria-hidden="true">🔔</span><span>${sub ? 'Save changes' : 'Turn on alerts'}</span></button>
@@ -128,12 +129,14 @@ async function render() {
 }
 
 function readForm(form) {
-  const creek_ids = [...form.querySelectorAll('input[name="creek"]:checked')].map((i) => i.value);
-  const severities = [...form.querySelectorAll('input[name="sev"]:checked')].map((i) => i.value);
+  const boxes = [...form.querySelectorAll('input[name="creek"]')];
+  const picked = boxes.filter((i) => i.checked).map((i) => i.value);
+  const creek_ids = picked.length === boxes.length ? [] : picked; // [] = all creeks (incl. new ones later)
+  const min_severity = form.querySelector('input[name="minsev"]:checked')?.value || 'watch';
   const quiet = form.querySelector('input[name="quiet"]').checked;
   const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'America/Los_Angeles';
   return {
-    creek_ids, severities,
+    creek_ids, min_severity, _none: !picked.length,
     quiet_hours: quiet ? { start: form.qstart.value || '22:00', end: form.qend.value || '07:00', tz } : null,
   };
 }
@@ -168,10 +171,8 @@ function bind(key, existing) {
     e.preventDefault();
     const hint = form.querySelector('.need-hint');
     const filters = readForm(form);
-    if (!filters.creek_ids.length || !filters.severities.length) {
-      hint.textContent = 'Pick at least one creek and one level.';
-      return;
-    }
+    if (filters._none) { hint.textContent = 'Pick at least one creek.'; return; }
+    delete filters._none;
     const btn = form.querySelector('button[type="submit"]');
     btn.disabled = true;
     hint.textContent = '';
