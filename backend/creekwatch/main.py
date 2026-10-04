@@ -121,7 +121,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     creeks = load_creeks(s.sites_json)
     creek_by_id = {c["id"]: c for c in creeks}
     data = DataLayer(s.conditions_ttl_s)
-    limiter = RateLimiter(s.rate_limit_count, s.rate_limit_window_s, s.rate_limit_global)
+    limiter = RateLimiter(s.rate_limit_count, s.rate_limit_window_s)
+    photo_budget = RateLimiter(s.photo_budget, s.rate_limit_window_s)
+    report_budget = RateLimiter(s.report_budget, s.rate_limit_window_s)
     app.state.settings, app.state.data, app.state.limiter = s, data, limiter
 
     def row_to_report(row: Any) -> dict[str, Any]:
@@ -234,7 +236,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         if obs < now - timedelta(days=30):
             raise HTTPException(422, "observed_at is more than 30 days ago")
 
-        photo_file = None
+        # Decode the photo BEFORE spending any global budget, so garbage uploads can't drain them.
+        clean: bytes | None = None
         if photo is not None and photo.filename:
             raw = await photo.read(s.max_photo_bytes + 1)
             if len(raw) > s.max_photo_bytes:
@@ -244,8 +247,17 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                     clean = await run_in_threadpool(process_photo, raw, s.photo_max_px)
                 except PhotoError as e:
                     raise HTTPException(415, str(e))
-                photo_file = f"{uuid.uuid4().hex}.jpg"
-                (s.uploads_dir / photo_file).write_bytes(clean)
+
+        # Global budgets, spent only by fully validated reports that are about to be stored.
+        if report_budget.check("global") is not None:
+            raise HTTPException(503, "Creek Watch is very busy right now. Please try again in a few minutes.")
+        if clean is not None and photo_budget.check("global") is not None:
+            raise HTTPException(503, "We're receiving a lot of photos right now. "
+                                     "Please send your report without the photo, or try again in a few minutes.")
+        photo_file = None
+        if clean is not None:
+            photo_file = f"{uuid.uuid4().hex}.jpg"
+            (s.uploads_dir / photo_file).write_bytes(clean)
 
         clean_text = lambda v: (v or "").strip() or None  # noqa: E731
         rec = {

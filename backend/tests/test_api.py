@@ -141,11 +141,39 @@ def test_public_coords_are_coarsened(client):
     assert client.get(f"/api/reports/{r['id']}").json()["lat"] == 39.263
 
 
-def test_rate_limiter_global_cap_and_bounded_keys(monkeypatch):
+def test_rate_limiter_bounded_keys(monkeypatch):
     from creekwatch import ratelimit
 
     monkeypatch.setattr(ratelimit, "MAX_KEYS", 50)
-    rl = ratelimit.RateLimiter(count=5, window_s=600, global_count=100)
-    allowed = [rl.check(f"10.0.{i // 256}.{i % 256}") is None for i in range(150)]  # rotating IPs
-    assert sum(allowed) == 100 and not any(allowed[100:])
+    rl = ratelimit.RateLimiter(count=5, window_s=600)
+    assert all(rl.check(f"10.0.{i // 256}.{i % 256}") is None for i in range(500))  # rotating IPs
     assert len(rl._hits) <= 50
+
+
+def test_photo_budget_cannot_block_reports(tmp_path):
+    """DoS guard: junk requests don't drain the global budget, and an exhausted budget only refuses photos."""
+    s = Settings(data_dir=tmp_path / "d", web_dir=tmp_path / "w", sites_json=tmp_path / "m.json",
+                 rate_limit_count=1000, photo_budget=2)
+    jpg = gps_jpeg((100, 100))
+    with TestClient(create_app(s)) as c:
+        for _ in range(20):  # flood of invalid posts with photos
+            assert c.post("/api/reports", data=dict(REPORT, water_color="x"),
+                          files={"photo": ("a.jpg", jpg, "image/jpeg")}).status_code == 422
+        for _ in range(20):  # valid fields, garbage photo: must not spend the photo budget
+            assert c.post("/api/reports", data=REPORT,
+                          files={"photo": ("a.jpg", b"garbage", "image/jpeg")}).status_code == 415
+        codes = [c.post("/api/reports", data=REPORT, files={"photo": ("a.jpg", jpg, "image/jpeg")}).status_code
+                 for _ in range(3)]
+        assert codes == [201, 201, 503]
+        assert c.post("/api/reports", data=REPORT).status_code == 201  # text report still accepted
+
+
+def test_report_budget_bounds_valid_flood_only(tmp_path):
+    s = Settings(data_dir=tmp_path / "d", web_dir=tmp_path / "w", sites_json=tmp_path / "m.json",
+                 rate_limit_count=1000, report_budget=3)
+    with TestClient(create_app(s)) as c:
+        for _ in range(10):  # junk never counts against the global report budget
+            assert c.post("/api/reports", data=dict(REPORT, algae="x")).status_code == 422
+            assert c.post("/api/reports", data=REPORT,
+                          files={"photo": ("a.jpg", b"garbage", "image/jpeg")}).status_code == 415
+        assert [c.post("/api/reports", data=REPORT).status_code for _ in range(4)] == [201, 201, 201, 503]
