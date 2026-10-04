@@ -262,3 +262,50 @@ def test_reports_migration_adds_cleanup_columns(tmp_path):
     db.init(p); db.init(p)                                         # idempotent
     row = sqlite3.connect(p).execute("SELECT trash_removed, trash_bags FROM reports").fetchone()
     assert row == (0, None)
+
+
+# ---- conditions: startup warm-up + single-flight (cold first visit after every redeploy) -------
+
+def test_conditions_single_flight():
+    import threading
+    import time as _t
+    from creekwatch.data_iface import DataLayer
+    calls = []
+    dl = DataLayer(600, use_data_package=False)
+    dl._get_conditions = lambda cid: calls.append(cid) or _t.sleep(0.5) or {"gauge": None, "weather": None}
+    ths = [threading.Thread(target=dl.conditions, args=("deer",)) for _ in range(5)]
+    for t in ths:
+        t.start()
+    for t in ths:
+        t.join()
+    assert calls == ["deer"], "concurrent callers must share one upstream fetch"
+
+
+def _counting_app(tmp_path, warm: bool):
+    s = Settings(data_dir=tmp_path / "d", web_dir=tmp_path / "w", sites_json=tmp_path / "m.json", warm_conditions=warm)
+    app = create_app(s)
+    calls = []
+    app.state.data._get_conditions = lambda cid: calls.append(cid) or {"gauge": None, "weather": None}
+    return app, calls
+
+
+def test_conditions_warmed_at_startup(tmp_path):
+    import time as _t
+    app, calls = _counting_app(tmp_path, warm=True)
+    with TestClient(app) as c:
+        deadline = _t.monotonic() + 5
+        while sorted(calls) != ["deer", "wolf"] and _t.monotonic() < deadline:
+            _t.sleep(0.02)
+        assert sorted(calls) == ["deer", "wolf"], "every creek prefetched with no request"
+        c.get("/api/conditions", params={"creek_id": "deer"})
+        assert sorted(calls) == ["deer", "wolf"], "the first visitor hits the warm cache"
+
+
+def test_conditions_warmup_can_be_disabled(tmp_path):
+    import time as _t
+    app, calls = _counting_app(tmp_path, warm=False)
+    with TestClient(app) as c:
+        _t.sleep(0.3)
+        assert calls == []
+        c.get("/api/conditions", params={"creek_id": "deer"})
+        assert calls == ["deer"]
