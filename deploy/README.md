@@ -33,6 +33,24 @@ The container runs with `--memory 1536m --memory-swap 1536m --pids-limit 256 --s
 
 A sha that fails is written to `~/creekwatch/failed.shas`, and the timer won't retry it. A new merge, or a manual run, will. Measured swap gap: one probe miss at a 0.5 s interval, so about 1 s.
 
+## Secrets (VAPID for Web Push)
+
+Vaultwarden is the source of truth: the secure note **"creekwatch VAPID"** holds the fields `CREEKWATCH_VAPID_PRIVATE`, `CREEKWATCH_VAPID_PUBLIC` and `CREEKWATCH_VAPID_SUBJECT`. ubox0 gets them in `~/creekwatch/app.env`, which is outside the repo and the image, mode 0600 and owned by the deploy user. `redeploy.sh` passes that file with `--env-file` to both the staging and the live container.
+
+| Do | Command (on a host where `bw` is unlocked) |
+|---|---|
+| Create the keypair (once) | `deploy/secrets.sh init`: generated inside a pipe straight into a new vault item; refuses if one exists |
+| Install/refresh on ubox0 and apply | `deploy/secrets.sh install`: vault → ssh **stdin** → app.env (0600), then a redeploy |
+| Check names (never values) | `deploy/secrets.sh status` |
+
+Values travel only through pipes: never through argv, logs, the repo or the image. Rotating the keypair invalidates every push subscription, so `init` won't overwrite. `deploy/tests/secrets-plumbing.sh` exercises the transport with a **throwaway** key: 0600, merge, refusal of malformed lines, the value intact in a hardened container, and no trace in the journal or container logs. A planted-leak probe confirms the leak check can see.
+
+## Alert poller
+
+`creekwatch-poll.timer` runs `deploy/poll.sh` every **10 min**, which does `python -m creekwatch.alerts.poller --once` *inside* the live container, so it gets the container's env, hardening and network. Leave `CREEKWATCH_POLLER` unset. The in-app poller is avoided because during a redeploy the staging container runs beside the live one on the same DB, and two in-app pollers could double-send pushes. Push dedupe (`alerts.last_pushed_severity`) and per-source state (`alert_sources`) live in the DB, so separate passes are safe. Overlapping passes are prevented by a lock; a skipped pass exits 75, which shows as a failed unit. Builds without the poller no-op. Logs: `journalctl -u creekwatch-poll`.
+
+**Not enabled by `install.sh`.** Enable it only once the poller honours DB-persisted due times and backoff, since `--once` currently refetches every source, including a 10 MB file, every pass: `sudo systemctl enable --now creekwatch-poll.timer`. The pass deadline runs inside the container (`timeout -k 10`), so a hung poller is killed there and passes can't pile up.
+
 ## Backups
 
 `creekwatch-backup.timer` runs **hourly** and copies to **disks** at `/mnt/raid/backups/ubox0/creekwatch/`, which borg snapshots nightly at 03:00:
