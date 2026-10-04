@@ -20,3 +20,16 @@ Everything here is public and keyless. Retrieved 2026-10-03 unless noted.
 - Historical USGS water-quality sample sites on these creeks (no real-time data; mostly from the USGS mercury/mining-legacy studies). They are useful for the story but not for the live score:
   - Wolf Creek: 391231121041001 "WOLF C A GRASS VALLEY", 390955121034101 "WOLF C NR LA BARR MEADOWS", 11423150.
   - Deer Creek: 391533121021601 "DEER C A NEVADA CITY", 391518121025801 "DEER C A STOCKING FLAT", 391440121080801 "DEER C BL DEER C FALLS", and others.
+
+## Weather: NWS and Open-Meteo
+- NWS latest observation: `https://api.weather.gov/stations/KGOO/observations/latest`. KGOO is Nevada County Air Park (39.2240, −121.0031), the first station that `/gridpoints/STO/61,93/stations` (Grass Valley) and `/gridpoints/STO/63,95/stations` (Nevada City) list. Its precipitation fields came back null in testing, so we don't use them for rain.
+- NWS forecast: `https://api.weather.gov/gridpoints/STO/61,93/forecast` (Wolf Creek) and `https://api.weather.gov/gridpoints/STO/63,95/forecast` (Deer Creek), resolved through `/points/{lat},{lon}`.
+- Rain over the past and next 24 h: Open-Meteo `https://api.open-meteo.com/v1/forecast?hourly=precipitation&past_days=2&forecast_days=2`. This is keyless, gridded model data (not a rain gauge).
+
+## USGS reliability note (2026-10-03)
+- Legacy `waterservices.usgs.gov` returned intermittent HTTP 503 errors during testing (the same URL alternated between 200 and 503). `ingest.fetch_gauge` retries once, then falls back to the new USGS Water Data API: `https://api.waterdata.usgs.gov/ogcapi/v0/collections/latest-continuous/items?monitoring_location_id=USGS-<site>&parameter_code=00060,00065`. The new API returned identical values (4.84 cfs and 2.50 ft at 2026-10-04T00:00Z for 11418500).
+- The daily flow percentiles come from the stat service and are committed as `flow_stats.json` (all 366 days for both gauges). That way the score doesn't depend on that endpoint's uptime.
+
+## Community monitoring (documented, not ingested)
+- Wolf Creek Community Alliance: https://wolfcreekalliance.org/programs/ (about 20 years of volunteer water-quality monitoring).
+- Sierra Streams Institute (formerly Friends of Deer Creek): https://sierrastreamsinstitute.org/ ; data in RiverDB at https://riverdb.org/org/SSI .
