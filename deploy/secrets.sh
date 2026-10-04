@@ -10,12 +10,12 @@
 #   deploy/secrets.sh write-env   # on ubox0: merge KEY=VALUE lines from stdin into app.env
 #
 # Env contract (backend reads these): CREEKWATCH_VAPID_PRIVATE (raw 32-byte P-256 scalar, base64url, no pad),
-# CREEKWATCH_VAPID_PUBLIC (65-byte uncompressed point, base64url, no pad), CREEKWATCH_VAPID_SUBJECT (mailto:).
+# CREEKWATCH_VAPID_PUBLIC (65-byte uncompressed point, base64url, no pad), CREEKWATCH_VAPID_SUBJECT (https URL or mailto:).
 set -euo pipefail
 
 ITEM="${CW_VAPID_ITEM:-creekwatch VAPID}"
 HOST="${CW_DEPLOY_HOST:-ubox0}"
-SUBJECT="${CW_VAPID_SUBJECT:-mailto:creekwatch@realm.watch}"
+SUBJECT="${CW_VAPID_SUBJECT:-https://creekwatch.realm.watch}"   # RFC 8292 allows https; no unmonitored mailbox
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 log() { printf '%s secrets: %s\n' "$(date '+%F %T %Z')" "$*" >&2; }
 
