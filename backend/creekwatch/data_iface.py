@@ -157,6 +157,13 @@ class DataLayer:
         self._get_conditions, self._compute_health, self._report_flags = _resolve(use_data_package)
         self.stubbed = self._get_conditions is _stub_get_conditions or self._compute_health is _stub_compute_health
         self.ttl = conditions_ttl_s
+        self._prewarm = None
+        if not self.stubbed:
+            try:
+                from data import ingest  # type: ignore
+                self._prewarm = getattr(ingest, "prewarm", None)
+            except Exception:  # noqa: BLE001
+                self._prewarm = None
         self._cache: dict[str, tuple[float, dict]] = {}
         self._lock = threading.Lock()
 
@@ -177,6 +184,17 @@ class DataLayer:
         with self._lock:
             self._cache[creek_id] = (now, result)
         return result
+
+    def prewarm(self, creek_ids):
+        """Start warming the data package's caches in a daemon thread; returns at once.
+        Returns the thread (or None when stubbed / unavailable)."""
+        if self._prewarm is None:
+            return None
+        try:
+            return self._prewarm(list(creek_ids))
+        except Exception:  # noqa: BLE001 - startup must never fail on a warm-up
+            log.exception("prewarm failed to start")
+            return None
 
     def health(self, creek_id: str, reports: list[dict], conditions: dict) -> dict[str, Any]:
         return self._compute_health(creek_id, reports, conditions)

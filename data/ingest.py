@@ -54,6 +54,8 @@ SOURCES = {
 
 GAUGE_NAMES = {"11424000": "BEAR R NR WHEATLAND CA", "11418500": "DEER C NR SMARTSVILLE CA"}
 
+WQ_WAIT_S = 3.0   # don't hold a request longer than this for RiverDB; answer from the snapshot
+
 TTL = {"gauge": 900, "weather": 900, "stats": 86400}
 
 
@@ -80,6 +82,7 @@ def _retry_once(fn):
 # -------------------------------------------------------------------------- cache
 _cache: dict[str, tuple[float, object]] = {}
 _failed: dict[str, float] = {}
+_inflight: set[str] = set()   # keys with a fetch running right now (never start a duplicate)
 _lock = threading.Lock()
 
 
@@ -106,12 +109,17 @@ def _cached(key: str, ttl: float, fn):
         return hit[1]
     if failed_at is not None and now - failed_at < FAIL_BACKOFF_S:
         return _stale(hit)
+    with _lock:
+        if key in _inflight:      # another request/prewarm is already fetching this: don't pile on
+            return _stale(hit)
+        _inflight.add(key)
     err = None
     try:
         val = fn()
     except Exception as e:  # noqa: BLE001 - any upstream failure degrades to stale/None
         val, err = None, e
     with _lock:
+        _inflight.discard(key)
         if val is not None:
             _cache[key] = (now, val)
             _failed.pop(key, None)
@@ -125,10 +133,18 @@ def _cached(key: str, ttl: float, fn):
     return val if val is not None else _stale(hit)
 
 
+def _peek(key: str):
+    """Cached value for key without fetching (fresh, or flagged stale), else None."""
+    with _lock:
+        hit = _cache.get(key)
+    return hit[1] if hit else None
+
+
 def clear_cache():
     with _lock:
         _cache.clear()
         _failed.clear()
+        _inflight.clear()
 
 
 def _utc_iso(s: str | None) -> str | None:
@@ -321,6 +337,28 @@ def _flow_snapshot():
 _pool = ThreadPoolExecutor(max_workers=8, thread_name_prefix="creekwatch-ingest")
 
 
+def prewarm(creek_ids=None) -> threading.Thread:
+    """Warm every creek's conditions in a daemon thread and return at once.
+
+    Call at app startup so the first visitor after a (re)deploy doesn't wait on cold
+    upstreams (RiverDB timeouts measured at ~10 s per fresh process on 2026-10-03).
+    Never blocks the caller and never raises."""
+    ids = list(creek_ids or SOURCES)
+
+    def run():
+        for cid in ids:
+            t0 = time.time()
+            try:
+                get_conditions(cid)   # module-global lookup, so tests can patch it
+                log.info("prewarmed conditions for %s in %.1fs", cid, time.time() - t0)
+            except Exception as e:  # noqa: BLE001
+                log.warning("prewarm %s failed: %s", cid, e)
+
+    t = threading.Thread(target=run, name="creekwatch-prewarm", daemon=True)
+    t.start()
+    return t
+
+
 def get_conditions(creek_id: str, *, max_age_s: int | None = None, timeout_s: float = 8) -> dict:
     """Current public conditions for one creek, shaped like GET /api/conditions.
 
@@ -339,7 +377,7 @@ def get_conditions(creek_id: str, *, max_age_s: int | None = None, timeout_s: fl
         "fc": lambda: _cached(f"fc:{cfg['nws_forecast']}", ttl("weather"), lambda: _retry_once(lambda: fetch_nws_forecast(cfg["nws_forecast"], timeout_s))),
         "rain": lambda: _cached(f"rain:{lat},{lon}", ttl("weather"), lambda: _retry_once(lambda: fetch_rain(lat, lon, timeout_s))),
     }
-    from . import wq
+    from . import wq   # lazy: wq imports ingest
     jobs["wq"] = lambda: wq.get_water_quality(creek_id, timeout_s=timeout_s)
     from . import cdec
     jobs["river"] = lambda: _cached("cdec:river", ttl("gauge"), lambda: cdec.get_river(timeout_s=timeout_s))
@@ -347,9 +385,17 @@ def get_conditions(creek_id: str, *, max_age_s: int | None = None, timeout_s: fl
     res = {}
     for k, f in futs.items():
         try:
-            res[k] = f.result(timeout=timeout_s * 2 + 2)
+            res[k] = f.result(timeout=WQ_WAIT_S if k == "wq" else timeout_s * 2 + 2)
         except Exception:  # noqa: BLE001
             res[k] = None
+            if k == "wq":
+                # RiverDB slow (e.g. a cold process after a deploy): answer now from the snapshot
+                # plus any cached live value; the job keeps running and fills the cache for the
+                # next request. No fetch here, and no failure is recorded for the still-running job.
+                try:
+                    res[k] = wq.get_water_quality(creek_id, timeout_s=timeout_s, cached_only=True)
+                except Exception:  # noqa: BLE001
+                    res[k] = None
 
     gauge = None
     if res["gauge"]:

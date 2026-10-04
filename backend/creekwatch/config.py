@@ -41,6 +41,9 @@ class Settings:
         "CREEKWATCH_TRUSTED_PROXIES", "127.0.0.0/8,::1/128,172.16.0.0/12"))
 
     # Alerts: background poller (off unless enabled; tests/dev never fetch), push limits.
+    # Warm data.ingest caches in a background thread at startup (first visitor after a deploy
+    # shouldn't wait on cold upstreams). Never delays readiness.
+    prewarm_enabled: bool = field(default_factory=lambda: _env_bool("CREEKWATCH_PREWARM", True))
     poller_enabled: bool = field(default_factory=lambda: _env_bool("CREEKWATCH_POLLER", False))
     poller_tick_s: float = field(default_factory=lambda: float(os.environ.get("CREEKWATCH_POLLER_TICK_S", "30")))
     push_max_subs: int = field(default_factory=lambda: int(os.environ.get("CREEKWATCH_PUSH_MAX_SUBS", "5000")))

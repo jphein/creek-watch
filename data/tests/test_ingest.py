@@ -242,3 +242,74 @@ def test_stale_riverdb_value_is_not_reported_live(monkeypatch):
     monkeypatch.setattr(ingest.time, "time", lambda: clock["t"])
     again = [s for s in wq.get_water_quality("deer", now=now)["stations"] if s["agency"] == "SYRCL"]
     assert again and all((not s["live"]) and s["stale"] for s in again)
+
+
+# ---- cold start: prewarm + bounded wait on RiverDB --------------------------------------
+def test_prewarm_returns_immediately_and_warms_every_creek(monkeypatch):
+    import time
+    # (gate.wait, not time.sleep: the autouse fixture no-ops time.sleep)
+    import threading as th
+    seen, gate = [], th.Event()
+
+    def slow(cid, **kw):
+        gate.wait(2)
+        seen.append(cid)
+        return {}
+    monkeypatch.setattr(ingest, "get_conditions", slow)
+    t0 = time.monotonic()
+    t = ingest.prewarm(["wolf", "deer"])
+    assert time.monotonic() - t0 < 0.1 and t.daemon        # never blocks the caller
+    gate.set()
+    t.join(5)
+    assert seen == ["wolf", "deer"]
+
+
+def test_slow_riverdb_capped_then_live_from_cache(monkeypatch):
+    # NB: the autouse fixture no-ops time.sleep (global module), so delays use threading.Event.
+    import threading as th
+    import time as _t
+    monkeypatch.setattr(ingest, "_http_get_text", lambda url, timeout: route(url))
+    monkeypatch.setattr(ingest, "WQ_WAIT_S", 0.3)
+    release = th.Event()
+
+    def slow_gql(ref, timeout):
+        release.wait(5)                                     # RiverDB answering slowly
+        return RIVERDB
+    monkeypatch.setattr(wq, "_gql", slow_gql)
+    t0 = _t.monotonic()
+    c = ingest.get_conditions("deer")
+    assert _t.monotonic() - t0 < 0.9                        # didn't wait for RiverDB
+    syrcl = [s for s in c["water_quality"]["stations"] if s["agency"] == "SYRCL"]
+    assert syrcl and not any(s["live"] for s in syrcl)       # snapshot answer, honestly not live
+    assert not any(k.startswith("riverdb:") for k in ingest._failed)   # no false failure recorded
+    release.set()                                           # RiverDB answers; the job finishes
+    deadline = _t.monotonic() + 3
+    while ingest._peek("riverdb:17592187179149") is None and _t.monotonic() < deadline:
+        release.wait(0.05)
+    c2 = ingest.get_conditions("deer")
+    assert all(s["live"] for s in c2["water_quality"]["stations"] if s["agency"] == "SYRCL")
+
+
+
+def test_concurrent_fetches_for_same_key_are_not_duplicated():
+    """Live run 2026-10-03: a visitor during prewarm started a 2nd RiverDB call for the same station."""
+    import threading as th
+    import time as _t
+    release, calls = th.Event(), {"n": 0}
+
+    def slow():
+        calls["n"] += 1
+        release.wait(3)
+        return {"v": 1}
+    t = th.Thread(target=lambda: ingest._cached("riverdb:dup", 60, slow))
+    t.start()
+    deadline = _t.monotonic() + 2
+    while "riverdb:dup" not in ingest._inflight and _t.monotonic() < deadline:
+        release.wait(0.01)
+    t0 = _t.monotonic()
+    assert ingest._cached("riverdb:dup", 60, slow) is None      # no duplicate call; answers at once
+    assert _t.monotonic() - t0 < 0.1 and calls["n"] == 1
+    release.set()
+    t.join(3)
+    assert ingest._cached("riverdb:dup", 60, slow) == {"v": 1} and calls["n"] == 1
+    assert "riverdb:dup" not in ingest._inflight
