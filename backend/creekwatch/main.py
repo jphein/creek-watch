@@ -103,7 +103,8 @@ def make_client_ip(trusted: str, only_header: str | None = None):
     Cloudflare's CF-Connecting-IP (set at the edge, so unspoofable through the tunnel), then the first
     X-Forwarded-For hop. Anyone else is identified by the TCP peer address.
     only_header (CREEKWATCH_CLIENT_IP_HEADER): when set, a trusted peer is believed ONLY via that one header
-    (X-Forwarded-For: first hop); every other client-IP header is ignored. Use it when the front proxy is
+    (X-Forwarded-For: its LAST hop, the one the proxy itself wrote; a client-supplied prefix is ignored);
+    every other client-IP header is ignored, and a missing/invalid value means the TCP peer (no fall-through). Use it when the front proxy is
     not Cloudflare (e.g. kamal-proxy overwriting XFF), where a client could otherwise send its own
     CF-Connecting-IP and pick its rate-limit bucket."""
     nets = [ipaddress.ip_network(n.strip(), strict=False) for n in trusted.split(",") if n.strip()]
@@ -122,7 +123,7 @@ def make_client_ip(trusted: str, only_header: str | None = None):
         for name in sources:
             raw = request.headers.get(name, "")
             if name == "x-forwarded-for":
-                raw = raw.split(",")[0]
+                raw = raw.split(",")[-1 if only_header else 0]
             try:
                 return str(ipaddress.ip_address(raw.strip()))
             except ValueError:
