@@ -245,25 +245,6 @@ def test_stale_riverdb_value_is_not_reported_live(monkeypatch):
 
 
 # ---- cold start: prewarm + bounded wait on RiverDB --------------------------------------
-def test_prewarm_returns_immediately_and_warms_every_creek(monkeypatch):
-    import time
-    # (gate.wait, not time.sleep: the autouse fixture no-ops time.sleep)
-    import threading as th
-    seen, gate = [], th.Event()
-
-    def slow(cid, **kw):
-        gate.wait(2)
-        seen.append(cid)
-        return {}
-    monkeypatch.setattr(ingest, "get_conditions", slow)
-    t0 = time.monotonic()
-    t = ingest.prewarm(["wolf", "deer"])
-    assert time.monotonic() - t0 < 0.1 and t.daemon        # never blocks the caller
-    gate.set()
-    t.join(5)
-    assert seen == ["wolf", "deer"]
-
-
 def test_slow_riverdb_capped_then_live_from_cache(monkeypatch):
     # NB: the autouse fixture no-ops time.sleep (global module), so delays use threading.Event.
     import threading as th
@@ -281,6 +262,7 @@ def test_slow_riverdb_capped_then_live_from_cache(monkeypatch):
     assert _t.monotonic() - t0 < 0.9                        # didn't wait for RiverDB
     syrcl = [s for s in c["water_quality"]["stations"] if s["agency"] == "SYRCL"]
     assert syrcl and not any(s["live"] for s in syrcl)       # snapshot answer, honestly not live
+    assert c["water_quality"]["capped"] is True and c["cache_ttl_hint_s"] == ingest.CAPPED_TTL_HINT_S
     assert not any(k.startswith("riverdb:") for k in ingest._failed)   # no false failure recorded
     release.set()                                           # RiverDB answers; the job finishes
     deadline = _t.monotonic() + 3
@@ -288,6 +270,7 @@ def test_slow_riverdb_capped_then_live_from_cache(monkeypatch):
         release.wait(0.05)
     c2 = ingest.get_conditions("deer")
     assert all(s["live"] for s in c2["water_quality"]["stations"] if s["agency"] == "SYRCL")
+    assert "capped" not in c2["water_quality"] and "cache_ttl_hint_s" not in c2   # full answer: no hint
 
 
 
@@ -313,3 +296,16 @@ def test_concurrent_fetches_for_same_key_are_not_duplicated():
     t.join(3)
     assert ingest._cached("riverdb:dup", 60, slow) == {"v": 1} and calls["n"] == 1
     assert "riverdb:dup" not in ingest._inflight
+
+
+
+def test_inflight_marker_released_even_on_base_exception():
+    """Security review: a BaseException mid-fetch must not wedge the key (stale forever)."""
+    def teardown():
+        raise SystemExit("thread teardown")
+    try:
+        ingest._cached("k-wedge", 60, teardown)
+    except SystemExit:
+        pass
+    assert "k-wedge" not in ingest._inflight
+    assert ingest._cached("k-wedge", 60, lambda: {"ok": 1}) == {"ok": 1}     # refetches normally

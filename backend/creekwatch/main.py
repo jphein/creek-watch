@@ -139,8 +139,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     async def lifespan(app: FastAPI):
         db.init(s.db_path)
         s.uploads_dir.mkdir(parents=True, exist_ok=True)
-        if s.prewarm_enabled:   # background thread: /healthz and readiness are not delayed
-            data.prewarm(creek_by_id)
         task = None
         if s.poller_enabled and alert_poller.adapters:
             task = asyncio.create_task(_poll_forever(alert_poller, s.poller_tick_s))

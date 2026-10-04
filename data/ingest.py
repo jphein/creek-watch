@@ -54,7 +54,8 @@ SOURCES = {
 
 GAUGE_NAMES = {"11424000": "BEAR R NR WHEATLAND CA", "11418500": "DEER C NR SMARTSVILLE CA"}
 
-WQ_WAIT_S = 3.0   # don't hold a request longer than this for RiverDB; answer from the snapshot
+WQ_WAIT_S = 3.0
+CAPPED_TTL_HINT_S = 30   # a capped answer is good for ~30 s; the live fetch is still running   # don't hold a request longer than this for RiverDB; answer from the snapshot
 
 TTL = {"gauge": 900, "weather": 900, "stats": 86400}
 
@@ -118,8 +119,12 @@ def _cached(key: str, ttl: float, fn):
         val = fn()
     except Exception as e:  # noqa: BLE001 - any upstream failure degrades to stale/None
         val, err = None, e
+    finally:
+        # Always release the in-flight marker, even on BaseException (SystemExit, thread
+        # teardown); otherwise the key would serve stale/None forever and never refetch.
+        with _lock:
+            _inflight.discard(key)
     with _lock:
-        _inflight.discard(key)
         if val is not None:
             _cache[key] = (now, val)
             _failed.pop(key, None)
@@ -337,28 +342,6 @@ def _flow_snapshot():
 _pool = ThreadPoolExecutor(max_workers=8, thread_name_prefix="creekwatch-ingest")
 
 
-def prewarm(creek_ids=None) -> threading.Thread:
-    """Warm every creek's conditions in a daemon thread and return at once.
-
-    Call at app startup so the first visitor after a (re)deploy doesn't wait on cold
-    upstreams (RiverDB timeouts measured at ~10 s per fresh process on 2026-10-03).
-    Never blocks the caller and never raises."""
-    ids = list(creek_ids or SOURCES)
-
-    def run():
-        for cid in ids:
-            t0 = time.time()
-            try:
-                get_conditions(cid)   # module-global lookup, so tests can patch it
-                log.info("prewarmed conditions for %s in %.1fs", cid, time.time() - t0)
-            except Exception as e:  # noqa: BLE001
-                log.warning("prewarm %s failed: %s", cid, e)
-
-    t = threading.Thread(target=run, name="creekwatch-prewarm", daemon=True)
-    t.start()
-    return t
-
-
 def get_conditions(creek_id: str, *, max_age_s: int | None = None, timeout_s: float = 8) -> dict:
     """Current public conditions for one creek, shaped like GET /api/conditions.
 
@@ -393,7 +376,8 @@ def get_conditions(creek_id: str, *, max_age_s: int | None = None, timeout_s: fl
                 # plus any cached live value; the job keeps running and fills the cache for the
                 # next request. No fetch here, and no failure is recorded for the still-running job.
                 try:
-                    res[k] = wq.get_water_quality(creek_id, timeout_s=timeout_s, cached_only=True)
+                    res[k] = dict(wq.get_water_quality(creek_id, timeout_s=timeout_s, cached_only=True),
+                                  capped=True)
                 except Exception:  # noqa: BLE001
                     res[k] = None
 
@@ -432,7 +416,10 @@ def get_conditions(creek_id: str, *, max_age_s: int | None = None, timeout_s: fl
         bacteria_history = history.get_bacteria_history(creek_id)
     except Exception:  # noqa: BLE001
         bacteria_history = {"studies": []}
-    return {"creek_id": creek_id, "gauge": gauge, "weather": weather,
+    out_extra = {}
+    if (res.get("wq") or {}).get("capped"):
+        out_extra["cache_ttl_hint_s"] = CAPPED_TTL_HINT_S   # API: don't cache this partial answer long
+    return {**out_extra, "creek_id": creek_id, "gauge": gauge, "weather": weather,
             "water_quality": water_quality, "river": river,
             "bacteria_history": bacteria_history, "fetched_at": _now_iso()}
 
