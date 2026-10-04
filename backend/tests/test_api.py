@@ -219,6 +219,9 @@ def test_trash_removed_roundtrip_and_defaults(client):
     ({"trash_removed": "true", "trash_bags": "-1"}, "0 to 20"),
     ({"trash_removed": "true", "trash_bags": "two"}, "0 to 20"),
     ({"trash_removed": "true", "trash_bags": "2.5"}, "0 to 20"),
+    ({"trash_removed": "true", "trash_bags": "\u00b2"}, "0 to 20"),     # superscript two: isdigit() True, int() raises
+    ({"trash_removed": "true", "trash_bags": "\u0663"}, "0 to 20"),     # Arabic-Indic three: int() would return 3
+    ({"trash_removed": "true", "trash_bags": "007"}, "0 to 20"),
 ])
 def test_trash_removed_validation(client, extra, msg):
     r = client.post("/api/reports", data=dict(REPORT, **extra))

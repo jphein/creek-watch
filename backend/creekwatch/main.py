@@ -9,6 +9,7 @@ import logging
 import math
 import os
 import platform
+import re
 import socket
 import sys
 import time
@@ -298,7 +299,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         # Cleanup fields (validated before any photo work or budget spend)
         bags: int | None = None
         if trash_bags is not None and trash_bags.strip() != "":
-            if not trash_bags.strip().isdigit() or not 0 <= int(trash_bags) <= MAX_TRASH_BAGS:
+            # ASCII digits only: str.isdigit() accepts '²' (int() then raises -> 500) and '٣' (int() -> 3)
+            if not re.fullmatch(r"[0-9]{1,2}", trash_bags.strip()) or not 0 <= int(trash_bags) <= MAX_TRASH_BAGS:
                 raise HTTPException(422, f"trash_bags must be a whole number from 0 to {MAX_TRASH_BAGS}")
             bags = int(trash_bags)
         if trash_removed and trash == "none":
@@ -423,7 +425,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @app.get("/api/stats/cleanups")
     def cleanup_stats(creek_id: str | None = None) -> JSONResponse:
         """Public community counter: how many reports removed trash, and how many bags. Aggregates
-        only (no ids, names, places or photos)."""
+        only (no ids, names, places or photos). Uncached: a cheap indexed COUNT/SUM per request."""
         q = "SELECT COUNT(*), COALESCE(SUM(trash_bags), 0), MIN(observed_at) FROM reports WHERE trash_removed = 1"
         args: list[Any] = []
         if creek_id:
@@ -432,8 +434,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             args.append(creek_id)
         with db.connect(s.db_path) as conn:
             n, bags, since = conn.execute(q, args).fetchone()
-        return JSONResponse({"cleanups": n, "bags": bags, "since": since},
-                            headers={"Cache-Control": "public, max-age=60"})
+        return JSONResponse({"cleanups": n, "bags": bags, "since": since})
 
     @app.get("/api/meta", include_in_schema=False)
     def meta() -> dict[str, Any]:
