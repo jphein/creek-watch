@@ -430,7 +430,8 @@ def test_welcome_once_on_new_subscription_only(welcome_client):
     app.state.push.drain()
     assert [s[0] for s in sent] == [ep], "exactly one welcome, to THAT subscription only"
     p = _json.loads(sent[0][1])
-    assert p["tag"] == p["id"] == "cw-welcome" and p["kind"] == "welcome" and p["url"] == "/#alerts"
+    assert p["tag"] == "cw-welcome" and p["id"] is None and "alert_id" not in p
+    assert p["kind"] == "welcome" and p["url"] == "/#alerts"
     assert p["title"] == "Creek Watch alerts are on"
     assert p["body"] == ("You'll get watch-level and higher alerts for Deer Creek. "
                          "For emergencies: Nevada County Alerts, AwareCA, 911.")
@@ -477,3 +478,48 @@ def test_welcome_410_prunes_and_backlog_capped(tmp_path, monkeypatch):
             for i in range(push_mod.WELCOME_MAX_PENDING + 5)]
     assert sum(f is None for f in futs) == 5, "backlog beyond the cap is skipped, not queued"
     gate.set(); slow.drain()
+
+
+
+def test_welcome_has_no_alert_id_so_sw_falls_back_to_alerts_page():
+    """sw.js deep-links /#alerts?id=<id>; a welcome id would 404 ("no longer available")."""
+    import json as _json
+    p = _json.loads(push_mod.welcome_payload(validate_subscription(body(), set()), {}))
+    assert p["id"] is None and "alert_id" not in p and p["tag"] == "cw-welcome"
+    # web/sw.js: id = d.id || d.alert_id || null; deep = url has ?id= ? url : id ? /#alerts?id=… : url
+    sid = p.get("id") or p.get("alert_id")
+    deep = p["url"] if "?id=" in p["url"] else (f"/#alerts?id={sid}" if sid else p["url"])
+    assert deep == "/#alerts"
+    # sw.js appends d.notice to the body; the welcome body already has the emergency line -> no notice
+    assert not p.get("notice") and p["body"].count("911") == 1
+
+
+def test_welcome_queue_failure_never_500s_a_stored_subscription(tmp_path, monkeypatch):
+    monkeypatch.setenv("CREEKWATCH_VAPID_PRIVATE", vapid_private_b64())
+    s = Settings(data_dir=tmp_path / "d", web_dir=tmp_path / "w", sites_json=tmp_path / "m.json", push_rate_count=1000)
+    app = create_app(s)
+
+    def boom(*a, **k):
+        raise RuntimeError("executor shut down")
+    app.state.push.welcome_async = boom
+    with TestClient(app) as c:
+        assert c.post("/api/push/subscriptions", json=body()).status_code == 201
+    assert app.state.push.count() == 1
+
+
+def test_welcome_dedup_24h_lru(tmp_path):
+    sent = []
+    svc = PushService(tmp_path / "p.db", VapidKeys(vapid_private_b64(), None, "https://x.example"),
+                      sender=lambda sub, data, urg: sent.append(sub["endpoint"]) or 201)
+    clock = [1_000_000.0]
+    svc._clock = lambda: clock[0]
+    sub = validate_subscription(body(), set())
+    for _ in range(3):                         # subscribe -> delete -> re-subscribe loop
+        svc.upsert(sub); svc.welcome_async(sub); svc.drain(); svc.delete(sub["endpoint"])
+    assert len(sent) == 1, "one welcome per endpoint per 24 h"
+    clock[0] += push_mod.WELCOME_DEDUP_S + 1
+    svc.upsert(sub); svc.welcome_async(sub); svc.drain()
+    assert len(sent) == 2, "after 24 h a re-subscribe is welcomed again"
+    other = validate_subscription(body("https://fcm.googleapis.com/fcm/send/other"), set())
+    svc.upsert(other); svc.welcome_async(other); svc.drain()
+    assert len(sent) == 3

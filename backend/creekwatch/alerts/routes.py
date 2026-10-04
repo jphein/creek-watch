@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 from datetime import datetime, timezone
 from typing import Any, Callable
 
@@ -16,6 +17,7 @@ from .model import CATEGORIES, SEVERITY_RANK, STATUSES
 from .push import PushService, SubscriptionInvalid, validate_endpoint, validate_subscription
 from .store import AlertStore
 
+log = logging.getLogger("creekwatch.push")
 MAX_BODY = 4096  # push subscription bodies are ~500 bytes
 
 
@@ -121,7 +123,10 @@ def register(app: FastAPI, store: AlertStore, push: PushService, poller, creek_i
             sub = validate_subscription(await _json_body(request), creek_ids)
             result = push.upsert(sub)
             if result == "created":  # one confirmation push, new subscriptions only, never on update
-                push.welcome_async(sub, creek_names)
+                try:  # the subscription is already committed: nothing here may turn that into a 500
+                    push.welcome_async(sub, creek_names)
+                except Exception:
+                    log.exception("welcome push could not be queued")
         except SubscriptionInvalid as e:
             raise HTTPException(422, str(e))
         except OverflowError:
