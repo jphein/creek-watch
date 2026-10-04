@@ -41,6 +41,8 @@ class Settings:
         "CREEKWATCH_TRUSTED_PROXIES", "127.0.0.0/8,::1/128,172.16.0.0/12"))
 
     # Alerts: background poller (off unless enabled; tests/dev never fetch), push limits.
+    # Prefetch every creek's conditions in the background at startup (first visit after a redeploy).
+    warm_conditions: bool = field(default_factory=lambda: _env_bool("CREEKWATCH_WARM_CONDITIONS", True))
     poller_enabled: bool = field(default_factory=lambda: _env_bool("CREEKWATCH_POLLER", False))
     poller_tick_s: float = field(default_factory=lambda: float(os.environ.get("CREEKWATCH_POLLER_TICK_S", "30")))
     push_max_subs: int = field(default_factory=lambda: int(os.environ.get("CREEKWATCH_PUSH_MAX_SUBS", "5000")))

@@ -39,3 +39,14 @@ creekwatch.realm.watch {
 		}
 	}
 }
+
+# creek.realm.watch: short alias, 301 to the one canonical origin creekwatch.realm.watch (path+query kept;
+# a #fragment never reaches the server and is re-applied by the browser). NOT a second origin: localStorage,
+# push subscription, service worker and the IndexedDB queue are per-origin. Public via the same cloudflared
+# tunnel as creekwatch. Repo: jphein/creek-watch deploy/. 2026-10-03
+creek.realm.watch {
+	tls {
+		dns cloudflare {env.CLOUDFLARE_API_TOKEN}
+	}
+	redir https://creekwatch.realm.watch{uri} permanent
+}

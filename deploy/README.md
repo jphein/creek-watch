@@ -8,6 +8,8 @@ phone ─► Cloudflare edge (proxied CNAME, TLS) ─► cloudflared tunnel on u
       ─► 127.0.0.1:8442 ─► container `creekwatch` :8080 (volume `creekwatch-data` at /srv/creekwatch)
 ```
 
+**Short alias:** `https://creek.realm.watch/...` sends a **301** to `https://creekwatch.realm.watch/...`, keeping the path and query; the browser re-applies any `#fragment`. It goes through the same Cloudflare CNAME → tunnel → Caddy path, and Caddy's site block just does `redir https://creekwatch.realm.watch{uri} permanent`. It's deliberately **not** a second origin: localStorage, the push subscription, the service worker and the offline queue are per-origin, so two origins would split them. `www.creek.realm.watch` isn't served, because Cloudflare's free certificate only covers one level (`*.realm.watch`).
+
 ## Day-to-day
 
 | Do | Command (from any host with `ssh ubox0`) |
@@ -92,7 +94,7 @@ docker start creekwatch
 
 ## One-time setup already done (2026-10-03)
 
-- **DNS:** a proxied CNAME `creekwatch.realm.watch` → `<tunnel-id>.cfargotunnel.com` in the realm.watch zone, created with Caddy's DNS token. The LAN has **no** dnsmasq override and resolves to Cloudflare like cellular does. jp-main briefly added one at 17:31, then removed it, because a LAN A record combined with CF's HTTPS/SVCB record (ECH plus ipv4hint) breaks TLS in Chrome. Don't add one.
+- **DNS:** proxied CNAMEs `creekwatch.realm.watch` and `creek.realm.watch` (the alias, added 2026-10-03 21:07) → `<tunnel-id>.cfargotunnel.com` in the realm.watch zone, created with Caddy's DNS token. The LAN has **no** dnsmasq override and resolves to Cloudflare like cellular does. jp-main briefly added one at 17:31, then removed it, because a LAN A record combined with CF's HTTPS/SVCB record (ECH plus ipv4hint) breaks TLS in Chrome. Don't add one.
 - **Repo access:** a read-only deploy key on ubox0 (`~/.ssh/creekwatch_deploy`, ssh alias `github-creekwatch`). Once the repo is public this is optional.
 - **Monitoring:** `status.realm.watch` checks `/healthz` and `/api/version` (jphein/status.realm.watch#14).
 - **Backups** sit next to each edited file on ubox0, as `*.bak-pre-creekwatch-*`.
