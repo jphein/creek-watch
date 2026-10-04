@@ -421,3 +421,70 @@ def test_reports_migration_adds_location_kind(tmp_path):
     c = sqlite3.connect(p); c.execute("ALTER TABLE reports DROP COLUMN location_kind"); c.commit(); c.close()
     db.init(p)
     assert "location_kind" in {r[1] for r in sqlite3.connect(p).execute("PRAGMA table_info(reports)")}
+
+
+# --- CREEKWATCH_CLIENT_IP_HEADER: one trusted header only (non-Cloudflare front proxy, e.g. kamal-proxy) ---
+
+def _ipreq(peer, **h):
+    from starlette.requests import Request
+    hdrs = [(k.replace("_", "-").encode(), v.encode()) for k, v in h.items()]
+    return Request({"type": "http", "client": (peer, 1234), "headers": hdrs})
+
+
+def test_client_ip_header_xff_ignores_forged_cf():
+    from creekwatch.main import make_client_ip
+    ip = make_client_ip("127.0.0.0/8,172.16.0.0/12", "x-forwarded-for")
+    # kamal-proxy (172.18.x) wrote the real client as the last XFF hop; the client forged CF-Connecting-IP,
+    # Fly-Client-IP and an XFF prefix.
+    r = _ipreq("172.18.0.2", cf_connecting_ip="9.9.9.9", fly_client_ip="8.8.8.8",
+               x_forwarded_for="6.6.6.6, 203.0.113.7")
+    assert ip(r) == "203.0.113.7"
+    assert ip(_ipreq("172.18.0.2", x_forwarded_for="203.0.113.7")) == "203.0.113.7"
+    # Two XFF header lines (client's first, proxy's appended as a separate line) → the proxy's last hop.
+    from starlette.requests import Request
+    two = Request({"type": "http", "client": ("172.18.0.2", 1), "headers": [
+        (b"x-forwarded-for", b"6.6.6.6"), (b"x-forwarded-for", b"203.0.113.9")]})
+    assert ip(two) == "203.0.113.9"
+    assert ip(_ipreq("172.18.0.2", x_forwarded_for="6.6.6.6, 203.0.113.7,")) == "172.18.0.2"  # trailing comma
+    # An invalid last hop → the peer; never the client-supplied prefix, never another header.
+    assert ip(_ipreq("172.18.0.2", cf_connecting_ip="9.9.9.9", x_forwarded_for="6.6.6.6, junk")) == "172.18.0.2"
+    # Only the forged header, no XFF → the peer, never the forgery.
+    assert ip(_ipreq("172.18.0.2", cf_connecting_ip="9.9.9.9")) == "172.18.0.2"
+    # Untrusted peer → the peer, whatever it sends.
+    assert ip(_ipreq("198.51.100.4", x_forwarded_for="203.0.113.7")) == "198.51.100.4"
+
+
+def test_client_ip_header_only_xff_and_default():
+    from creekwatch.main import make_client_ip
+    for bad in ("cf-connecting-ip", "x-real-ip", "fly-client-ip", "X-Forwarded-For", ""):
+        with pytest.raises(ValueError, match="CREEKWATCH_CLIENT_IP_HEADER"):
+            make_client_ip("172.16.0.0/12", bad)
+    # Default (unset) is unchanged: CF-Connecting-IP first, then the FIRST XFF hop.
+    d = make_client_ip("172.16.0.0/12")
+    assert d(_ipreq("172.18.0.2", cf_connecting_ip="9.9.9.9", x_forwarded_for="203.0.113.7")) == "9.9.9.9"
+    assert d(_ipreq("172.18.0.2", x_forwarded_for="203.0.113.7, 10.0.0.1")) == "203.0.113.7"
+
+
+def test_client_ip_header_invalid_fails_at_startup(tmp_path, monkeypatch):
+    from creekwatch.config import Settings
+    from creekwatch.main import create_app
+    monkeypatch.setenv("CREEKWATCH_CLIENT_IP_HEADER", "x-forwarded-fro")
+    with pytest.raises(ValueError, match="CREEKWATCH_CLIENT_IP_HEADER"):
+        create_app(Settings(data_dir=tmp_path))
+    monkeypatch.setenv("CREEKWATCH_CLIENT_IP_HEADER", " X-Forwarded-For ")
+    assert Settings(data_dir=tmp_path).client_ip_header == "x-forwarded-for"
+    monkeypatch.setenv("CREEKWATCH_CLIENT_IP_HEADER", "")
+    assert Settings(data_dir=tmp_path).client_ip_header is None
+
+
+def test_client_ip_header_wired_into_rate_limit(tmp_path, monkeypatch):
+    """Through the app: behind a trusted proxy, rotating a forged CF-Connecting-IP can't escape the limit."""
+    monkeypatch.setenv("CREEKWATCH_CLIENT_IP_HEADER", "x-forwarded-for")
+    s = Settings(data_dir=tmp_path / "d", web_dir=tmp_path / "w", sites_json=tmp_path / "m.json", rate_limit_count=2)
+    with TestClient(create_app(s), client=("172.18.0.2", 4321)) as c:
+        codes = [c.post("/api/reports", data=REPORT, headers={
+            "cf-connecting-ip": f"9.9.9.{i}", "x-forwarded-for": f"6.6.6.{i}, 203.0.113.7"}).status_code
+            for i in range(3)]
+        assert codes == [201, 201, 429]
+        # A different real client (XFF) gets its own bucket.
+        assert c.post("/api/reports", data=REPORT, headers={"x-forwarded-for": "203.0.113.8"}).status_code == 201

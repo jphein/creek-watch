@@ -95,11 +95,21 @@ def iso(dt: datetime) -> str:
     return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
-def make_client_ip(trusted: str):
+CLIENT_IP_HEADERS = {"x-forwarded-for"}  # the only supported value (kamal-proxy on AWS); less surface
+
+
+def make_client_ip(trusted: str, only_header: str | None = None):
     """Real client IP. Only a trusted peer (Caddy via loopback/docker bridge) may vouch for it, preferring
     Cloudflare's CF-Connecting-IP (set at the edge, so unspoofable through the tunnel), then the first
-    X-Forwarded-For hop. Anyone else is identified by the TCP peer address."""
+    X-Forwarded-For hop. Anyone else is identified by the TCP peer address.
+    only_header (CREEKWATCH_CLIENT_IP_HEADER): when set, a trusted peer is believed ONLY via that one header
+    (X-Forwarded-For: its LAST hop, the one the proxy itself wrote; a client-supplied prefix is ignored);
+    every other client-IP header is ignored, and a missing/invalid value means the TCP peer (no fall-through).
+    Use it when the front proxy is not Cloudflare (e.g. kamal-proxy on AWS), where a client could otherwise
+    send its own CF-Connecting-IP and pick its rate-limit bucket. Unset = the homelab rule above, unchanged."""
     nets = [ipaddress.ip_network(n.strip(), strict=False) for n in trusted.split(",") if n.strip()]
+    if only_header is not None and only_header not in CLIENT_IP_HEADERS:
+        raise ValueError(f"CREEKWATCH_CLIENT_IP_HEADER must be one of {sorted(CLIENT_IP_HEADERS)}")
 
     def client_ip(request: Request) -> str:
         peer = request.client.host if request.client else "unknown"
@@ -109,6 +119,14 @@ def make_client_ip(trusted: str):
             return peer
         if not any(peer_ip in n for n in nets):
             return peer
+        if only_header:
+            # RFC 9110: repeated header lines = one comma-joined list. Join ALL lines so a client-sent XFF line
+            # ahead of the proxy's can't be what we read; the last hop is the one the proxy wrote.
+            raw = ",".join(request.headers.getlist(only_header)).split(",")[-1]
+            try:
+                return str(ipaddress.ip_address(raw.strip()))
+            except ValueError:
+                return peer
         for raw in (request.headers.get("cf-connecting-ip", ""),
                     request.headers.get("x-forwarded-for", "").split(",")[0]):
             try:
@@ -168,7 +186,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     creeks = load_creeks(s.sites_json, s.use_data_package)
     creek_by_id = {c["id"]: c for c in creeks}
     data = DataLayer(s.conditions_ttl_s, s.use_data_package)
-    client_ip = make_client_ip(s.trusted_proxies)
+    client_ip = make_client_ip(s.trusted_proxies, s.client_ip_header)
     # Photo decode gate. Uploads WAIT here in the event loop (no thread held) and decode on a
     # dedicated thread limiter, so they never consume Starlette's shared pool, which every
     # sync endpoint (/healthz, /api/*) and StaticFiles also use. Created lazily inside the loop.

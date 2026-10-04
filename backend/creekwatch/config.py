@@ -52,6 +52,11 @@ class Settings:
     # Cutover write freeze: report + push-subscription writes return 503 "maintenance"; reads keep working.
     read_only: bool = field(default_factory=lambda: _env_bool("CREEKWATCH_READ_ONLY", False))
 
+    # Which ONE header a trusted proxy uses for the client IP (None = homelab default: CF-Connecting-IP, then
+    # the first X-Forwarded-For hop). Set it when the front proxy isn't Cloudflare, e.g. x-forwarded-for.
+    client_ip_header: str | None = field(default_factory=lambda: (
+        os.environ.get("CREEKWATCH_CLIENT_IP_HEADER", "").strip().lower() or None))
+
     @property
     def db_path(self) -> Path:
         return self.data_dir / "creekwatch.db"
