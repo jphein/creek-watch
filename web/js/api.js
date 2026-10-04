@@ -179,12 +179,14 @@ export async function getAlertItem(id) {
 export async function getAlertSources() {
   if (MOCK) {
     const now = new Date().toISOString().replace(/\.\d{3}Z$/, 'Z');
-    return { sources: ['nws', 'sso', 'hab', 'riverdb', 'usgs', 'creekwatch'].map((source) => ({ source, last_ok: now, last_error: null, failures: 0 })), schedule: {} };
+    return { adapters_loaded: 6, load_error: null, sources: ['nws', 'sso', 'hab', 'riverdb', 'usgs', 'creekwatch'].map((source) => ({ source, last_ok: now, last_error: null, failures: 0 })), schedule: {} };
   }
   return request('/api/alerts/sources');
 }
 
-// Freshness for the "no alerts" ✓ (Oracle, #41). Two independent rules:
+// Freshness for the "no alerts" ✓ (Oracle, #41). Rules (all must hold):
+//  0. The server's poller has adapters loaded (adapters_loaded > 0) and no load_error (a broken
+//     deploy polls nothing). Missing fields fail safe (= not loaded).
 //  1. `creekwatch` never counts: it is computed from our own DB and succeeds even when every
 //     upstream fetch is failing (network out), so it says nothing about official warnings.
 //  2. `nws` (the life-safety source) must itself be fresh. Missing or stale nws = couldn't check.
@@ -200,8 +202,9 @@ export function sourcesFresh(info, now = Date.now()) {
   };
   const nws = list.find((s) => s.source === LIFE_SAFETY_SOURCE);
   const nwsT = Date.parse(nws?.last_ok || '');
-  const fresh = !!nws && isFresh(nws);
-  return { fresh, nwsLatest: nwsT ? new Date(nwsT).toISOString() : null };
+  const adaptersOk = Number(info?.adapters_loaded) > 0 && !info?.load_error;
+  const fresh = adaptersOk && !!nws && isFresh(nws);
+  return { fresh, adaptersOk, nwsLatest: nwsT ? new Date(nwsT).toISOString() : null };
 }
 
 export async function getVapidKey() {

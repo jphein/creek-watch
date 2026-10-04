@@ -4,7 +4,7 @@ import { getAlerts, getAlertItem, getAlertSources, sourcesFresh, getCreeks, SEVE
 import { esc, SEV, CATEGORY_LABEL, alertHTML, officialLine, timeAgo } from './ui.js';
 import { mountSubscribe } from './subscribe.js';
 
-let root, all = [], creeks = [], health = { fresh: false, nwsLatest: null };
+let root, all = [], creeks = [], health = { fresh: false, adaptersOk: false, nwsLatest: null };
 const f = { creek: '', sev: new Set(SEVERITIES), cat: '' };
 // NWS retired alerts.weather.gov; this is the live official alerts page (verified 200).
 const NWS_ALERTS = 'https://www.weather.gov/alerts';
@@ -97,11 +97,12 @@ function render() {
     ? `${n} active alert${n === 1 ? '' : 's'}${n !== all.length ? ` (of ${all.length})` : ''}`
     : '';
   const nwsWhen = health.nwsLatest ? `last checked ${esc(timeAgo(health.nwsLatest))}` : 'not checked yet';
+  const why = health.adaptersOk ? `National Weather Service ${nwsWhen}` : 'the alert sources aren’t running on the server';
   const stale = !health.fresh
-    ? `<p class="stale-note" role="status">${all.length ? 'This list may be incomplete: ' : ''}we couldn’t confirm National Weather Service alerts recently (${nwsWhen}).</p>`
+    ? `<p class="stale-note" role="status">${all.length ? 'This list may be incomplete: ' : ''}we couldn’t confirm the alert sources are current (${why}).</p>`
     : '';
   if (!n && !all.length && !health.fresh) {
-    box.innerHTML = unchecked(` recently (National Weather Service ${nwsWhen})`);
+    box.innerHTML = unchecked(` recently (${why})`);
   } else box.innerHTML = n
     ? stale + list.map((a) => alertHTML(a)).join('')
     : `<div class="all-clear"><span aria-hidden="true">✓</span><div><strong>${all.length ? 'No alerts match these filters' : 'No active water alerts from the sources we check'}</strong>
