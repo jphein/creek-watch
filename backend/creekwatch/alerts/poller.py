@@ -26,10 +26,11 @@ log = logging.getLogger("creekwatch.alerts")
 MAX_ALERTS_PER_SOURCE = 500
 MIN_INTERVAL_S, MAX_INTERVAL_S = 60, 7 * 86400   # honour the data lane's daily / 12 h sources
 MAX_BACKOFF_S = 6 * 3600
-FETCH_TIMEOUT_S = 90.0
-# A timer pass that lands a little before next_due (timer jitter, or the previous pass's fetch time)
-# must not skip a whole cycle: sources due within this slack run now.
-DUE_SLACK_S = 30.0                            # SSO's 10 MB download needs > 60 s
+FETCH_TIMEOUT_S = 90.0                        # SSO's 10 MB download needs > 60 s
+# next_due = pass start + interval, but each pass reads the clock only after its start-up latency
+# (docker exec + create_app). If this pass started with LESS latency than the previous one, it sees a
+# source a few seconds short of due; without slack that source would slip a whole timer cycle.
+DUE_SLACK_S = 30.0
 
 
 @dataclass

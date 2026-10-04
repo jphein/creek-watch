@@ -404,26 +404,40 @@ def test_rearm_migration_backfills_inactive_rows(tmp_path):
     assert rows["x:1"] and rows["x:1"].endswith("Z") and rows["x:2"] is None
 
 
-def test_timer_jitter_does_not_skip_a_cycle(store):
-    """5-min timer, NWS interval 300 s: a fetch that takes 4 s, then the next tick lands at +298 s
-    (jitter). The source must run on that tick, not slip to the one after."""
+@pytest.mark.parametrize("eps_prev,eps_now", [(4.0, 2.0), (10.0, 0.5), (25.0, 0.0), (0.0, 0.0), (0.0, 12.0)])
+def test_pass_start_latency_does_not_skip_a_cycle(store, eps_prev, eps_now):
+    """A systemd timer only ever fires LATE, never early. What the slack absorbs is pass-start latency
+    eps (docker exec + create_app before the poller reads the clock). Ticks are exactly 300 s apart;
+    the previous pass read the clock eps_prev after its tick, this one eps_now after its tick. With
+    eps_now < eps_prev the source looks (eps_prev - eps_now) s short of due and must STILL run, not
+    slip a whole cycle."""
+    tick = 10_000.0
+    clock = [tick + eps_prev]
+    nws = FakeAdapter("nws", [make_alert()], interval_s=300)
+    p = Poller([nws], store, ctx_factory, clock=lambda: clock[0])
+    p.run_due()
+    assert p.state["nws"].next_run == tick + eps_prev + 300, "next_due is stamped from the pass start"
+    clock[0] = tick + 300 + eps_now                    # the very next tick
+    p.run_due()
+    assert nws.calls == 2, f"eps_prev={eps_prev}, eps_now={eps_now}: must run on this tick"
+    clock[0] += 60                                     # an unrelated tick well before the next due
+    p.run_due()
+    assert nws.calls == 2, "slack is small: no extra fetches"
+    p.shutdown()
+
+
+def test_fetch_time_does_not_push_next_due(store):
+    """Stamping from the pass START: a 4 s fetch must not move next_due later."""
     clock = [10_000.0]
 
     class Slow(FakeAdapter):
         def fetch(self, ctx):
-            clock[0] += 4.0                      # the fetch itself takes 4 s of wall time
+            clock[0] += 4.0
             return super().fetch(ctx)
 
-    nws = Slow("nws", [make_alert()], interval_s=300)
-    p = Poller([nws], store, ctx_factory, clock=lambda: clock[0])
+    p = Poller([Slow("nws", [make_alert()], interval_s=300)], store, ctx_factory, clock=lambda: clock[0])
     p.run_due()
-    assert p.state["nws"].next_run == 10_000.0 + 300, "next_due is stamped from the pass start"
-    clock[0] = 10_000.0 + 298                     # next timer tick, 2 s early
-    p.run_due()
-    assert nws.calls == 2, "a source due within the slack runs on this tick"
-    clock[0] += 60                                # an unrelated early tick well before due
-    p.run_due()
-    assert nws.calls == 2, "slack is small: no extra fetches"
+    assert p.state["nws"].next_run == 10_000.0 + 300
     p.shutdown()
 
 
