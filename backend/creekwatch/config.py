@@ -26,8 +26,9 @@ class Settings:
     # POST /api/reports per client IP: N reports per window.
     rate_limit_count: int = int(os.environ.get("CREEKWATCH_RATE_COUNT", "12"))
     rate_limit_window_s: int = int(os.environ.get("CREEKWATCH_RATE_WINDOW_S", "600"))
-    # Across ALL clients: caps disk growth (photos) if many IPs are used.
-    rate_limit_global: int = int(os.environ.get("CREEKWATCH_RATE_GLOBAL", "300"))
+    # Disk guard across ALL clients: stored photos per window. Only spent by VALID reports carrying a
+    # photo, and when exhausted only the photo is refused; text reports are never globally blocked.
+    photo_budget: int = int(os.environ.get("CREEKWATCH_PHOTO_BUDGET", "300"))
     # Public API returns coordinates rounded to this many decimals (3 ≈ 110 m) to protect reporters.
     public_coord_decimals: int = int(os.environ.get("CREEKWATCH_COORD_DECIMALS", "3"))
     conditions_ttl_s: int = int(os.environ.get("CREEKWATCH_CONDITIONS_TTL_S", "600"))

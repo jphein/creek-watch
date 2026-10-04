@@ -121,7 +121,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     creeks = load_creeks(s.sites_json)
     creek_by_id = {c["id"]: c for c in creeks}
     data = DataLayer(s.conditions_ttl_s)
-    limiter = RateLimiter(s.rate_limit_count, s.rate_limit_window_s, s.rate_limit_global)
+    limiter = RateLimiter(s.rate_limit_count, s.rate_limit_window_s)
+    photo_budget = RateLimiter(s.photo_budget, s.rate_limit_window_s)
     app.state.settings, app.state.data, app.state.limiter = s, data, limiter
 
     def row_to_report(row: Any) -> dict[str, Any]:
@@ -240,6 +241,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             if len(raw) > s.max_photo_bytes:
                 raise HTTPException(413, f"Photo is larger than {s.max_photo_bytes // (1024 * 1024)} MB.")
             if raw:
+                # Spent only here: after all validation, so junk requests can't drain it.
+                if photo_budget.check("global") is not None:
+                    raise HTTPException(503, "We're receiving a lot of photos right now. "
+                                             "Please send your report without the photo, or try again in a few minutes.")
                 try:
                     clean = await run_in_threadpool(process_photo, raw, s.photo_max_px)
                 except PhotoError as e:
