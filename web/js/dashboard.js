@@ -57,6 +57,13 @@ function sparkSVG(reports) {
   };
 }
 
+// "USGS NWIS 11418500" / "USGS 11418500" → source-neutral, linked to the site page.
+function sourceHTML(src) {
+  const m = String(src).match(/^USGS(?:\s+NWIS)?\s+(\d{8,15})$/);
+  if (m) return `<a href="https://waterdata.usgs.gov/monitoring-location/${m[1]}/" target="_blank" rel="noopener">USGS ${m[1]}</a>`;
+  return esc(String(src).replace(/^USGS NWIS$/, 'USGS'));
+}
+
 function signalHTML(s) {
   const w = Number(s.weight);
   const wr = Math.round(Math.abs(w) * 10) / 10;
@@ -67,7 +74,7 @@ function signalHTML(s) {
     <span class="s-name">${esc(signalLabel(s.name))}</span>
     <span class="s-val">${esc(signalValue(s.name, s.value))} ${wTxt}</span>
     ${s.explanation ? `<span class="s-exp">${esc(s.explanation)}</span>` : ''}
-    ${s.source ? `<span class="s-src">Source: ${esc(s.source)}</span>` : ''}
+    ${s.source ? `<span class="s-src">Source: ${sourceHTML(s.source)}</span>` : ''}
   </li>`;
 }
 
