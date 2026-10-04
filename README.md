@@ -12,6 +12,7 @@ Built for Wolf Creek (Grass Valley, CA) and Deer Creek (Nevada City, CA) for the
 ## What it does
 
 - **Report:** anyone at the creek takes a photo and answers six quick, plain-language questions on their phone: water colour, algae, trash, flow, odour and dead fish. Location fills in from GPS, and the nearest spot is picked automatically.
+- **Cleanups:** when trash is reported, an optional "I picked it up" toggle (with a bag count) records a cleanup, shown beside a safety line. Badges (Creek Helper, Creek Steward, Trash Hero) live only in the browser's local storage: no account, nothing sent. Creek cards show "N reported cleanups · B bags" (honour system, not verified). The score thanks people who removed trash, but reported trash still counts.
 - **Map:** creek lines, named monitoring spots and recent reports, coloured by health band.
 - **Dashboard:** a 0–100 health score per creek. **Every signal explains why it moved the score**, and the card shows the latest USGS gauge, NWS weather and Open-Meteo rainfall.
 - **Early warning:** rule-based *watch* and *alert* signals. Examples: heavy rain plus brown water means a runoff watch; lots of algae plus warm weather means an algal-bloom watch; dead fish or a chemical or sewage odour means an alert.
@@ -32,7 +33,8 @@ uv run uvicorn creekwatch.asgi:app --app-dir backend --reload --port 8000
 Run the tests:
 
 ```bash
-uv run pytest
+uv run pytest                                    # 291 Python tests (backend + data)
+cd tests/web && npm install && CHROME_PATH=/usr/bin/google-chrome npm test   # 4 headless-browser suites
 ```
 
 With Docker:

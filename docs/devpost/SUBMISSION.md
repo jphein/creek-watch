@@ -9,7 +9,7 @@
 Creek Watch
 
 ## Tagline (Devpost "elevator pitch", ≤200 chars)
-Anyone at the creek files a 2-minute photo report; Creek Watch fuses it with live USGS, NWS and Open-Meteo data into an explainable creek-health score and early warning.
+Report what you see at the creek in 2 minutes. Creek Watch fuses it with live USGS, weather and state water data into an explainable health score, water alerts and opt-in push.
 
 ## Links
 - **Live prototype:** https://creekwatch.realm.watch
@@ -22,7 +22,7 @@ Anyone at the creek files a 2-minute photo report; Creek Watch fuses it with liv
 **Primary: Track 2, Data-to-Insight.** Creek Watch turns citizen-collected stream observations into actionable insight. It plots reports on a map, gives each creek a dashboard card, and computes a 0–100 **creek-health score whose every input is explained in plain language** (which signal moved the score, by how much, and where the data came from). It gets fresher every time someone reports and every time the public gauge and weather feeds update.
 
 **Also addresses:**
-- **Track 1, Citizen Science UX:** a guided six-step report flow with big tap targets, picture icons and everyday words ("cloudy", "smells like sewage") instead of lab terminology. Location is filled from the phone, and the nearest monitoring spot is picked automatically.
+- **Track 1, Citizen Science UX:** a guided six-step report flow with big tap targets, picture icons and everyday words ("cloudy", "smells like sewage") instead of lab terminology. Location is filled from the phone, and the nearest monitoring spot is picked automatically. When someone reports trash, an optional **"I picked it up"** toggle (with an optional bag count) records a cleanup, next to a safety line: *"Only pick up what's safe. Leave needles, chemicals and big items, and report them."* Repeat helpers earn small badges (Creek Helper, Creek Steward, Trash Hero). The badges are stored only on their own phone: no account, nothing sent.
 - **Track 6, Resilience Informatics:** one place for water-related warnings on these creeks. Creek Watch checks eight live sources on a schedule:
   - National Weather Service alerts and Creek Watch's own early-warning rules, every 5 minutes;
   - USGS high- and low-flow signals and NOAA river flood categories, every 15 minutes;
@@ -50,6 +50,7 @@ Each of these lives on a different government website, in a different format. So
 
 ## What it does
 - **Report (phone-first):** take or choose a photo, then answer six quick questions: water colour, algae, trash, flow, odour, and dead fish. An optional note and wildlife sighting can be added. GPS fills the location and the app picks the nearest named spot. Photos have their EXIF metadata stripped on the server, and the reporter's name is optional.
+- **Cleanups:** if you remove trash, tap "I picked it up" and optionally add how many bags. Each creek card shows a community counter ("N reported cleanups · B bags"), described as reported by volunteers rather than verified. The score's trash explanation thanks people who removed trash, but reported trash still counts, because it shows that dumping or runoff reached the creek.
 - **Map:** creek lines, named monitoring spots and recent-report pins coloured by health band. Tap a pin to see the photo and the report.
 - **Dashboard:** one card per creek with the health score (0–100) and band (good, fair, watch or alert). Each signal comes with its explanation and source. The card also shows the latest USGS stream-gauge reading, current weather and 24-hour rainfall, recent reports, and a 7-day report sparkline.
 - **Early warning:** the rules above raise a *watch* or an *alert*, each with a plain-language reason.
@@ -70,13 +71,14 @@ Creek health, wildlife health and human health are linked. Storm runoff carries 
 - **Fills a real monitoring gap:** in town, these creeks have no live instrument (see Inspiration). Many casual observers can report between official samples, and each report carries a photo.
 - **Explainable, not black-box:** every score change says why, so residents and officials can trust it and act on it.
 - **Awareness and stewardship:** filing a report teaches people what a healthy creek looks like.
+- **From noticing to doing:** trash in creeks harms fish, birds and the people and dogs who use the water. The cleanup toggle and badges reward people who safely remove what they can, and the safety line steers them away from needles, chemicals and large items.
 
 ## How we built it
 All code was written new for this hackathon on October 3–4, 2026, during the extended submission window (before the October 4, 9:00 pm PDT deadline).
 
 - **Backend:** Python 3.12, FastAPI and SQLite, run with uv. One process serves the JSON API (`/api/*`) and the static web app. Photo uploads are re-encoded with Pillow (with HEIC support), which strips EXIF and caps the size. Enum validation, per-IP rate limiting and a geofence reject reports far from the creeks.
 - **Frontend:** a no-build progressive web app in plain HTML, CSS and ES modules, with Leaflet and OpenStreetMap tiles. It is mobile-first and installable, with light and dark themes.
-- **Data and score:** creek lines and 12 public access sites were built from OpenStreetMap (Overpass API). Each site was snapped to the open channel and checked for public access; road bridges with private banks are marked "view from the bridge only". Ingest modules pull USGS stream-gauge readings (discharge and gage height from the new USGS Water Data API and legacy NWIS Water Services, with either one as a fallback for the other), National Weather Service current conditions from station KGOO (Nevada County Air Park) plus gridpoint short forecasts for each town, and Open-Meteo hourly rainfall estimates for the past and next 24 h. All are keyless, and the results are cached. A transparent, weighted, rule-based score combines them with recent citizen reports. Each signal records its name, value, weight, explanation and source. There are 56 automated tests: 26 for the score, 14 for data ingest and 16 for the API. All pass (`uv run --group dev pytest`, 2026-10-03).
+- **Data and score:** creek lines and 12 public access sites were built from OpenStreetMap (Overpass API). Each site was snapped to the open channel and checked for public access; road bridges with private banks are marked "view from the bridge only". Ingest modules pull USGS stream-gauge readings (discharge and gage height from the new USGS Water Data API and legacy NWIS Water Services, with either one as a fallback for the other), National Weather Service current conditions from station KGOO (Nevada County Air Park) plus gridpoint short forecasts for each town, and Open-Meteo hourly rainfall estimates for the past and next 24 h. All are keyless, and the results are cached. A transparent, weighted, rule-based score combines them with recent citizen reports. Each signal records its name, value, weight, explanation and source. There are 291 automated Python tests (197 for the backend: API, alert store, feeds, push and security; 94 for data: ingest, the score and the alert sources) and 4 headless-browser test suites for the web app. All pass (`uv run pytest` and `npm test` in `tests/web`, checked 2026-10-03 on commit ef17b28).
 - **Honest gauge mapping:** a USGS site-inventory query over the area returns only 4 active real-time stream gauges. Deer Creek uses 11418500, which is on Deer Creek but 22 km downstream and regulated. Wolf Creek has no live gauge (former station 11423150 holds only 3 water-quality samples), so Bear River near Wheatland (11424000) is shown as low-weight regional context only. The score says so in its explanations rather than pretending a distant gauge describes the creek in town.
 - **Deploy:** a Docker container on a small always-on home server, behind Caddy with TLS and a Cloudflare tunnel, at https://creekwatch.realm.watch.
 - **Team prior work:** the team already runs [Forage for All](https://forage.techempower.org/), an open-source (AGPL-3.0) community map of edible plants on public land, built with privacy-first design: fuzzy locations by default, anonymous reports allowed, no trackers. Creek Watch carries over those principles (locations rounded to about 110 m, photo metadata stripped, optional names). **No code was reused.** Creek Watch is a separate codebase written for this hackathon.
@@ -111,7 +113,7 @@ Details and retrieval URLs: [`data/SOURCES.md`](https://github.com/jphein/creek-
 ## Accomplishments we're proud of
 - **A live, public, phone-usable prototype, not a mockup,** at https://creekwatch.realm.watch, with real data from USGS, NWS, Open-Meteo, OpenStreetMap and local volunteer monitoring groups.
 - **Ready for the field.** The report flow has passed an end-to-end test at phone size over the public Cloudflare path, the same path a phone on cellular uses, and our teammate's first real field reports from Wolf Creek and Deer Creek begin on the morning of Sunday, October 4, 2026. The live map shows every report filed so far.
-- **A health score that explains every point it gives or takes**, built from simple fixed rules and covered by 56 automated tests.
+- **A health score that explains every point it gives or takes**, built from simple fixed rules and covered by automated tests (291 Python tests plus 4 browser suites).
 - **Honest about what we can't measure:** the gauge gap and the model-based rain estimates are stated in the app, not hidden.
 - **A working water-alert hub:** on the evening of October 3, 2026, all eight alert sources were loaded and reporting successfully on the live site, and every CAP alert in the live feed passed validation against the OASIS CAP 1.2 schema.
 - **Credit where it's due:** more than 20 years of local volunteer water tests (South Yuba River Citizens League, Sierra Streams Institute, Wolf Creek Community Alliance) appear next to citizen reports, credited by name.
@@ -136,7 +138,7 @@ Details and retrieval URLs: [`data/SOURCES.md`](https://github.com/jphein/creek-
 - **Alec:** student. Field reports, writing, and testing.
 
 ## Built with
-`python` · `fastapi` · `sqlite` · `uv` · `pillow` · `javascript` · `html5` · `css3` · `leaflet` · `openstreetmap` · `usgs-water-services` · `national-weather-service-api` · `open-meteo` · `pwa` · `web-push` · `cap-1.2` · `atom` · `docker` · `caddy` · `cloudflare` · `claude-code`
+`python` · `fastapi` · `sqlite` · `uv` · `pillow` · `javascript` · `html5` · `css3` · `leaflet` · `openstreetmap` · `usgs-water-services` · `national-weather-service-api` · `open-meteo` · `pwa` · `web-push` · `vapid` · `cap-1.2` · `atom` · `docker` · `systemd` · `caddy` · `cloudflare` · `playwright` · `claude-code`
 
 ---
 
