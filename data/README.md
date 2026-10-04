@@ -35,7 +35,7 @@ Start at **100**. Each signal below can subtract points. The score is `100 + the
 | Report coverage | 0 reports this week / 1–2 reports | −10 / −5 |
 | Latest volunteer water test on the creek | DO < 5 mg/L / < 7 mg/L (the cold-water standard) | −15 / −6 |
 | | pH outside 6.5–8.5 (Basin Plan objective) | −5 |
-| | E. coli > 320 per 100 mL (California's swimming threshold) | −12 |
+| | E. coli > 320 MPN/100 mL (California's recreational threshold) | −12 |
 | | water > 20 °C (stress for trout) / turbidity > 10 NTU / > 25 NTU | −5 / −4 / −8 |
 | | A test 2–6 months old counts half; anything older is shown but not counted | |
 
@@ -80,6 +80,7 @@ Newer reports count more: a report's weight halves every 3 days. Each condition 
 | **Runoff / sediment watch** | ≥ 0.5 in of rain in the last 24 h **and** a report of brown or cloudy water in the last 48 h | At least **watch** |
 | **Algal bloom watch** | A report of lots of algae or green water this week **and** air temperature ≥ 80 °F | At least **watch** |
 | Heavy rain forecast | ≥ 0.5 in of rain forecast in the next 24 h | Advisory only; the score is unchanged |
+| **E. coli above the recreational threshold** | Any volunteer test on the creek in the last 60 days with E. coli > 320 MPN/100 mL (California's recreational statistical threshold value, not a single-sample limit) | **watch** for 14 days after the test, then **advisory** to day 60; names the group and the test date |
 
 When a warning forces a band, the score is capped at the top of that band. A creek can't show "alert" next to a score of 85. The cap is listed as its own signal, `early_warning_cap`.
 

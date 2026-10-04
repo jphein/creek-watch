@@ -1,0 +1,43 @@
+SPILL_EVENT_ID	SPILL_REPORT_VERSION	SPILL_STATUS	AGENCY_NAME	SANITARY_SEWER_SYSTEM_NAME	SPILL_TYPE	SPILL_LOCATION_NAME	ESTIMATED_SPILL_START_DATE_AND_TIME	SPILL_END_DATE_AND_TIME	LATITUDE	LONGITUDE	ESTIMATED_TOTAL_SPILL_VOLUME_EXITING_THE_SYSTEM_(GAL)	ESTIMATED_SPILL_VOLUME_THAT_DISCHARGED_TO_SURFACE_WATERS_(GAL)	NAME_OF_RECEIVING_WATER_BODY(S)	FINAL_CERTIFICATION_DATE	INITIAL_CERTIFICATION_DATE
+889116	1.1	Certified	Nevada CSD No 1	Lake Wildwood CS	Monthly Category 3 Spill	Lake Wildwood dr and Huckleberry	06/26/2023 06:40	06/26/2023 07:34	39.24564	-121.19551	134			30-AUG-24	30-AUG-24
+889588	1.1	Ready to Certify	Colfax City	Colfax CS	Monthly Category 3 Spill	South Auburn Street, between 39A2 and 39A1.5	07/21/2023 10:20	07/21/2023 11:48	39.09682	-120.95085	440				
+889589	1.0	Work In Progress	Colfax City	Colfax CS	Monthly Category 3 Spill	South Auburn Street, between 39A2 and 39A1.5	07/21/2023 10:20	07/21/2023 11:48	39.09682	-120.95085	440				
+890256	1.8	Certified	Ca Dept of Parks & Rec Tahoma	D.L. Bliss State Park CS	Category 2 Spill	D. L. Bliss State Park - Lighthouse Trailhead	09/06/2023 13:45	09/08/2023 17:20	38.98945	-120.09911	1500			11-SEP-23	11-SEP-23
+890268	1.1	Certified	Ca Dept of Parks & Rec Tahoma	D.L. Bliss State Park CS	Monthly Category 3 Spill	D. L. Bliss State Park - Group Camp Area	09/08/2023 08:00	09/08/2023 13:45	38.99321	-120.10583	200			06-OCT-23	06-OCT-23
+890558	1.2	Certified	Truckee SD	Truckee Sanitary District CS	Monthly Category 3 Spill	10010 Church St.	08/22/2023 15:09	08/22/2023 15:10	39.32892	-120.18426	126			27-SEP-23	27-SEP-23
+890589	1.3	Certified	Truckee SD	Truckee Sanitary District CS	Monthly Category 3 Spill	11754 Chalet Rd.	08/30/2023 08:42	08/30/2023 15:00	39.34992	-120.25062	83			29-SEP-23	29-SEP-23
+890716	1.2	Certified	Grass Valley City	Grass Valley City CS	Monthly Category 3 Spill	421 French St	10/02/2023 17:00	10/04/2023 15:30	39.21906	-121.06106	74			16-OCT-23	16-OCT-23
+890717	1.2	Certified	Grass Valley City	Grass Valley City CS	Monthly Category 3 Spill	435 French St	10/02/2023 15:00	10/02/2023 22:30	39.21906	-121.06106	210			16-OCT-23	16-OCT-23
+890815	1.2	Amended	Truckee SD	Truckee Sanitary District CS	Category 1 Spill	Truckee High School 	09/12/2023 08:00	10/11/2023 15:21	39.32376	-120.21265	56560	56560	No official name of Retention Basin next to spill site.	25-OCT-23	25-OCT-23
+890937	1.2	Certified	Nevada City	Nevada City CS	Monthly Category 3 Spill	Union Street	08/26/2023 23:00	08/27/2023 01:00	39.26278	-121.01757	400			23-OCT-23	23-OCT-23
+890815	2.3	Certified	Truckee SD	Truckee Sanitary District CS	Category 1 Spill	Truckee High School 	09/12/2023 08:00	10/11/2023 15:21	39.32376	-120.21265	43220	43220	No official name of Retention Basin next to spill site.	16-NOV-23	16-NOV-23
+893331	1.2	Certified	Donner Summit Public Utilities District	Donner Summit CS	Category 2 Spill	Sugar Bowl Academy 	02/04/2024 16:00	02/06/2024 18:52	39.30806	-120.33586	1000			06-FEB-24	06-FEB-24
+894110	1.1	Certified	Tahoe City PUD	Tahoe City Public Utility Dist CS	Monthly Category 3 Spill	6393 Chambers Lodge Rd	03/19/2024 10:30	03/19/2024 12:06	39.07245	-120.14133	192			22-MAR-24	22-MAR-24
+894367	1.2	Certified	Placer Cnty Dept of Facility Services	SMD No. 1 CS	Monthly Category 3 Spill	3760 Grass Valley Hwy	04/02/2024 08:30	04/02/2024 09:53	38.951928	-121.099807	663			21-MAY-24	21-MAY-24
+894390	1.2	Certified	Truckee SD	Truckee Sanitary District CS	Category 1 Spill	11603 Donner Pass Rd.	01/07/2024 12:00	04/08/2024 13:53	39.32466	-120.20899	146580	146580	Donner Creek	23-APR-24	23-APR-24
+895119	1.1	Certified	Tahoe City PUD	Tahoe City Public Utility Dist CS	Monthly Category 3 Spill	6393 Chambers Lodge Rd	06/03/2024 11:30	05/23/2024 12:30	39.07243	-120.1413	240			03-JUN-24	03-JUN-24
+895774	1.3	Certified	North Tahoe PUD	North Tahoe Public Utility Dst CS	Category 1 Spill	Carnelian Bay Sewer Spill Incident	07/18/2024 20:00	07/19/2024 03:00	39.22541	-120.08363	125000	85000	Lake Tahoe	02-AUG-24	02-AUG-24
+896024	1.2	Certified	Tahoe City PUD	Tahoe City Public Utility Dist CS	Monthly Category 3 Spill	263 Drum Rd	08/12/2024 14:15	08/12/2024 15:20	39.04313	-120.12014	435			13-AUG-24	13-AUG-24
+896765	1.2	Certified	Grass Valley City	Grass Valley City CS	Monthly Category 3 Spill	150 Glasson Way	09/04/2024 11:15	09/04/2024 12:15	39.22894	-121.0469	360			07-OCT-24	07-OCT-24
+897388	1.2	Certified	Grass Valley City	Grass Valley City CS	Monthly Category 3 Spill	446 Glenwood Rd	10/25/2024 08:00	10/25/2024 09:30	39.24067	-121.04173	100			12-NOV-24	12-NOV-24
+897630	1.1	Work In Progress	Grass Valley City	Grass Valley City CS	Category 1 Spill	201 Cypress Hill	11/22/2024 08:30	11/22/2024 10:00	39.22731	-121.05899	500	0	None		
+897709	1.1	Certified	Grass Valley City	Grass Valley City CS	Monthly Category 3 Spill	201 Cypress Hill Dr	11/22/2024 08:30	11/22/2024 10:00	39.22731	-121.05899	500			26-NOV-24	26-NOV-24
+901533	1.1	Certified	Ca Dept of Parks & Rec Tahoma	D.L. Bliss State Park CS	Monthly Category 3 Spill	D. L. Bliss State Park - Lester Beach Road at East/West Ridge Camp Loops	06/02/2025 13:35	06/02/2025 13:45	38.99189	-120.10537	250			01-JUL-25	01-JUL-25
+901839	1.2	Certified	Grass Valley City	Grass Valley City CS	Category 1 Spill	Peabody Creek	06/18/2025 22:00	06/19/2025 14:00	39.21871	-121.069714	1000	1000	Peabody Creek, Condon Park Pond.	25-JUN-25	25-JUN-25
+902384	1.0	Work In Progress	Grass Valley City	Grass Valley City CS	Monthly Category 3 Spill	504 Packard	08/05/2025 15:20	08/05/2025 16:30	39.21071	-121.07679	50				
+902761	1.1	Certified	Nevada City	Nevada City CS	Category 1 Spill	Uren Street and B Street intersection	09/03/2025 17:00	09/03/2025 17:00	39.26671	-121.01575	300	50	Deer Creek	05-SEP-25	05-SEP-25
+903572	1.2	Ready to Certify	Nevada CSD No 1	Penn Valley CS	Monthly Category 3 Spill	Pleasant valley dr	11/13/2025 15:30	11/13/2025 15:48	39.21657	-121.20081	760				
+903689	1.3	Certified	Nevada CSD No 1	Lake Wildwood CS	Category 1 Spill	10800 Dove Loop - LS 23	11/20/2025 17:00	11/20/2025 09:00	39.23371	-121.20808	71455	71355	Lake Wildwood	08-DEC-25	08-DEC-25
+903897	1.1	Certified	Placer Cnty Dept of Facility Services	SMD No. 1 CS	Monthly Category 3 Spill	12115 Dry Creek Road, Auburn 	11/22/2025 08:12	11/22/2025 10:52	38.957374	-121.09852	800			11-DEC-25	11-DEC-25
+904305	1.3	Certified	Grass Valley City	Grass Valley City CS	Monthly Category 3 Spill	114 W Main St	12/21/2025 12:00	12/21/2025 13:45	39.21935	-121.06257	750			22-DEC-25	22-DEC-25
+904595	1.1	Ready to Certify	Nevada CSD No 1	Penn Valley CS	Monthly Category 3 Spill	Penn Valley Drive and Spenceville Rd. 	12/27/2025 15:03	12/27/2025 18:45	39.19617	-121.1776	671				
+905604	1.2	Certified	Nevada City	Nevada City CS	Monthly Category 3 Spill	517 Jordan Street, Nevada City CA	02/20/2026 11:30	02/13/2026 13:50	39.258332	-121.025822	140			24-FEB-26	24-FEB-26
+906336	1.2	Certified	Tahoe City PUD	Tahoe City Public Utility Dist CS	Monthly Category 3 Spill	125 Lassen Dr  Units 3-6	04/02/2026 09:58	04/02/2026 09:58	39.18707	-120.10657	79			22-APR-26	22-APR-26
+906581	1.1	Certified	Grass Valley City	Grass Valley City CS	Category 1 Spill	245 E Main St	05/05/2026 20:00	05/06/2026 08:30	39.22008	-121.05742	1000	850	Wolf Creek	06-MAY-26	06-MAY-26
+906849	1.3	Certified	Nevada CSD No 1	Cascade Shores CS	Category 1 Spill	Cascade Shores Lift Station 61 14800 Lake Lane	06/02/2026 17:50	06/02/2026 18:58	39.2698	-120.91459	430	392	Scotts Flatt	10-JUN-26	10-JUN-26
+908099	1.2	Ready to Certify	Nevada CSD No 1	Lake of The Pines CS	Monthly Category 3 Spill	11922 Lakeshore North Lift station 4 pumpline	08/30/2026 20:00	08/31/2026 01:10	39.04427	-121.0657	367				
+908153	1.2	Certified	Tahoe City PUD	Tahoe City Public Utility Dist CS	Monthly Category 3 Spill	219 Paradise Flat Ln.	09/02/2026 07:15	09/02/2026 08:20	39.0044	-120.10987	742			30-SEP-26	30-SEP-26
+903822	1.1	Draft Submitted	Colfax City	Colfax CS	Category 2 Spill	Canyon Way 	03/11/2025 16:15		39.08195	-120.95759	1500				
+897424	1.2	Draft Submitted	Nevada CSD No 1	Penn Valley CS	Category 1 Spill	19117 lake forest dr penn valley california 95946	11/11/2024 17:13		39.22469	-121.20344	120	0			
+897421	1.2	Draft Submitted	Nevada CSD No 1	Lake Wildwood CS	Category 1 Spill	19083 Lake Forest Drive	11/08/2024 17:18		39.22411	-121.20378	843	0			
+908059	1.0	Work In Progress	Tahoe City PUD	Tahoe City Public Utility Dist CS	Monthly Category 3 Spill	219 Paradise Flat Ln.	09/02/2026 07:15		39.00452	-120.10993	742				

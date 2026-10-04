@@ -1,0 +1,189 @@
+{
+    "@context": [
+        "https://geojson.org/geojson-ld/geojson-context.jsonld",
+        {
+            "@version": "1.1",
+            "wx": "https://api.weather.gov/ontology#",
+            "@vocab": "https://api.weather.gov/ontology#"
+        }
+    ],
+    "type": "FeatureCollection",
+    "features": [
+        {
+            "id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.d1f6bcb7dc5d9a00fdd8ed346802787cadaee4ae.001.1",
+            "type": "Feature",
+            "geometry": null,
+            "properties": {
+                "@id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.d1f6bcb7dc5d9a00fdd8ed346802787cadaee4ae.001.1",
+                "@type": "wx:Alert",
+                "id": "urn:oid:2.49.0.1.840.0.d1f6bcb7dc5d9a00fdd8ed346802787cadaee4ae.001.1",
+                "areaDesc": "Western Shasta County Foothills Between 1000-3000 ft; South-Central Shasta County Including Redding Metro; Eastern Shasta County Foothills Between 1000-3000 ft; Sierra Nevada of Tehama-Butte-Plumas Counties Between 1000-3000 ft; Northern Motherlode Between 1000-3000 ft; Central Motherlode Between 1000-3000 ft; Southern Motherlode Between 1000-3000 ft; Western Tehama County Foothills Between 1000-3000 ft; Northern Sacramento Valley in Tehama County; Central Glenn County Including Interstate 5; Eastern Glenn County; Butte County Below 1000 ft; Western Glenn and Colusa County Foothills Between 1000-3000 ft; Central Colusa County Including Interstate 5; Eastern Colusa County; Sutter and Yuba Counties Below 1000 ft; Capay Hills of Yolo County and Vaca Hills of Solano County; Western Yolo County Including Capay Valley and Interstate 505; Central Yolo and Northeast Solano Counties Including Woodland and Davis; Sacramento Metro and Western El Dorado and Amador Counties; Central Solano County Including Fairfield and Vacaville; Southwestern Solano County Including Vallejo; Sacramento County Delta; San Joaquin County Delta; Central San Joaquin County Including Stockton Metro; Tracy Triangle Below 1000 ft; Northeastern San Joaquin Valley Below 1000 ft; Eastern Diablo Range Above 1000 ft; Western Stanislaus County Below 1000 ft Including Interstate 5; Central Stanislaus County Including Modesto Metro",
+                "geocode": {
+                    "SAME": [
+                        "006089",
+                        "006103",
+                        "006063",
+                        "006007",
+                        "006115",
+                        "006057",
+                        "006061",
+                        "006017",
+                        "006005",
+                        "006009",
+                        "006109",
+                        "006021",
+                        "006011",
+                        "006101",
+                        "006113",
+                        "006095",
+                        "006067",
+                        "006077",
+                        "006099"
+                    ],
+                    "UGC": [
+                        "CAZ122",
+                        "CAZ124",
+                        "CAZ125",
+                        "CAZ129",
+                        "CAZ131",
+                        "CAZ134",
+                        "CAZ137",
+                        "CAZ141",
+                        "CAZ142",
+                        "CAZ144",
+                        "CAZ145",
+                        "CAZ146",
+                        "CAZ147",
+                        "CAZ148",
+                        "CAZ149",
+                        "CAZ150",
+                        "CAZ151",
+                        "CAZ152",
+                        "CAZ153",
+                        "CAZ154",
+                        "CAZ155",
+                        "CAZ156",
+                        "CAZ157",
+                        "CAZ158",
+                        "CAZ159",
+                        "CAZ160",
+                        "CAZ161",
+                        "CAZ162",
+                        "CAZ163",
+                        "CAZ164"
+                    ]
+                },
+                "affectedZones": [
+                    "https://api.weather.gov/zones/forecast/CAZ122",
+                    "https://api.weather.gov/zones/forecast/CAZ124",
+                    "https://api.weather.gov/zones/forecast/CAZ125",
+                    "https://api.weather.gov/zones/forecast/CAZ129",
+                    "https://api.weather.gov/zones/forecast/CAZ131",
+                    "https://api.weather.gov/zones/forecast/CAZ134",
+                    "https://api.weather.gov/zones/forecast/CAZ137",
+                    "https://api.weather.gov/zones/forecast/CAZ141",
+                    "https://api.weather.gov/zones/forecast/CAZ142",
+                    "https://api.weather.gov/zones/forecast/CAZ144",
+                    "https://api.weather.gov/zones/forecast/CAZ145",
+                    "https://api.weather.gov/zones/forecast/CAZ146",
+                    "https://api.weather.gov/zones/forecast/CAZ147",
+                    "https://api.weather.gov/zones/forecast/CAZ148",
+                    "https://api.weather.gov/zones/forecast/CAZ149",
+                    "https://api.weather.gov/zones/forecast/CAZ150",
+                    "https://api.weather.gov/zones/forecast/CAZ151",
+                    "https://api.weather.gov/zones/forecast/CAZ152",
+                    "https://api.weather.gov/zones/forecast/CAZ153",
+                    "https://api.weather.gov/zones/forecast/CAZ154",
+                    "https://api.weather.gov/zones/forecast/CAZ155",
+                    "https://api.weather.gov/zones/forecast/CAZ156",
+                    "https://api.weather.gov/zones/forecast/CAZ157",
+                    "https://api.weather.gov/zones/forecast/CAZ158",
+                    "https://api.weather.gov/zones/forecast/CAZ159",
+                    "https://api.weather.gov/zones/forecast/CAZ160",
+                    "https://api.weather.gov/zones/forecast/CAZ161",
+                    "https://api.weather.gov/zones/forecast/CAZ162",
+                    "https://api.weather.gov/zones/forecast/CAZ163",
+                    "https://api.weather.gov/zones/forecast/CAZ164"
+                ],
+                "references": [
+                    {
+                        "@id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.ac066d5326fccb4cc6ad965c3ce88441c5c3dbad.001.1",
+                        "identifier": "urn:oid:2.49.0.1.840.0.ac066d5326fccb4cc6ad965c3ce88441c5c3dbad.001.1",
+                        "sender": "w-nws.webmaster@noaa.gov",
+                        "sent": "2026-10-02T10:00:00-07:00"
+                    },
+                    {
+                        "@id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.ac066d5326fccb4cc6ad965c3ce88441c5c3dbad.002.1",
+                        "identifier": "urn:oid:2.49.0.1.840.0.ac066d5326fccb4cc6ad965c3ce88441c5c3dbad.002.1",
+                        "sender": "w-nws.webmaster@noaa.gov",
+                        "sent": "2026-10-02T10:00:00-07:00"
+                    },
+                    {
+                        "@id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.d339a277cb25885f5aeca56391b145d67f842c67.001.1",
+                        "identifier": "urn:oid:2.49.0.1.840.0.d339a277cb25885f5aeca56391b145d67f842c67.001.1",
+                        "sender": "w-nws.webmaster@noaa.gov",
+                        "sent": "2026-10-03T10:18:00-07:00"
+                    }
+                ],
+                "sent": "2026-10-03T14:14:00-07:00",
+                "effective": "2026-10-03T14:14:00-07:00",
+                "onset": "2026-10-03T14:14:00-07:00",
+                "expires": "2026-10-04T17:00:00-07:00",
+                "ends": "2026-10-07T22:00:00-07:00",
+                "status": "Actual",
+                "messageType": "Update",
+                "category": "Met",
+                "severity": "Moderate",
+                "certainty": "Likely",
+                "urgency": "Expected",
+                "event": "Heat Advisory",
+                "sender": "w-nws.webmaster@noaa.gov",
+                "senderName": "NWS Sacramento CA",
+                "headline": "Heat Advisory issued October 3 at 2:14PM PDT until October 7 at 10:00PM PDT by NWS Sacramento CA",
+                "description": "* WHAT...High temperatures of 94 to 102 degrees expected and low\ntemperatures in the mid 60s to low 70s, with widespread Moderate\nHeatRisk and areas of Major HeatRisk.\n\n* WHERE...Sacramento and northern San Joaquin valleys, Delta and\nCarquinez Strait, and foothills.\n\n* WHEN...Until 10 PM PDT Wednesday.\n\n* IMPACTS...Hot temperatures may cause heat illnesses, especially to\nanyone without effective cooling and/or adequate hydration.\n\n* ADDITIONAL DETAILS...Hottest days expected Monday through\nWednesday.",
+                "instruction": "Drink plenty of fluids, stay in an air-conditioned room, stay out of\nthe sun, and check up on relatives and neighbors.\n\nTake extra precautions when outside. Wear lightweight and loose\nfitting clothing. Try to limit strenuous activities to early morning\nor evening. Take action when you see symptoms of heat exhaustion and\nheat stroke.",
+                "response": "Execute",
+                "note": null,
+                "parameters": {
+                    "AWIPSidentifier": [
+                        "NPWSTO"
+                    ],
+                    "WMOidentifier": [
+                        "WWUS76 KSTO 032114"
+                    ],
+                    "NWSheadline": [
+                        "HEAT ADVISORY REMAINS IN EFFECT UNTIL 10 PM PDT WEDNESDAY"
+                    ],
+                    "BLOCKCHANNEL": [
+                        "EAS",
+                        "NWEM",
+                        "CMAS"
+                    ],
+                    "VTEC": [
+                        "/O.CON.KSTO.HT.Y.0006.000000T0000Z-261008T0500Z/"
+                    ],
+                    "eventEndingTime": [
+                        "2026-10-07T22:00:00-07:00"
+                    ],
+                    "expiredReferences": [
+                        "w-nws.webmaster@noaa.gov,urn:oid:2.49.0.1.840.0.458f61b36747d51aaf5a59ce3ec64e8d9dfe7d7e.001.1,2026-10-01T09:34:00-07:00"
+                    ]
+                },
+                "scope": "Public",
+                "code": "IPAWSv1.0",
+                "language": "en-US",
+                "web": "http://www.weather.gov",
+                "eventCode": {
+                    "SAME": [
+                        "NWS"
+                    ],
+                    "NationalWeatherService": [
+                        "HTY"
+                    ]
+                }
+            }
+        }
+    ],
+    "title": "Current watches, warnings, and advisories for 39.2603 N, 121.0335 W",
+    "updated": "2026-10-04T02:03:12+00:00"
+}
