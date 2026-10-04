@@ -9,7 +9,12 @@ export const isNum = (x) => x != null && x !== '' && Number.isFinite(Number(x));
 // Some WCCA sites are on private land, visited monthly with the landowner's permission. Until we
 // have WCCA's list, every WCCA site gets the private wording (the safer default); station ids
 // here are known-public overrides. An `access` field from the API ("private" | "public") wins.
-export const PUBLIC_WQ_STATIONS = new Set([]);
+// Confirmed public by WCCA (Kristen, 2026-10-04 10:26): City of Grass Valley land on the Wolf Creek
+// Trail. Match on RiverDB station id (data/wq.py), never on name. Add more only when WCCA confirms.
+export const PUBLIC_WQ_STATIONS = new Set([
+  '285873023374532', // WCCA Site 8 (Glenn Jones Park)
+  '285873023410886', // WCCA Site 8.5 (above Little Wolf Creek)
+]);
 export function siteAccess(st) {
   const a = String(st?.access || '').toLowerCase();
   if (a === 'private' || a === 'public') return a;
