@@ -1,0 +1,150 @@
+[
+  {
+    "id": "wolf",
+    "name": "Wolf Creek",
+    "town": "Grass Valley",
+    "description": "Rises near Loma Rica, runs through downtown Grass Valley and the North Star / Wolf Creek Trail corridor, then south ~30 km to the Bear River near Wolf.",
+    "sites": [
+      {
+        "id": "wolf-loma-rica-trail",
+        "name": "Loma Rica Trail bridge",
+        "lat": 39.224021,
+        "lon": -121.026834,
+        "on_main_stem": true,
+        "waterway": "Wolf Creek",
+        "access": "Public trail (Loma Rica Trail); upper Wolf Creek near the headwaters.",
+        "osm_ref": "https://www.openstreetmap.org/way/449267810",
+        "snap_moved_m": 66
+      },
+      {
+        "id": "wolf-downtown",
+        "name": "Downtown Grass Valley (Elisabeth Daniels Park)",
+        "lat": 39.215525,
+        "lon": -121.063069,
+        "on_main_stem": true,
+        "waterway": "Wolf Creek",
+        "access": "City pocket park off Bank St by the Park & Ride. Wolf Creek is in a culvert under downtown (OSM way 1085194147) and reappears here at its outlet.",
+        "osm_ref": "https://www.openstreetmap.org/way/826973207",
+        "snap_moved_m": 146
+      },
+      {
+        "id": "wolf-glen-jones-park",
+        "name": "Wolf Creek Trail at Glen Jones Park / North Star Museum",
+        "lat": 39.207943,
+        "lon": -121.069626,
+        "on_main_stem": true,
+        "waterway": "Wolf Creek",
+        "access": "Public trail and picnic area at the North Star Mining Museum (Allison Ranch Rd).",
+        "osm_ref": "https://www.openstreetmap.org/way/1546648003",
+        "snap_moved_m": 4
+      },
+      {
+        "id": "wolf-daspah-seyo-trail",
+        "name": "Daspah Seyo Trail",
+        "lat": 39.203774,
+        "lon": -121.067538,
+        "on_main_stem": true,
+        "waterway": "Wolf Creek",
+        "access": "Public trail continuing downstream of the museum along Wolf Creek.",
+        "osm_ref": "https://www.openstreetmap.org/way/1546649673",
+        "snap_moved_m": 63
+      },
+      {
+        "id": "wolf-allison-ranch-rd",
+        "name": "Allison Ranch Road bridge (La Barr Meadows)",
+        "lat": 39.165839,
+        "lon": -121.061094,
+        "on_main_stem": true,
+        "waterway": "Wolf Creek",
+        "access": "View from the public road bridge only; land on both banks is private. USGS sampled water quality here (site 390955121034101).",
+        "osm_ref": "https://www.openstreetmap.org/way/1127241694",
+        "snap_moved_m": 1
+      },
+      {
+        "id": "wolf-wolf-rd",
+        "name": "Wolf Road bridge (near Wolf)",
+        "lat": 39.052122,
+        "lon": -121.108439,
+        "on_main_stem": true,
+        "waterway": "Wolf Creek",
+        "access": "View from the public road bridge only. Former USGS site 11423150 'Wolf C nr Wolf CA', ~3 km above the Bear River.",
+        "osm_ref": "https://www.openstreetmap.org/way/305641149",
+        "snap_moved_m": 1
+      }
+    ]
+  },
+  {
+    "id": "deer",
+    "name": "Deer Creek",
+    "town": "Nevada City",
+    "description": "Flows from Scotts Flat Reservoir through downtown Nevada City, along the Deer Creek Tribute Trail, past Rough and Ready to Lake Wildwood, then on to the Yuba River near Smartsville.",
+    "sites": [
+      {
+        "id": "deer-pioneer-park",
+        "name": "Pioneer Park (Little Deer Creek)",
+        "lat": 39.25914,
+        "lon": -121.009826,
+        "on_main_stem": false,
+        "waterway": "Little Deer Creek",
+        "access": "City park. NOTE: this is Little Deer Creek, a tributary that joins Deer Creek ~0.6 km downstream at Calanan Park.",
+        "osm_ref": "https://www.openstreetmap.org/relation/12824928",
+        "snap_moved_m": 26
+      },
+      {
+        "id": "deer-calanan-park",
+        "name": "Downtown Nevada City (Calanan Park / Miner's Trail)",
+        "lat": 39.261973,
+        "lon": -121.016514,
+        "on_main_stem": true,
+        "waterway": "Deer Creek",
+        "access": "City park and footpath at Broad St / Hwy 49, just below the Little Deer Creek confluence.",
+        "osm_ref": "https://www.openstreetmap.org/way/479769136",
+        "snap_moved_m": 108
+      },
+      {
+        "id": "deer-angkula-seo-bridge",
+        "name": "Deer Creek Tribute Trail, Angkula Seo Bridge",
+        "lat": 39.26031,
+        "lon": -121.033402,
+        "on_main_stem": true,
+        "waterway": "Deer Creek",
+        "access": "Public trail suspension bridge on the Tribute Trail (Providence Mine Rd trailhead).",
+        "osm_ref": "https://www.openstreetmap.org/way/899660375",
+        "snap_moved_m": 3
+      },
+      {
+        "id": "deer-tribute-trail-lower",
+        "name": "Deer Creek Tribute Trail, lower bridge (Champion Mine Rd)",
+        "lat": 39.254695,
+        "lon": -121.046541,
+        "on_main_stem": true,
+        "waterway": "Deer Creek",
+        "access": "Public trail bridge near Stocking Flat (Champion Mine Rd trailhead).",
+        "osm_ref": "https://www.openstreetmap.org/way/936506323",
+        "snap_moved_m": 3
+      },
+      {
+        "id": "deer-bitney-springs-rd",
+        "name": "Bitney Springs Road bridge",
+        "lat": 39.246699,
+        "lon": -121.111717,
+        "on_main_stem": true,
+        "waterway": "Deer Creek",
+        "access": "View from the public road bridge only, between Nevada City and Rough and Ready.",
+        "osm_ref": "https://www.openstreetmap.org/way/127311846",
+        "snap_moved_m": 5
+      },
+      {
+        "id": "deer-pleasant-valley-rd",
+        "name": "Pleasant Valley Road bridge (below Lake Wildwood)",
+        "lat": 39.236437,
+        "lon": -121.21761,
+        "on_main_stem": true,
+        "waterway": "Deer Creek",
+        "access": "View from the public road bridge only, Penn Valley; below the Lake Wildwood dam.",
+        "osm_ref": "https://www.openstreetmap.org/way/864445285",
+        "snap_moved_m": 5
+      }
+    ]
+  }
+]
