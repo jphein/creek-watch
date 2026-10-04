@@ -48,7 +48,8 @@ def test_warmup_and_first_visitor_one_fetch_per_station_no_false_failure(monkeyp
     t0 = time.monotonic()
     first = dl.conditions("deer")             # a visitor racing the warm-up
     assert time.monotonic() - t0 < 1.5        # capped (0.3 s here), never the full RiverDB wait
-    assert first["water_quality"].get("capped") is True and first.get("cache_ttl_hint_s") == 30
+    assert first["water_quality"].get("capped") is True
+    assert "cache_ttl_hint_s" not in first      # #82 honours the hint and strips it from the public dict
     assert not any(s["live"] for s in first["water_quality"]["stations"] if s["agency"] == "SYRCL")
 
     # The alert poller's RiverDB adapter calls wq directly (not through the DataLayer's per-creek
