@@ -14,6 +14,8 @@ def hermetic(monkeypatch):
     monkeypatch.setenv("CREEKWATCH_USE_DATA_PKG", "0")
     # no background conditions warm-up in tests unless a test opts in (keeps tests offline/deterministic)
     monkeypatch.setenv("CREEKWATCH_WARM_CONDITIONS", "0")
+    # tests must behave the same on any host, including a Fly machine (FLY_APP_NAME changes client-IP trust)
+    monkeypatch.delenv("FLY_APP_NAME", raising=False)
 
 
 @pytest.fixture

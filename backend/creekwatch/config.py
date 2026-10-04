@@ -49,6 +49,9 @@ class Settings:
     push_rate_count: int = field(default_factory=lambda: int(os.environ.get("CREEKWATCH_PUSH_RATE_COUNT", "20")))
     public_url: str | None = field(default_factory=lambda: os.environ.get("CREEKWATCH_PUBLIC_URL") or None)
 
+    # Fly.io injects FLY_APP_NAME into every machine; only then is Fly-Client-IP trusted (fly-proxy sets it).
+    on_fly: bool = field(default_factory=lambda: bool(os.environ.get("FLY_APP_NAME")))
+
     @property
     def db_path(self) -> Path:
         return self.data_dir / "creekwatch.db"

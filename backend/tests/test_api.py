@@ -421,3 +421,50 @@ def test_reports_migration_adds_location_kind(tmp_path):
     c = sqlite3.connect(p); c.execute("ALTER TABLE reports DROP COLUMN location_kind"); c.commit(); c.close()
     db.init(p)
     assert "location_kind" in {r[1] for r in sqlite3.connect(p).execute("PRAGMA table_info(reports)")}
+
+
+# ---- Fly.io: client IP from Fly-Client-IP (only when running on Fly) ----------------------------
+
+def _req(peer, **h):
+    from starlette.requests import Request
+    hdrs = [(k.replace("_", "-").encode(), v.encode()) for k, v in h.items()]
+    return Request({"type": "http", "client": (peer, 1234), "headers": hdrs})
+
+
+def test_fly_client_ip_used_only_on_fly():
+    from creekwatch.main import make_client_ip
+    fly = make_client_ip("127.0.0.0/8,172.16.0.0/12", on_fly=True)
+    home = make_client_ip("127.0.0.0/8,172.16.0.0/12", on_fly=False)
+    assert fly(_req("172.16.5.9", fly_client_ip="203.0.113.7")) == "203.0.113.7"
+    assert fly(_req("fdaa::3", fly_client_ip="2001:db8::1")) == "2001:db8::1"
+    assert fly(_req("172.16.5.9", fly_client_ip="garbage")) == "172.16.5.9"          # falls back to the peer
+    assert fly(_req("172.16.5.9")) == "172.16.5.9"
+    # off Fly, a client-sent Fly-Client-IP is ignored on every path
+    assert home(_req("203.0.113.99", fly_client_ip="1.2.3.4")) == "203.0.113.99"     # untrusted peer
+    assert home(_req("172.17.0.1", fly_client_ip="1.2.3.4", cf_connecting_ip="198.51.100.5")) == "198.51.100.5"
+    assert home(_req("172.17.0.1", fly_client_ip="1.2.3.4")) == "172.17.0.1"
+
+
+def test_fly_settings_flag(monkeypatch):
+    monkeypatch.delenv("FLY_APP_NAME", raising=False)
+    assert Settings().on_fly is False
+    monkeypatch.setenv("FLY_APP_NAME", "creekwatch")
+    assert Settings().on_fly is True
+
+
+def test_fly_separate_rate_limit_buckets_per_client(tmp_path, monkeypatch):
+    monkeypatch.setenv("FLY_APP_NAME", "creekwatch")
+    s = Settings(data_dir=tmp_path / "d", web_dir=tmp_path / "w", sites_json=tmp_path / "m.json", rate_limit_count=3)
+    with TestClient(create_app(s)) as c:
+        a = [c.post("/api/reports", data=REPORT, headers={"Fly-Client-IP": "203.0.113.10"}).status_code for _ in range(4)]
+        b = c.post("/api/reports", data=REPORT, headers={"Fly-Client-IP": "203.0.113.11"}).status_code
+    assert a == [201, 201, 201, 429] and b == 201, "two Fly clients must not share one bucket"
+
+
+def test_off_fly_spoofed_fly_header_does_not_split_buckets(tmp_path, monkeypatch):
+    monkeypatch.delenv("FLY_APP_NAME", raising=False)
+    s = Settings(data_dir=tmp_path / "d", web_dir=tmp_path / "w", sites_json=tmp_path / "m.json", rate_limit_count=3)
+    with TestClient(create_app(s)) as c:
+        codes = [c.post("/api/reports", data=REPORT, headers={"Fly-Client-IP": f"203.0.113.{i}"}).status_code
+                 for i in range(4)]
+    assert codes == [201, 201, 201, 429], "off Fly a rotating spoofed header must not evade the limit"

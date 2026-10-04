@@ -95,13 +95,21 @@ def iso(dt: datetime) -> str:
     return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
-def make_client_ip(trusted: str):
-    """Real client IP. Only a trusted peer (Caddy via loopback/docker bridge) may vouch for it, preferring
+def make_client_ip(trusted: str, on_fly: bool = False):
+    """Real client IP.
+    On Fly.io (on_fly, i.e. FLY_APP_NAME is set): every request arrives through fly-proxy, which sets
+    Fly-Client-IP to the real client, so that header is used. Off Fly it is IGNORED (a client could send it).
+    Homelab: only a trusted peer (Caddy via loopback/docker bridge) may vouch for the client, preferring
     Cloudflare's CF-Connecting-IP (set at the edge, so unspoofable through the tunnel), then the first
     X-Forwarded-For hop. Anyone else is identified by the TCP peer address."""
     nets = [ipaddress.ip_network(n.strip(), strict=False) for n in trusted.split(",") if n.strip()]
 
     def client_ip(request: Request) -> str:
+        if on_fly:
+            try:
+                return str(ipaddress.ip_address(request.headers.get("fly-client-ip", "").strip()))
+            except ValueError:
+                pass  # missing/garbage: fall back to the peer below
         peer = request.client.host if request.client else "unknown"
         try:
             peer_ip = ipaddress.ip_address(peer)
@@ -159,7 +167,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     creeks = load_creeks(s.sites_json, s.use_data_package)
     creek_by_id = {c["id"]: c for c in creeks}
     data = DataLayer(s.conditions_ttl_s, s.use_data_package)
-    client_ip = make_client_ip(s.trusted_proxies)
+    client_ip = make_client_ip(s.trusted_proxies, on_fly=s.on_fly)
+    if s.on_fly:
+        log.info("running on Fly.io: client IP from Fly-Client-IP")
     # Photo decode gate. Uploads WAIT here in the event loop (no thread held) and decode on a
     # dedicated thread limiter, so they never consume Starlette's shared pool, which every
     # sync endpoint (/healthz, /api/*) and StaticFiles also use. Created lazily inside the loop.
