@@ -11,6 +11,7 @@
 - **Bring someone with you.** If you can't, text JP where you're going and when you expect to be back.
 - **Stay on the bank.** Don't wade in or climb down steep or slippery banks. Take every photo from dry ground.
 - **Public places only.** Use parks, trails and the sidewalks on public bridges. If a sign says private property or no trespassing, skip that spot.
+- **Heat.** It was about 90°F on Saturday. Go early, carry water, and stop if you feel dizzy or sick.
 - **Watch your step.** Look out for poison oak, broken glass and needles. Wear closed shoes.
 - **Don't touch anything strange:** dead animals, foam, oily sheen or odd-coloured water. Photograph it and report it, but keep your hands off it.
 - **If something looks dangerous**, like a big spill or someone hurt, leave and call 911. The app is not for emergencies.
@@ -25,6 +26,7 @@ Visit **2 spots per creek** (4 total). All four are public, easy walk-in places 
 **Wolf Creek, Grass Valley**
 1. **Downtown Grass Valley (Elisabeth Daniels Park).** This is a small city park off Bank St, by the Park & Ride. Wolf Creek runs in a pipe under downtown and comes back out here. [Map](https://www.openstreetmap.org/?mlat=39.215525&mlon=-121.063069#map=18/39.215525/-121.063069)
 2. **Wolf Creek Trail at Glen Jones Park / North Star Mining Museum.** This is on Allison Ranch Rd, with a public trail and picnic area. [Map](https://www.openstreetmap.org/?mlat=39.207943&mlon=-121.069626#map=18/39.207943/-121.069626)
+   - Backup: the Daspah Seyo Trail, just downstream of the museum. [Map](https://www.openstreetmap.org/?mlat=39.203774&mlon=-121.067538#map=18/39.203774/-121.067538)
 
 **Deer Creek, Nevada City**
 3. **Downtown Nevada City (Calanan Park / Miner's Trail).** This is a city park and footpath at Broad St and Hwy 49. [Map](https://www.openstreetmap.org/?mlat=39.261973&mlon=-121.016514#map=18/39.261973/-121.016514)
