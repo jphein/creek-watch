@@ -65,3 +65,12 @@ Everything here is public and keyless. Retrieved 2026-10-03 unless noted.
   - **North Star Museum:** the qualified 6-week geometric mean stayed ≤ 41. One sample exceeded 320 (770.1 on 2024-07-31).
 - **Presentation rule:** this is dated history ("2024 Regional Board study", `is_current: false`). It is **never** shown as current conditions and **never** feeds the health score.
 - **Rebuild:** `python3 -m data.tools.build_ceden_history`.
+## Regional river flow and reservoir storage: CDEC (DWR)
+- **Endpoint:** `https://cdec.water.ca.gov/dynamicapp/req/JSONDataServlet?Stations=JBR,ENG&SensorNums=1,6,15,20&dur_code=H&Start=…&End=…`. Keyless JSON. **Credit:** California Department of Water Resources, CDEC.
+- **Stations:**
+  - **JBR**, South Yuba River at Jones Bar: flow (sensor 20, cfs) and stage (sensor 1, ft). Below the Hwy 49 / Purdon / Edwards Crossing swim holes.
+  - **ENG**, Englebright Lake: storage (sensor 15, acre-feet) and elevation (sensor 6, ft).
+  - **DCS** (Deer Creek nr Smartsville) is deliberately not used: it mirrors USGS 11418500, which we read directly.
+- **Times:** CDEC's station pages label hourly times "DATE / TIME PDT", i.e. California local time. We convert from America/Los_Angeles to UTC.
+- **Freshness:** hourly, but CDEC's own lag varies. At 20:41 PDT on 2026-10-03 the newest JBR value was 09:00 PDT; at 20:51 PDT it was 19:00 PDT. So every value carries `observed_at` and `age_hours`, and the UI must show the observation time.
+- **Exposure:** `conditions["river"]` (regional, the same for both creeks). Cached 15 min, with the shared failure backoff. Missing values (−9999) are skipped. The module never raises.
