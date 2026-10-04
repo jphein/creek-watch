@@ -84,7 +84,7 @@ Details, retrieval URLs and the right-creek checks: [data/SOURCES.md](data/SOURC
 
 **Why citizen reports matter here:** neither creek has a live instrument in town, so a real-time gauge can't tell you what Wolf Creek or Deer Creek looks like downtown. People at the water can.
 
-**Photos:** the South Yuba River and Sierra newt photos in the app (and in the demo video) come from Wikimedia Commons. Five are U.S. Bureau of Land Management works in the public domain. Three are CC BY-SA: Frank Schulenburg (Bridgeport Covered Bridge, 4.0) and Larry Miller (old Highway 49 bridge and Sierra newt, 2.0). Our edited versions of those three keep the same licence. Full table with links and edits: [web/assets/photos/CREDITS.md](web/assets/photos/CREDITS.md).
+**Photos:** the Wolf Creek, South Yuba River and Sierra newt photos in the app and demo video come from Wikimedia Commons. Five are U.S. Bureau of Land Management works in the public domain. Four are CC BY-SA: Jim Heaphy (Wolf Creek in Boston Ravine, 4.0; video opener), Frank Schulenburg (Bridgeport Covered Bridge, 4.0) and Larry Miller (old Highway 49 bridge and Sierra newt, 2.0). Our edited versions of those keep the same licence. Full table with links and edits: [web/assets/photos/CREDITS.md](web/assets/photos/CREDITS.md).
 
 Creek Watch is not affiliated with or endorsed by USGS, NOAA/NWS, Open-Meteo or OpenStreetMap.
 
