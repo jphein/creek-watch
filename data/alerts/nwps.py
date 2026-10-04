@@ -1,6 +1,7 @@
 """NOAA National Water Prediction Service: flood categories at river forecast points in the region."""
 from __future__ import annotations
 
+import urllib.parse
 from datetime import datetime, timedelta
 
 from . import http
@@ -27,24 +28,33 @@ class NWPS(Source):
                           f"?bbox.xmin={w}&bbox.ymin={s}&bbox.xmax={e}&bbox.ymax={n}&srid=EPSG_4326")
         out = []
         for g in d.get("gauges") or []:
-            st = g.get("status") or {}
-            for kind in ("observed", "forecast"):
-                cat = ((st.get(kind) or {}).get("floodCategory") or "").lower()
-                if cat not in FLOOD_SEVERITY:
-                    continue  # no_flooding / not_defined / obs_not_current ...
-                v = st[kind]
-                when = "is at" if kind == "observed" else "is forecast to reach"
-                out.append(make_alert(
-                    source="nwps", source_id=f"{g['lid']}:{kind}", source_name=self.name,
-                    category="flood", severity=FLOOD_SEVERITY[cat],
-                    title=f"{g['name']}: {WORDS[cat]}",
-                    summary=f"{g['name']} {when} {WORDS[cat]} "
-                            f"({v.get('primary')} {v.get('primaryUnit', '')}).",
-                    effective=v.get("validTime") or now, updated=v.get("validTime") or now,
-                    expires=now + timedelta(hours=6),
-                    lat=g.get("latitude"), lon=g.get("longitude"),
-                    area_desc=g["name"],
-                    url=f"https://water.noaa.gov/gauges/{g['lid']}",
-                    attribution=self.attribution,
-                ))
+            try:
+                out += self._gauge_alerts(g, now)
+            except Exception as e:  # noqa: BLE001 - one bad gauge record never drops the rest
+                self.skip(f"gauge {g.get('lid') if isinstance(g, dict) else '?'}", e)
+        return out
+
+    def _gauge_alerts(self, g, now):
+        out = []
+        lid = urllib.parse.quote(str(g["lid"]), safe="")
+        st = g.get("status") or {}
+        for kind in ("observed", "forecast"):
+            cat = ((st.get(kind) or {}).get("floodCategory") or "").lower()
+            if cat not in FLOOD_SEVERITY:
+                continue  # no_flooding / not_defined / obs_not_current ...
+            v = st[kind]
+            when = "is at" if kind == "observed" else "is forecast to reach"
+            out.append(make_alert(
+                source="nwps", source_id=f"{lid}:{kind}", source_name=self.name,
+                category="flood", severity=FLOOD_SEVERITY[cat],
+                title=f"{g['name']}: {WORDS[cat]}",
+                summary=f"{g['name']} {when} {WORDS[cat]} "
+                        f"({v.get('primary')} {v.get('primaryUnit', '')}).",
+                effective=v.get("validTime") or now, updated=v.get("validTime") or now,
+                expires=now + timedelta(hours=6),
+                lat=g.get("latitude"), lon=g.get("longitude"),
+                area_desc=g["name"],
+                url=f"https://water.noaa.gov/gauges/{lid}",
+                attribution=self.attribution,
+            ))
         return out

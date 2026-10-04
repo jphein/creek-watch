@@ -58,7 +58,9 @@ REPORT_RULES = [
 #   E. coli 320 MPN/100 mL: CA statewide bacteria objective (REC-1 statistical threshold value)
 #   water temp > 20 C: rule of thumb for stress on trout and other cold-water life
 #   turbidity > 10 / 25 NTU: rule of thumb for elevated / high (no fixed numeric objective here)
-ECOLI_LIMIT = 320     # MPN/100 mL: CA statewide REC-1 statistical threshold value
+ECOLI_LIMIT = 320     # MPN/100 mL: CA statewide REC-1 statistical threshold value (STV) -
+                      # an objective for the distribution of samples, NOT a single-sample limit
+ECOLI_WATCH_DAYS = 14 # bacteria warning is "watch" for 2 weeks after the test, then "advisory"
 WQ_FULL_DAYS = 60     # samples this recent count fully
 WQ_HALF_DAYS = 180    # ... this recent count half; older ones are shown as context only
 
@@ -76,7 +78,7 @@ def _wq_penalties(r: dict) -> list[tuple[str, float]]:
         out.append((f"pH {ph} is outside the 6.5-8.5 standard", 5))
     ec = r.get("ecoli_mpn_100ml")
     if ec is not None and ec > 320:
-        out.append((f"E. coli {ec:g} per 100 mL is above the state swimming threshold of 320", 12))
+        out.append((f"E. coli {ec:g} MPN/100 mL is above California's 320 recreational threshold", 12))
     t = r.get("water_temp_c")
     if t is not None and t > 20:
         out.append((f"water {t} °C is warm enough to stress trout", 5))
@@ -87,6 +89,15 @@ def _wq_penalties(r: dict) -> list[tuple[str, float]]:
         elif tu > 10:
             out.append((f"turbidity {tu} NTU is elevated", 4))
     return out
+
+
+def ecoli_text(ec: float, name: str, date_iso: str, credit: str | None = None) -> str:
+    """Accurate E. coli wording, shared with data.alerts (no 'unsafe': 320 is an STV)."""
+    d = datetime.fromisoformat(str(date_iso)[:10])
+    who = f"{credit}: a" if credit else "A"
+    return (f"{who} volunteer test on {d:%b %-d, %Y} measured E. coli of {ec:g} MPN/100 mL at {name}, "
+            f"above California's recreational water-quality threshold of {ECOLI_LIMIT} "
+            "(a statistical threshold, not a single-sample limit).")
 
 
 def _fmt_readings(r: dict) -> str:
@@ -275,7 +286,7 @@ def compute_health(creek_id: str, reports: list[dict] | None, conditions: dict |
         sig("volunteer_lab_data", None, 0, "No volunteer water-test data is available right now.",
             "RiverDB volunteer monitoring")
 
-    # E. coli advisory: ANY recent volunteer test on this creek above the state swimming threshold
+    # E. coli advisory: ANY recent volunteer test on this creek above California's 320 recreational threshold
     # (checked across all stations; the newest station may not measure E. coli at all).
     hot = [s for s in wq_st
            if (s.get("readings") or {}).get("ecoli_mpn_100ml") is not None
@@ -283,11 +294,11 @@ def compute_health(creek_id: str, reports: list[dict] | None, conditions: dict |
            and s.get("age_days") is not None and s["age_days"] <= WQ_FULL_DAYS]
     if hot:
         worst = max(hot, key=lambda s: s["readings"]["ecoli_mpn_100ml"])
-        warn("bacteria_watch", "watch", "Bacteria above the swimming standard",
-             f"{worst.get('credit') or 'A volunteer group'} measured E. coli of "
-             f"{worst['readings']['ecoli_mpn_100ml']:g} per 100 mL at {worst.get('name')} on {worst.get('date')}, "
-             f"above California's swimming threshold of {ECOLI_LIMIT}. Avoid swimming or putting your face "
-             "in the water there, and wash hands after contact.")
+        level = "watch" if worst["age_days"] <= ECOLI_WATCH_DAYS else "advisory"
+        warn("bacteria_watch", level, "E. coli above the recreational threshold",
+             ecoli_text(worst["readings"]["ecoli_mpn_100ml"], worst.get("name") or "a monitoring site",
+                        worst["date"], worst.get("credit")) +
+             " Consider skipping swimming there until a newer test comes back lower.")
 
     # ---- citizen reports
     n = len(recent)

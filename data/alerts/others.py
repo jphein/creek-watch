@@ -5,11 +5,11 @@ import re
 from datetime import datetime, timedelta, timezone
 
 from .. import ingest, wq
+from ..score import ECOLI_LIMIT, ECOLI_WATCH_DAYS, ecoli_text
 from . import http
 from .model import Source, in_region, make_alert
 
-ECOLI_LIMIT = 320          # MPN/100 mL, CA statewide REC-1 statistical threshold value
-ECOLI_RECENT_DAYS = 60
+ECOLI_RECENT_DAYS = 60     # E. coli alerts drop after 60 days (limit + watch window: data.score)
 SSI_PIONEER = "https://sierrastreamsinstitute.org/pioneer-park-monitoring-status/"
 # Standing items (fish advisories, the SSI link) have no issue date in their source; this is the
 # date Creek Watch verified the listing, so "effective" never pretends to be the source's date.
@@ -67,24 +67,13 @@ class RiverDBBacteria(Source):
         out = []
         for creek_id in ("deer", "wolf"):
             for st in wq.get_water_quality(creek_id, now=now)["stations"]:
-                ec = (st.get("readings") or {}).get("ecoli_mpn_100ml")
-                age = st.get("age_days")
-                if ec is None or ec <= ECOLI_LIMIT or age is None or age > ECOLI_RECENT_DAYS:
+                try:
+                    a = ecoli_alert(creek_id, st, now)
+                except Exception as e:  # noqa: BLE001 - one bad station record never drops the rest
+                    self.skip(f"station {st.get('station_id') if isinstance(st, dict) else '?'}", e)
                     continue
-                d = datetime.fromisoformat(st["date"])
-                out.append(make_alert(
-                    source="riverdb", source_id=f"{st['station_id']}:{st['date']}", source_name=st["credit"],
-                    category="bacteria", severity="watch",
-                    title=f"High E. coli at {st['name']}",
-                    summary=(f"A volunteer water test on {d:%b %-d, %Y} found E. coli of {ec:g} per 100 mL "
-                             f"at {st['name']}, above California's swimming threshold of {ECOLI_LIMIT}."),
-                    instruction="Avoid swimming or putting your face in the water here; wash hands after contact.",
-                    effective=d.replace(tzinfo=now.tzinfo), expires=d.replace(tzinfo=now.tzinfo) + timedelta(days=ECOLI_RECENT_DAYS),
-                    lat=st.get("lat"), lon=st.get("lon"), creek_ids=[creek_id],
-                    site_ids=[st["site_id"]] if st.get("site_id") else [],
-                    area_desc=st["name"], url=st.get("source_url") or "https://riverdb.org",
-                    attribution=st["credit"],
-                ))
+                if a:
+                    out.append(a)
         out.append(make_alert(
             source="riverdb", source_id="ssi-pioneer-park-status", source_name="Sierra Streams Institute",
             category="bacteria", severity="info",
@@ -97,6 +86,27 @@ class RiverDBBacteria(Source):
             url=SSI_PIONEER, attribution="Sierra Streams Institute",
         ))
         return out
+
+
+def ecoli_alert(creek_id: str, st: dict, now: datetime) -> dict | None:
+    ec = (st.get("readings") or {}).get("ecoli_mpn_100ml")
+    age = st.get("age_days")
+    if ec is None or ec <= ECOLI_LIMIT or age is None or age > ECOLI_RECENT_DAYS:
+        return None
+    d = datetime.fromisoformat(st["date"]).replace(tzinfo=timezone.utc)
+    return make_alert(
+        source="riverdb", source_id=f"{st['station_id']}:{st['date']}", source_name=st["credit"],
+        category="bacteria", severity="watch" if age <= ECOLI_WATCH_DAYS else "advisory",
+        title=f"E. coli above the recreational threshold at {st['name']}",
+        summary=ecoli_text(ec, st["name"], st["date"]) + " It also lowers this creek's Creek Watch score.",
+        instruction=("Consider skipping swimming or putting your face in the water here until a newer "
+                     "test comes back lower, and wash hands after contact."),
+        effective=d, expires=d + timedelta(days=ECOLI_RECENT_DAYS),
+        lat=st.get("lat"), lon=st.get("lon"), creek_ids=[creek_id],
+        site_ids=[st["site_id"]] if st.get("site_id") else [],
+        area_desc=st["name"], url=st.get("source_url") or "https://riverdb.org/",
+        attribution=st["credit"],
+    )
 
 
 class OEHHA(Source):
@@ -113,28 +123,37 @@ class OEHHA(Source):
         out = []
         for r in d["result"]["records"]:
             try:
-                lat, lon = float(r["Latitude"]), float(r["Longitude"])
-            except (KeyError, TypeError, ValueError):
+                a = self._advisory(r)
+            except Exception as e:  # noqa: BLE001 - one bad advisory record never drops the rest
+                self.skip(f"advisory {r.get('_id') if isinstance(r, dict) else '?'}", e)
                 continue
-            if "nevada" not in (r.get("County") or "").lower() or not in_region(lat, lon):
-                continue
-            link = (r.get("Link") or "").strip()
-            slug = re.sub(r"[^a-z0-9-]", "", link.rstrip("/").rsplit("/", 1)[-1].lower()) or str(r.get("_id"))
-            out.append(make_alert(
-                source="oehha", source_id=slug, source_name=self.name,
-                category="contamination", severity="info",
-                title=f"Fish consumption advisory: {r['Advisory']}",
-                summary=(f"The state has a fish-eating advisory for {r['Advisory']}. Check OEHHA's guidance "
-                         "for which fish are safe to eat and how often."),
-                effective=LISTED_ON, expires=None,
-                # Standing advisories attach to a creek by NAME, not distance (a lake can sit
-                # within 2 km of a creek line without being that creek).
-                lat=lat, lon=lon, creek_ids=[c for c, nm in (("deer", "deer creek"), ("wolf", "wolf creek"))
-                                             if nm in r["Advisory"].lower()],
-                area_desc=f"{r['Advisory']} ({r.get('County')} County)",
-                url=link or "https://oehha.ca.gov/fish/advisories", attribution=self.attribution,
-            ))
+            if a:
+                out.append(a)
         return out
+
+    def _advisory(self, r):
+        try:
+            lat, lon = float(r["Latitude"]), float(r["Longitude"])
+        except (KeyError, TypeError, ValueError):
+            return None
+        if "nevada" not in (r.get("County") or "").lower() or not in_region(lat, lon):
+            return None
+        link = (r.get("Link") or "").strip()
+        slug = re.sub(r"[^a-z0-9-]", "", link.rstrip("/").rsplit("/", 1)[-1].lower()) or str(r.get("_id"))
+        return make_alert(
+            source="oehha", source_id=slug, source_name=self.name,
+            category="contamination", severity="info",
+            title=f"Fish consumption advisory: {r['Advisory']}",
+            summary=(f"The state has a fish-eating advisory for {r['Advisory']}. Check OEHHA's guidance "
+                     "for which fish are safe to eat and how often."),
+            effective=LISTED_ON, expires=None,
+            # Standing advisories attach to a creek by NAME, not distance (a lake can sit
+            # within 2 km of a creek line without being that creek).
+            lat=lat, lon=lon, creek_ids=[c for c, nm in (("deer", "deer creek"), ("wolf", "wolf creek"))
+                                         if nm in r["Advisory"].lower()],
+            area_desc=f"{r['Advisory']} ({r.get('County')} County)",
+            url=link or "https://oehha.ca.gov/fish/advisories", attribution=self.attribution,
+        )
 
 
 # Creek Watch's own early-warning rules (data/score.py warnings) -> alerts
@@ -149,6 +168,8 @@ def creekwatch_alerts(creek_id: str, health: dict, now: datetime | None = None) 
     now = now or datetime.now(timezone.utc)
     out = []
     for w in (health or {}).get("warnings") or []:
+        if w["id"] == "bacteria_watch":
+            continue  # same sample is already published as the riverdb:<station>:<date> alert
         out.append(make_alert(
             source="creekwatch", source_id=f"{creek_id}:{w['id']}", source_name="Creek Watch",
             category=WARNING_CATEGORY.get(w["id"], "other"),

@@ -45,7 +45,11 @@ class HAB(Source):
         # One bloom report can appear on several rows (one per advisory): keep the most severe.
         best: dict[str, dict] = {}
         for r in records:
-            rid = str(r.get("Bloom_Report_ID") or "").strip()
+            try:
+                rid = str(r.get("Bloom_Report_ID") or "").strip()
+            except Exception as e:  # noqa: BLE001
+                self.skip("bloom ?", e)
+                continue
             if not rid:
                 continue
             # The posted sign level lives in Advisory_Recommended (e.g. "Caution"); the older
@@ -57,27 +61,36 @@ class HAB(Source):
                 best[rid] = dict(r, _sev=sev, _kind=kind)
         out = []
         for rid, r in best.items():
-            obs = parse_time(r.get("Observation_Date"))
-            if obs is None:
+            try:
+                a = self._alert(rid, r)
+            except Exception as e:  # noqa: BLE001 - one bad bloom record never drops the rest
+                self.skip(f"bloom {rid}", e)
                 continue
-            lat, lon = r.get("Bloom_Latitude"), r.get("Bloom_Longitude")
-            lat = float(lat) if lat is not None else None
-            lon = float(lon) if lon is not None else None
-            open_ = (r.get("Case_Status") or "").lower() in ("open", "ongoing")
-            name = (r.get("Water_Body_Name") or "a water body").strip()
-            sign = (r.get("Advisory_Recommended") or r.get("Reported_Advisory_Types") or "").strip()
-            sign_txt = f' The posted advisory is "{sign}".' if r["_kind"] else ""
-            out.append(make_alert(
-                source="hab", source_id=rid, source_name=self.name,
-                category="algal_bloom", severity=r["_sev"],
-                title=f"Algal bloom reported: {name}",
-                summary=(f"A harmful algal bloom was reported at {name} on {obs:%b %-d, %Y}."
-                         f"{sign_txt} Case is {(r.get('Case_Status') or 'unknown').lower()}."),
-                instruction=("Keep pets and children out of discolored or scummy water, don't let dogs "
-                             "drink it, and check the state HABs portal before swimming.") if open_ else None,
-                effective=obs, updated=obs, expires=parse_time(r.get("AdvisoryEndDate")),
-                status="active" if open_ else "expired",
-                lat=lat, lon=lon, area_desc=f"{name}{' - ' + r['Landmark'] if r.get('Landmark') else ''}",
-                url=PORTAL, attribution=self.attribution,
-            ))
+            if a:
+                out.append(a)
         return out
+
+    def _alert(self, rid, r):
+        obs = parse_time(r.get("Observation_Date"))
+        if obs is None:
+            return None
+        lat, lon = r.get("Bloom_Latitude"), r.get("Bloom_Longitude")
+        lat = float(lat) if lat is not None else None
+        lon = float(lon) if lon is not None else None
+        open_ = (r.get("Case_Status") or "").lower() in ("open", "ongoing")
+        name = (r.get("Water_Body_Name") or "a water body").strip()
+        sign = (r.get("Advisory_Recommended") or r.get("Reported_Advisory_Types") or "").strip()
+        sign_txt = f' The posted advisory is "{sign}".' if r["_kind"] else ""
+        return make_alert(
+            source="hab", source_id=rid, source_name=self.name,
+            category="algal_bloom", severity=r["_sev"],
+            title=f"Algal bloom reported: {name}",
+            summary=(f"A harmful algal bloom was reported at {name} on {obs:%b %-d, %Y}."
+                     f"{sign_txt} Case is {(r.get('Case_Status') or 'unknown').lower()}."),
+            instruction=("Keep pets and children out of discolored or scummy water, don't let dogs "
+                         "drink it, and check the state HABs portal before swimming.") if open_ else None,
+            effective=obs, updated=obs, expires=parse_time(r.get("AdvisoryEndDate")),
+            status="active" if open_ else "expired",
+            lat=lat, lon=lon, area_desc=f"{name}{' - ' + r['Landmark'] if r.get('Landmark') else ''}",
+            url=PORTAL, attribution=self.attribution,
+        )

@@ -29,7 +29,7 @@ OEHHA_FIX = json.loads((FIX / "oehha_fish_advisories_nevada.json").read_text())
 
 
 def route(nws=NWS_FIX, nwps=NWPS_FIX, sso=SSO_FIX, hab=HAB_FIX, oehha=OEHHA_FIX):
-    def get_text(url, timeout=20, conditional=False, accept="*/*"):
+    def get_text(url, timeout=20, conditional=False, accept="*/*", **kw):
         if "api.weather.gov/alerts" in url:
             return json.dumps(nws)
         if "api.water.noaa.gov" in url:
@@ -179,6 +179,7 @@ def test_fetch_all_isolates_failing_and_slow_sources(monkeypatch):
         raise RuntimeError("upstream down")
     monkeypatch.setattr(alerts.REGISTRY["nwps"], "_fetch", boom)
     monkeypatch.setattr(alerts.REGISTRY["oehha"], "_fetch", lambda now: time.sleep(3) or [])
+    monkeypatch.setattr(alerts.REGISTRY["oehha"], "deadline_s", 1)
     monkeypatch.setattr(alerts.REGISTRY["usgs"], "_fetch", lambda now: [])
     t0 = time.monotonic()
     r = alerts.fetch_all(now=NOW, timeout_s=1)
@@ -202,7 +203,8 @@ def _wq(age, ecoli):
 def test_score_ecoli_rule_fires_on_any_recent_station():
     h = score.compute_health("deer", [], _wq(13, 900), now=NOW)
     w = [w for w in h["warnings"] if w["id"] == "bacteria_watch"]
-    assert w and "Sierra Streams Institute" in w[0]["explanation"] and "2026-09-20" in w[0]["explanation"]
+    assert w and "Sierra Streams Institute" in w[0]["explanation"] and "Sep 20, 2026" in w[0]["explanation"]
+    assert "unsafe" not in w[0]["explanation"].lower() and "not a single-sample limit" in w[0]["explanation"]
     assert score.BAND_ORDER[h["band"]] >= score.BAND_ORDER["watch"]
 
 
@@ -270,3 +272,146 @@ def test_creekwatch_adapter_from_ctx_reports():
     out = cw.fetch(ctx(reports=dead))
     assert [a["id"] for a in out] == ["creekwatch:deer:contamination_alert"]
     assert cw.fetch(ctx()) == []                   # warning gone -> full set empty -> store expires it
+
+
+def test_fetch_all_inflight_guard_and_per_source_deadline(monkeypatch):
+    import threading as th
+    gate = th.Event()
+    monkeypatch.setattr(alerts.REGISTRY["sso"], "_fetch", lambda now: gate.wait(5) and [])
+    monkeypatch.setattr(alerts.REGISTRY["sso"], "deadline_s", 0.3)
+    r1 = alerts.fetch_all(["sso"], now=NOW, timeout_s=0.1)
+    assert r1["errors"]["sso"] == "timed out after 0.3s"            # its own deadline, not timeout_s
+    r2 = alerts.fetch_all(["sso"], now=NOW, timeout_s=0.1)
+    assert "still running" in r2["errors"]["sso"]                    # not resubmitted while hung
+    gate.set()
+    time.sleep(0.2)
+    monkeypatch.setattr(alerts.REGISTRY["sso"], "_fetch", lambda now: [])
+    assert alerts.fetch_all(["sso"], now=NOW)["errors"] == {}         # free again once it finished
+
+
+def test_sso_http_cap_and_deadline_passed(monkeypatch):
+    seen = {}
+
+    def spy(url, **kw):
+        seen.update(kw)
+        return SSO_FIX
+    monkeypatch.setattr(http, "get_text", spy)
+    SSO().run(NOW)
+    assert seen["max_bytes"] == 50 * 1024 * 1024 and seen["deadline_s"] <= alerts.REGISTRY["sso"].deadline_s
+
+
+def test_sso_dedupes_spill_event_ids():
+    ids = [a["id"] for a in SSO().run(datetime(2026, 6, 10, tzinfo=timezone.utc))]
+    assert ids and len(ids) == len(set(ids))
+
+
+
+def test_sso_same_event_twice_reported_once(monkeypatch):
+    lines = SSO_FIX.splitlines()
+    cat1 = next(ln for ln in lines[1:] if "\tCategory 1 Spill\t" in ln and "Wolf Creek" in ln)
+    monkeypatch.setattr(http, "get_text", route(sso="\n".join(lines + [cat1]) + "\n"))
+    ids = [a["id"] for a in SSO().run(datetime(2026, 5, 10, tzinfo=timezone.utc))]
+    assert ids.count("sso:906581") == 1
+
+
+# ---- Oracle must-fixes: bounded HTTP, url allowlist, per-record isolation, raising shim ----
+class _FakeResp:
+    def __init__(self, chunks, length=None, delay=0.0):
+        self._chunks, self.headers, self._delay = list(chunks), {"Content-Length": length} if length else {}, delay
+
+    def read(self, n):
+        time.sleep(self._delay)
+        return self._chunks.pop(0) if self._chunks else b""
+
+
+def test_http_bounded_read_size_and_deadline():
+    with pytest.raises(http.ResponseTooLarge):
+        http._read_bounded(_FakeResp([b"x" * 600] * 3), max_bytes=1000, deadline=time.monotonic() + 5)
+    with pytest.raises(http.ResponseTooLarge):
+        http._read_bounded(_FakeResp([], length="999999"), max_bytes=1000, deadline=time.monotonic() + 5)
+    with pytest.raises(http.DeadlineExceeded):           # slow drip: each read is fast enough, total isn't
+        http._read_bounded(_FakeResp([b"x"] * 100, delay=0.05), max_bytes=10_000, deadline=time.monotonic() + 0.2)
+    assert http._read_bounded(_FakeResp([b"ab", b"cd"]), max_bytes=10, deadline=time.monotonic() + 5) == b"abcd"
+
+
+def test_make_alert_url_allowlist_and_explicit_raises():
+    base = dict(source="hab", source_id="1", source_name="x", category="algal_bloom", severity="info",
+                title="t", summary="s", attribution="a", effective=NOW)
+    portal = model.SOURCE_URLS["hab"][1]
+    assert model.make_alert(url="https://evil.example/x", **base)["url"] == portal
+    assert model.make_alert(url="http://mywaterquality.ca.gov/x", **base)["url"] == portal
+    assert model.make_alert(url='https://mywaterquality.ca.gov/"><script>', **base)["url"] == portal
+    ok = "https://mywaterquality.ca.gov/habs/x.html"
+    assert model.make_alert(url=ok, **base)["url"] == ok
+    with pytest.raises(ValueError):
+        model.make_alert(url=ok, **dict(base, severity="extreme"))
+    with pytest.raises(ValueError):
+        model.make_alert(url=ok, **dict(base, effective="not a date"))
+
+
+def test_nws_polygon_capped():
+    poly = {"type": "Polygon", "coordinates": [[[0.0, 0.0]] * (model.MAX_POLYGON_POINTS + 1)]}
+    assert model.safe_polygon(poly) is None
+    assert model.safe_polygon({"type": "GeometryCollection", "geometries": []}) is None
+    small = {"type": "Polygon", "coordinates": [[[-121.0, 39.2], [-121.1, 39.2], [-121.0, 39.3], [-121.0, 39.2]]]}
+    assert model.safe_polygon(small) == small
+
+
+def test_nwps_lid_quoted_in_url(monkeypatch):
+    fx = copy.deepcopy(NWPS_FIX)
+    g = next(x for x in fx["gauges"] if x["lid"] == "BRWC1")
+    g["lid"] = "BRW/../C1"
+    g["status"]["observed"]["floodCategory"] = "major"
+    monkeypatch.setattr(http, "get_text", route(nwps=fx))
+    (a,) = NWPS().run(NOW)
+    assert a["url"] == "https://water.noaa.gov/gauges/BRW%2F..%2FC1" and "/../" not in a["url"]
+
+
+def test_per_record_isolation_skips_bad_keeps_rest(monkeypatch):
+    fx = copy.deepcopy(NWPS_FIX)
+    for lid, cat in (("BRWC1", "minor"), ("MRYC1", "minor")):
+        next(x for x in fx["gauges"] if x["lid"] == lid)["status"]["observed"]["floodCategory"] = cat
+    del next(x for x in fx["gauges"] if x["lid"] == "MRYC1")["name"]      # malformed record
+    monkeypatch.setattr(http, "get_text", route(nwps=fx))
+    src = NWPS()
+    out = src.run(NOW)
+    assert [a["id"] for a in out] == ["nwps:BRWC1:observed"]            # bad one skipped, good one kept
+    assert src.last_skipped == 1 and "MRYC1" in src.last_error
+    recs = HAB_FIX["result"]["records"] + [{"Bloom_Report_ID": "X", "Observation_Date": "2026-09-01",
+                                            "Bloom_Latitude": "not-a-number", "Case_Status": "Open"}]
+    h = HAB()
+    good = h.from_records(recs, NOW)
+    assert good and h._skips and all(a["id"] != "hab:X" for a in good)
+
+
+def test_adapter_fetch_propagates_source_failure(monkeypatch):
+    def boom(now):
+        raise RuntimeError("upstream exploded")
+    for ad in alerts.ADAPTERS:
+        if ad.source in ("usgs", "creekwatch"):
+            continue
+        monkeypatch.setattr(alerts.REGISTRY[ad.source], "_fetch", boom)
+        for c in (None, {"now": NOW}, ctx()):
+            with pytest.raises(RuntimeError, match="upstream exploded"):
+                ad.fetch(c)
+    cw = next(a for a in alerts.ADAPTERS if a.source == "creekwatch")
+    with pytest.raises(ValueError):
+        cw.fetch(None)                                                  # no reports accessor: not 'all clear'
+
+
+def test_bacteria_ages_and_dedupes(monkeypatch):
+    def station(age):
+        return {"stations": [{"station_id": "S13", "name": "SSI Site 13", "date": "2026-09-20", "age_days": age,
+                              "readings": {"ecoli_mpn_100ml": 900.0}, "credit": "Sierra Streams Institute via RiverDB",
+                              "lat": 39.259, "lon": -121.009, "site_id": "deer-pioneer-park",
+                              "source_url": "https://riverdb.org/org/SSI"}]}
+    for age, want in ((5, "watch"), (30, "advisory"), (61, None)):
+        monkeypatch.setattr(wq, "get_water_quality", lambda creek_id, now=None, a=age: station(a))
+        got = [a for a in RiverDBBacteria().run(NOW) if a["id"].startswith("riverdb:S13")]
+        assert [a["severity"] for a in got] == ([want] if want else [])
+        if got:
+            assert "unsafe" not in got[0]["summary"].lower() and "MPN/100 mL" in got[0]["summary"]
+        h = score.compute_health("deer", [], {"water_quality": station(age)}, now=NOW)
+        lvl = [w["level"] for w in h["warnings"] if w["id"] == "bacteria_watch"]
+        assert lvl == ([want] if want else [])
+        assert not [a for a in creekwatch_alerts("deer", h, NOW) if a["category"] == "bacteria"]  # no double report

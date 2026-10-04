@@ -72,32 +72,38 @@ class NWS(Source):
             raise RuntimeError("; ".join(errors))
         out = []
         for sid, f in seen.items():
-            p = f["properties"]
-            ends = parse_time(p.get("ends")) or parse_time(p.get("expires"))
-            if p.get("messageType") == "Cancel":
-                status = "cancelled"
-            elif ends and ends < now:
-                status = "expired"
-            else:
-                status = "active"
-            lat, lon = POINTS[sorted(creeks_for[sid])[0]]
-            a = make_alert(
-                source="nws", source_id=sid, source_name=p.get("senderName") or self.name,
-                category=category_for(p["event"]),
-                severity=CAP_SEVERITY.get((p.get("severity") or "").lower(), "info"),
-                title=p["event"],
-                summary=p.get("headline") or p.get("description") or p["event"],
-                instruction=p.get("instruction"),
-                effective=p.get("onset") or p.get("effective") or p.get("sent"),
-                updated=p.get("sent"), expires=ends, status=status,
-                lat=None, lon=None, polygon_geojson=f.get("geometry"),
-                area_desc=p.get("areaDesc") or "",
-                creek_ids=sorted(creeks_for[sid]), site_ids=[],
-                url=f"https://forecast.weather.gov/MapClick.php?lat={lat}&lon={lon}",
-                attribution=self.attribution,
-            )
-            # Optional CAP 1.2 passthrough (API's CAP feed uses these verbatim, not re-derived).
-            a.update(event=p["event"], cap_urgency=p.get("urgency"), cap_severity=p.get("severity"),
-                     cap_certainty=p.get("certainty"))
-            out.append(a)
+            try:
+                out.append(self._alert(sid, f, creeks_for[sid], now))
+            except Exception as e:  # noqa: BLE001 - one malformed alert never drops the rest
+                self.skip(f"alert {sid}", e)
         return out
+
+    def _alert(self, sid, f, creeks, now):
+        p = f["properties"]
+        ends = parse_time(p.get("ends")) or parse_time(p.get("expires"))
+        if p.get("messageType") == "Cancel":
+            status = "cancelled"
+        elif ends and ends < now:
+            status = "expired"
+        else:
+            status = "active"
+        lat, lon = POINTS[sorted(creeks)[0]]
+        a = make_alert(
+            source="nws", source_id=sid, source_name=p.get("senderName") or self.name,
+            category=category_for(p["event"]),
+            severity=CAP_SEVERITY.get((p.get("severity") or "").lower(), "info"),
+            title=p["event"],
+            summary=p.get("headline") or p.get("description") or p["event"],
+            instruction=p.get("instruction"),
+            effective=p.get("onset") or p.get("effective") or p.get("sent"),
+            updated=p.get("sent"), expires=ends, status=status,
+            lat=None, lon=None, polygon_geojson=f.get("geometry"),
+            area_desc=p.get("areaDesc") or "",
+            creek_ids=sorted(creeks), site_ids=[],
+            url=f"https://forecast.weather.gov/MapClick.php?lat={lat}&lon={lon}",
+            attribution=self.attribution,
+        )
+        # Optional CAP 1.2 passthrough (API's CAP feed uses these verbatim, not re-derived).
+        a.update(event=p["event"], cap_urgency=p.get("urgency"), cap_severity=p.get("severity"),
+                 cap_certainty=p.get("certainty"))
+        return a

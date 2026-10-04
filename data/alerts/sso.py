@@ -39,11 +39,14 @@ class SSO(Source):
     attribution = ("California State Water Resources Control Board, CIWQS Sanitary Sewer System "
                    "spill reports (self-reported by sewer agencies)")
     poll_interval_s = 12 * 3600
+    deadline_s = 150
 
     def _fetch(self, now: datetime) -> list[dict]:
-        text = http.get_text(URL, timeout=60, conditional=True)  # 10 MB daily file: needs > 10 s
+        # 10 MB daily file (2026-10): needs more than the 10 s default; capped at 50 MB / 120 s.
+        text = http.get_text(URL, timeout=60, conditional=True, max_bytes=50 * 1024 * 1024, deadline_s=120)
         latest: dict[str, dict] = {}
         for r in csv.DictReader(io.StringIO(text), delimiter="\t"):
+            # Dedupe: one SPILL_EVENT_ID can have several report rows (versions); keep the latest.
             stype = (r.get("SPILL_TYPE") or "").strip()
             if stype not in CAT_WORDS:
                 continue  # "Monthly Category 3" rows are monthly batches of small spills, not events
@@ -56,37 +59,46 @@ class SSO(Source):
                 latest[eid] = dict(r, _ver=ver, _lat=lat, _lon=lon)
         out = []
         for eid, r in latest.items():
-            start = _when(r.get("ESTIMATED_SPILL_START_DATE_AND_TIME"))
-            if start is None or start > now + timedelta(days=1) or now - start > timedelta(days=HISTORY_DAYS):
+            try:
+                a = self._alert(eid, r, now)
+            except Exception as e:  # noqa: BLE001 - skip one bad record, keep the rest
+                self.skip(f"spill {eid}", e)
                 continue
-            lat, lon = r["_lat"], r["_lon"]
-            creeks = creeks_near(lat, lon)
-            cat1 = r["SPILL_TYPE"].startswith("Category 1")
-            severity = ("alert" if creeks else "watch") if cat1 else "advisory"
-            total = _num(r.get("ESTIMATED_TOTAL_SPILL_VOLUME_EXITING_THE_SYSTEM_(GAL)"))
-            surface = _num(r.get("ESTIMATED_SPILL_VOLUME_THAT_DISCHARGED_TO_SURFACE_WATERS_(GAL)"))
-            water = (r.get("NAME_OF_RECEIVING_WATER_BODY(S)") or "").strip()
-            agency = (r.get("AGENCY_NAME") or "").strip()
-            vol = f"{total:,.0f} gallons" if total is not None else "An unknown volume of"
-            reached = (f", {surface:,.0f} gallons reached {water or 'surface water'}"
-                       if surface else "")
-            title = f"Sewage spill{' to ' + water if water and cat1 else ''} ({agency})"
-            out.append(make_alert(
-                source="sso", source_id=eid, source_name=self.name,
-                category="sewage_spill", severity=severity, title=title,
-                summary=(f"{vol} of sewage spilled on {start:%b %-d, %Y}{reached}. "
-                         f"{r['SPILL_TYPE']}: {CAT_WORDS[r['SPILL_TYPE']]}. "
-                         f"Reported by {agency}; report status: {r.get('SPILL_STATUS', '').strip()}."),
-                instruction=("Avoid contact with the water downstream of the spill until the "
-                             "responsible agency reports it cleared.") if cat1 else None,
-                effective=start, updated=r.get("FINAL_CERTIFICATION_DATE") and
-                _when(r["FINAL_CERTIFICATION_DATE"]) or start,
-                expires=start + timedelta(days=ACTIVE_DAYS),
-                status="active" if now - start <= timedelta(days=ACTIVE_DAYS) else "expired",
-                lat=lat, lon=lon, creek_ids=creeks,
-                area_desc=(r.get("SPILL_LOCATION_NAME") or water or agency).strip(),
-                url="https://ciwqs.waterboards.ca.gov/ciwqs/readOnly/PublicReportSSOServlet"
-                    "?reportAction=criteria&reportId=sso_main",
-                attribution=self.attribution,
-            ))
+            if a:
+                out.append(a)
         return out
+
+    def _alert(self, eid, r, now):
+        start = _when(r.get("ESTIMATED_SPILL_START_DATE_AND_TIME"))
+        if start is None or start > now + timedelta(days=1) or now - start > timedelta(days=HISTORY_DAYS):
+            return None
+        lat, lon = r["_lat"], r["_lon"]
+        creeks = creeks_near(lat, lon)
+        cat1 = r["SPILL_TYPE"].startswith("Category 1")
+        severity = ("alert" if creeks else "watch") if cat1 else "advisory"
+        total = _num(r.get("ESTIMATED_TOTAL_SPILL_VOLUME_EXITING_THE_SYSTEM_(GAL)"))
+        surface = _num(r.get("ESTIMATED_SPILL_VOLUME_THAT_DISCHARGED_TO_SURFACE_WATERS_(GAL)"))
+        water = (r.get("NAME_OF_RECEIVING_WATER_BODY(S)") or "").strip()
+        agency = (r.get("AGENCY_NAME") or "").strip()
+        vol = f"{total:,.0f} gallons" if total is not None else "An unknown volume of"
+        reached = (f", {surface:,.0f} gallons reached {water or 'surface water'}"
+                   if surface else "")
+        title = f"Sewage spill{' to ' + water if water and cat1 else ''} ({agency})"
+        return make_alert(
+            source="sso", source_id=eid, source_name=self.name,
+            category="sewage_spill", severity=severity, title=title,
+            summary=(f"{vol} of sewage spilled on {start:%b %-d, %Y}{reached}. "
+                     f"{r['SPILL_TYPE']}: {CAT_WORDS[r['SPILL_TYPE']]}. "
+                     f"Reported by {agency}; report status: {r.get('SPILL_STATUS', '').strip()}."),
+            instruction=("Avoid contact with the water downstream of the spill until the "
+                         "responsible agency reports it cleared.") if cat1 else None,
+            effective=start, updated=r.get("FINAL_CERTIFICATION_DATE") and
+            _when(r["FINAL_CERTIFICATION_DATE"]) or start,
+            expires=start + timedelta(days=ACTIVE_DAYS),
+            status="active" if now - start <= timedelta(days=ACTIVE_DAYS) else "expired",
+            lat=lat, lon=lon, creek_ids=creeks,
+            area_desc=(r.get("SPILL_LOCATION_NAME") or water or agency).strip(),
+            url="https://ciwqs.waterboards.ca.gov/ciwqs/readOnly/PublicReportSSOServlet"
+                "?reportAction=criteria&reportId=sso_main",
+            attribution=self.attribution,
+        )
