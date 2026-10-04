@@ -1,4 +1,6 @@
-# Demo video script: about 4½ minutes (Alec narrates)
+# Demo video script: about 4½ minutes
+
+> **Final video (2026-10-03):** narrated with text-to-speech reading this script, as disclosed in the Devpost text. The reading notes below were written for a human narrator.
 
 **Contest rule:** the demo video must be **3 to 5 minutes**. This script is about **4:00 of speech** at a relaxed 140 words a minute, or **4:20–4:40** with pauses and on-screen moments. **Never go under 3:00.** If you're short, slow down or let a shot breathe. If you're long, cut the lines marked *(optional)*.
 
