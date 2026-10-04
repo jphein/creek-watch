@@ -844,3 +844,37 @@ html[data-save-data] .photo-figure { display: none; }
 .pin-clean { position: absolute; right: -10px; top: -12px; font-size: 14px; line-height: 1; filter: drop-shadow(0 1px 1px rgb(0 0 0 / .5)); }
 #about-badges .badge-strip h3 { margin-top: 1.4em; }
 .cc-note { color: var(--ink-2); font-size: 0.88rem; }
+
+/* ---------- dated history + river context ---------- */
+.history { margin: 16px 0 0; border: 1px dashed var(--line); border-radius: 14px; background: var(--surface-2); }
+.history > summary { cursor: pointer; display: grid; gap: 2px; padding: 12px 14px; min-height: 48px; }
+.h-kicker { font-size: 0.75rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.history > summary strong { font-size: 1.02rem; }
+.h-period { font-size: 0.85rem; color: var(--ink-2); }
+.history[open] > summary { border-bottom: 1px dashed var(--line); }
+.h-note { margin: 10px 14px 0; padding: 8px 10px; border-radius: 10px; background: var(--surface); font-size: 0.9rem; color: var(--ink-2); }
+.h-station { padding: 4px 14px 0; }
+.h-station h4 { margin: 12px 0 4px; font-size: 0.98rem; }
+.h-station p { margin: 0 0 6px; font-size: 0.92rem; color: var(--ink-2); }
+.history .credit { padding: 0 14px 12px; }
+.hist-chart { margin: 6px 0 4px; }
+.hist-chart svg { width: 100%; height: auto; display: block; }
+.hist-chart .hb { fill: var(--brand); }
+.hist-chart .hg { fill: none; stroke: var(--ink); stroke-width: 2; }
+.hist-chart .ref { stroke-width: 1.5; stroke-dasharray: 4 4; }
+.hist-chart .ref.stv { stroke: var(--ink-2); }
+.hist-chart .ref.gm { stroke: var(--muted); }
+.hist-chart .axis { stroke: var(--line); }
+.hist-chart text { font: 9px var(--font); fill: var(--muted); }
+.hist-chart .hl { font-weight: 700; fill: var(--ink-2); }
+.river { margin-top: 14px; padding: 12px; border-radius: 14px; background: var(--surface-2); border: 1px solid var(--line); }
+.river h4 { margin: 0 0 6px; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
+.r-sub { display: block; text-transform: none; letter-spacing: 0; font-weight: 500; font-size: 0.82rem; }
+.r-st + .r-st { border-top: 1px solid var(--line); margin-top: 8px; padding-top: 8px; }
+.r-name, .r-vals, .r-age, .r-note { margin: 0; }
+.r-vals { font-weight: 700; font-variant-numeric: tabular-nums; }
+.r-age { margin-top: 2px; font-size: 0.92rem; font-weight: 700; color: var(--ink); }
+.r-st.stale .r-age { color: var(--watch); }
+.r-note { margin-top: 4px; font-size: 0.85rem; color: var(--ink-2); }
+.h-method { margin: 4px 14px 6px; color: var(--muted); font-style: italic; }
+.hist-chart .hl { paint-order: stroke; stroke: var(--surface-2); stroke-width: 3px; stroke-linejoin: round; }

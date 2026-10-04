@@ -92,7 +92,12 @@ export async function getCleanupStats(creek_id) {
 }
 
 export async function getConditions(creek_id) {
-  if (MOCK) return (await mockJson('conditions'))[creek_id] || null;
+  if (MOCK) {
+    const c = (await mockJson('conditions'))[creek_id] || null;
+    // Keep mock river readings "fresh": observed_at = now - age_hours, as the API computes it.
+    for (const st of c?.river?.stations || []) st.observed_at = new Date(Date.now() - (Number(st.age_hours) || 0) * 3600e3).toISOString();
+    return c;
+  }
   return request(`/api/conditions?creek_id=${encodeURIComponent(creek_id)}`);
 }
 
