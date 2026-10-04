@@ -1,16 +1,15 @@
 // Tiny IndexedDB wrapper: keeps the draft photo across reloads and holds the
 // offline outbox. Every call fails soft — the app must work without storage.
 
-const DB = 'creekwatch';
+import './idb-schema.js';
+
+const { NAME, VERSION, upgrade } = self.CW_IDB;
 let dbp;
 function db() {
   if (!dbp) {
     dbp = new Promise((resolve, reject) => {
-      const req = indexedDB.open(DB, 1);
-      req.onupgradeneeded = () => {
-        req.result.createObjectStore('kv');
-        req.result.createObjectStore('outbox', { keyPath: 'key', autoIncrement: true });
-      };
+      const req = indexedDB.open(NAME, VERSION);
+      req.onupgradeneeded = () => upgrade(req.result);
       req.onsuccess = () => resolve(req.result);
       req.onerror = () => reject(req.error);
     });

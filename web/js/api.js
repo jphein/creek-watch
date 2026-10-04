@@ -140,3 +140,95 @@ export function reportBand(r) {
     return 'fair';
   return 'good';
 }
+
+/* ---------- alerts + push (docs/ALERTS-SPEC.md) ---------- */
+
+export const SEVERITIES = ['alert', 'watch', 'advisory', 'info'];
+const SEV_RANK = { alert: 0, watch: 1, advisory: 2, info: 3 };
+export const bySeverity = (a, b) =>
+  (SEV_RANK[a.severity] ?? 9) - (SEV_RANK[b.severity] ?? 9) || String(b.updated || '').localeCompare(String(a.updated || ''));
+
+/** @returns {Promise<Array>} active alerts, most severe first */
+export async function getAlerts({ creek_id, severity, category, status = 'active' } = {}) {
+  let list;
+  if (MOCK) {
+    list = await mockJson('alerts');
+    if (creek_id) list = list.filter((a) => a.area?.creek_ids?.includes(creek_id));
+    if (severity) list = list.filter((a) => (SEV_RANK[a.severity] ?? 9) <= (SEV_RANK[severity] ?? 9)); // severity = minimum
+    if (category) list = list.filter((a) => a.category === category);
+    if (status) list = list.filter((a) => (a.status || 'active') === status);
+  } else {
+    const q = new URLSearchParams();
+    if (creek_id) q.set('creek_id', creek_id);
+    if (severity) q.set('severity', severity);
+    if (category) q.set('category', category);
+    if (status) q.set('status', status);
+    list = await request(`/api/alerts?${q}`);
+  }
+  return (Array.isArray(list) ? list : []).sort(bySeverity);
+}
+
+/** One alert by id (deep links to alerts no longer in the active list). null if 404. */
+export async function getAlertItem(id) {
+  if (MOCK) return (await mockJson('alerts')).find((a) => a.id === id) || null;
+  try { return await request(`/api/alerts/item?id=${encodeURIComponent(id)}`); }
+  catch (e) { if (e.status === 404) return null; throw e; }
+}
+
+/** Source health: {sources:[{source,last_ok,last_error,failures,…}], schedule:{src:{interval_s}}}. */
+export async function getAlertSources() {
+  if (MOCK) {
+    const now = new Date().toISOString().replace(/\.\d{3}Z$/, 'Z');
+    return { sources: ['nws', 'sso', 'hab', 'riverdb', 'usgs', 'creekwatch'].map((source) => ({ source, last_ok: now, last_error: null, failures: 0 })), schedule: {} };
+  }
+  return request('/api/alerts/sources');
+}
+
+// Freshness for the "no alerts" ✓ (Oracle, #41). Two independent rules:
+//  1. `creekwatch` never counts: it is computed from our own DB and succeeds even when every
+//     upstream fetch is failing (network out), so it says nothing about official warnings.
+//  2. `nws` (the life-safety source) must itself be fresh. Missing or stale nws = couldn't check.
+// A source is fresh if last_ok is within 2x its poll interval (15 min when unknown).
+export const LIFE_SAFETY_SOURCE = 'nws';
+export const LOCAL_SOURCES = new Set(['creekwatch']);
+export function sourcesFresh(info, now = Date.now()) {
+  const list = (info?.sources || []).filter((s) => !LOCAL_SOURCES.has(s.source));
+  const isFresh = (s) => {
+    const t = Date.parse(s?.last_ok || '');
+    const interval = Number(info?.schedule?.[s?.source]?.interval_s) || 900;
+    return !!t && now - t <= 2 * interval * 1000;
+  };
+  const nws = list.find((s) => s.source === LIFE_SAFETY_SOURCE);
+  const nwsT = Date.parse(nws?.last_ok || '');
+  const fresh = !!nws && isFresh(nws);
+  return { fresh, nwsLatest: nwsT ? new Date(nwsT).toISOString() : null };
+}
+
+export async function getVapidKey() {
+  if (MOCK) return (await mockJson('vapid')).key;
+  return (await request('/api/push/vapid-public-key')).key;
+}
+
+/** filters: {creek_ids: [] = all, min_severity, quiet_hours: {start,end,tz}|null}. 201 created / 200 updated. */
+export async function pushSubscribe(subscription, { creek_ids = [], min_severity = 'watch', quiet_hours = null } = {}) {
+  const body = { subscription, creek_ids, min_severity, quiet_hours };
+  if (MOCK) {
+    await sleep(300);
+    const created = !sessionStorage.getItem('cw-mock-push');
+    sessionStorage.setItem('cw-mock-push', JSON.stringify(body));
+    return { status: created ? 'created' : 'updated', creek_ids, min_severity, quiet_hours }; // backend response shape
+  }
+  return request('/api/push/subscriptions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+}
+
+export async function pushUnsubscribe(endpoint) {
+  if (MOCK) { sessionStorage.removeItem('cw-mock-push'); return; }
+  const res = await fetch('/api/push/subscriptions', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ endpoint }) }).catch(() => null);
+  if (!res) throw new ApiError('Couldn’t reach Creek Watch to stop alerts. Check your connection and try again.', { offline: true });
+  if (!res.ok) throw new ApiError(`Creek Watch couldn’t stop alerts just now (error ${res.status}). Your alerts are still on; try again.`, { status: res.status });
+}
+
+export function feedUrls(creek_id) {
+  const q = creek_id ? `?creek_id=${encodeURIComponent(creek_id)}` : '';
+  return { atom: `/alerts.atom${q}`, cap: `/alerts.cap.xml${q}` };
+}

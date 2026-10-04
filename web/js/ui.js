@@ -3,6 +3,33 @@
 export const esc = (s) =>
   String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 
+// Only http(s) and same-origin paths may become links/images. Blocks javascript:, data:, etc. from external feeds.
+export function safeUrl(u) {
+  if (!u) return '';
+  try {
+    const x = new URL(String(u), location.origin);
+    return x.protocol === 'https:' || x.protocol === 'http:' ? x.href : '';
+  } catch { return ''; }
+}
+
+// Upstream alert links: absolute https:// only (re-checked client-side even though the API validates).
+export function httpsUrl(u) {
+  try { const x = new URL(String(u || '')); return x.protocol === 'https:' ? x.href : ''; } catch { return ''; }
+}
+
+// Life-safety warnings have official channels; Creek Watch defers to them (PRIOR-ART §2b).
+export const OFFICIAL = {
+  nca: 'https://www.nevadacountyca.gov/3780/Emergency-Alerts',
+  aware: 'https://aware.ca.gov/',
+};
+export function officialLine({ compact = false } = {}) {
+  return `<p class="official-line${compact ? ' compact' : ''}"><span aria-hidden="true">☎</span> <span>For emergencies and evacuations, sign up for
+    <a href="${OFFICIAL.nca}" target="_blank" rel="noopener noreferrer">Nevada County Alerts</a> and
+    <a href="${OFFICIAL.aware}" target="_blank" rel="noopener noreferrer">AwareCA</a> · call <a href="tel:911">911</a>.${
+      compact ? '' : ' Creek Watch is the everyday water-health layer between those, not a replacement for official warnings.'
+    }</span></p>`;
+}
+
 export function haversineKm(lat1, lon1, lat2, lon2) {
   const R = 6371, rad = Math.PI / 180;
   const dLat = (lat2 - lat1) * rad, dLon = (lon2 - lon1) * rad;
@@ -114,7 +141,7 @@ export function reportCardHTML(r, creekName = '', siteName = '', { band } = {}) 
   const v = (k) => VALUE_LABELS[k]?.[r[k]] || r[k] || '';
   return `
   <article class="rep-card">
-    ${r.photo_url ? `<img src="${esc(r.photo_url)}" alt="Creek photo from this report" loading="lazy">` : ''}
+    ${safeUrl(r.photo_url) ? `<img src="${esc(safeUrl(r.photo_url))}" alt="Creek photo from this report" loading="lazy">` : ''}
     <div class="rep-body">
       <header>
         ${band ? `<span class="band-dot band-${band}" title="${esc(bandLabel(band))}"></span>` : ''}
@@ -128,6 +155,63 @@ export function reportCardHTML(r, creekName = '', siteName = '', { band } = {}) 
       ${r.wildlife_seen ? `<p class="rep-note">Saw: ${esc(r.wildlife_seen)}</p>` : ''}
       ${r.notes ? `<p class="rep-note">“${esc(r.notes)}”</p>` : ''}
       ${r.reporter_name ? `<p class="rep-by">— ${esc(r.reporter_name)}</p>` : ''}
+    </div>
+  </article>`;
+}
+
+/* ---------- alerts (shared by Alerts page, creek banners, map popups) ---------- */
+
+export const SEV = {
+  alert: { label: 'Alert', glyph: '✕', say: 'Take action' },
+  watch: { label: 'Watch', glyph: '!', say: 'Be careful' },
+  advisory: { label: 'Advisory', glyph: 'i', say: 'Good to know' },
+  info: { label: 'Info', glyph: '•', say: 'For your information' },
+};
+export const CATEGORY_LABEL = {
+  flood: 'Flood', flash_flood: 'Flash flood', storm: 'Storm', heat: 'Heat', sewage_spill: 'Sewage spill',
+  algal_bloom: 'Algal bloom', bacteria: 'Bacteria', low_flow: 'Low flow', high_flow: 'High flow',
+  contamination: 'Contamination', runoff: 'Runoff', other: 'Other',
+};
+
+export function fmtWhen(iso) {
+  const t = Date.parse(iso);
+  if (!t) return '';
+  return new Date(t).toLocaleString(undefined, { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+}
+
+/** One alert. `compact` = banner/popup form (title + summary + source link). */
+export function alertHTML(a, { compact = false, open = false } = {}) {
+  const sev = SEV[a.severity] ? a.severity : 'info';
+  const s = SEV[sev];
+  const href = httpsUrl(a.url);
+  const srcName = a.source === 'creekwatch' ? 'Creek Watch early warning (not official)' : a.source_name || a.source || 'Source';
+  const src = href ? `<a href="${esc(href)}" target="_blank" rel="noopener noreferrer">${esc(srcName)}</a>` : esc(srcName);
+  const when = [a.effective ? `From ${esc(fmtWhen(a.effective))}` : '', a.expires ? `until ${esc(fmtWhen(a.expires))}` : 'until further notice']
+    .filter(Boolean).join(' ');
+  if (compact) {
+    return `<div class="alert-item sev-${sev} compact" role="${sev === 'alert' ? 'alert' : 'note'}">
+      <span class="a-glyph" aria-hidden="true">${s.glyph}</span>
+      <div><p class="a-kicker"><span class="a-sev">${s.label}</span> · ${esc(CATEGORY_LABEL[a.category] || 'Alert')}</p>
+      <strong class="a-title">${esc(a.title)}</strong>
+      ${a.summary ? `<p class="a-sum">${esc(a.summary)}</p>` : ''}
+      <p class="a-src">Source: ${src}</p>${sev === 'alert' ? officialLine({ compact: true }) : ''}</div></div>`;
+  }
+  return `<article class="alert-item sev-${sev}" id="alert-${esc(a.id)}" data-id="${esc(a.id)}" tabindex="-1">
+    <span class="a-glyph" aria-hidden="true">${s.glyph}</span>
+    <div class="a-body">
+      <p class="a-kicker"><span class="a-sev">${s.label}</span> · ${esc(CATEGORY_LABEL[a.category] || 'Alert')}${
+        a.area?.area_desc ? ` · <span class="a-area">${esc(a.area.area_desc)}</span>` : ''
+      }</p>
+      <h3 class="a-title">${esc(a.title)}</h3>
+      ${a.summary ? `<p class="a-sum">${esc(a.summary)}</p>` : ''}
+      ${a.instruction ? `<p class="a-do"><strong>What to do:</strong> ${esc(a.instruction)}</p>` : ''}
+      <p class="a-when">${when}</p>
+      ${sev === 'alert' ? officialLine({ compact: true }) : ''}
+      <details class="a-more" ${open ? 'open' : ''}><summary>Source and details</summary>
+        <p class="a-src">Official source: ${src}${href ? ' (opens the original alert)' : ''}</p>
+        ${a.updated ? `<p class="a-src">Updated ${esc(fmtWhen(a.updated))}</p>` : ''}
+        ${a.attribution ? `<p class="a-src">${esc(a.attribution)}</p>` : ''}
+      </details>
     </div>
   </article>`;
 }
