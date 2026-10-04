@@ -377,6 +377,33 @@ def welcome_payload(sub: dict, creek_names: dict[str, str] | None = None) -> byt
     return raw
 
 
+FIRST_SEND_WINDOW_S = 60   # a 404/410 this soon after subscribing points at the client, not a gone user
+
+
+def sub_tag(endpoint: str) -> str:
+    """Log-safe subscription id: never log the endpoint (a capability URL) or its keys."""
+    return hashlib.sha256(endpoint.encode()).hexdigest()[:8]
+
+
+def age_s(created: str | None, now: datetime | None = None) -> int | None:
+    if not created:
+        return None
+    try:
+        t = datetime.strptime(created, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+    except ValueError:
+        return None
+    return max(0, int(((now or datetime.now(timezone.utc)) - t).total_seconds()))
+
+
+def log_prune(kind: str, endpoint: str, created: str | None, code: int) -> None:
+    age = age_s(created)
+    if age is not None and age < FIRST_SEND_WINDOW_S:
+        log.warning("%s push sub=%s age_s=%s status=%s: pruned on first send (age_s=%s), "
+                    "likely client unsubscribe/replace", kind, sub_tag(endpoint), age, code, age)
+    else:
+        log.info("%s push sub=%s age_s=%s status=%s: pruned (subscription gone)", kind, sub_tag(endpoint), age, code)
+
+
 class PushService:
     def __init__(self, db_path: Path, vapid: VapidKeys | None, max_subs: int = 5000, sender=None):
         self.db_path, self.vapid, self.max_subs = db_path, vapid, max_subs
@@ -468,16 +495,23 @@ class PushService:
         fut.add_done_callback(lambda f: self._welcome_pending.discard(f))
         return fut
 
+    def _created(self, endpoint: str) -> str | None:
+        with self._conn() as c:
+            r = c.execute("SELECT created FROM push_subscriptions WHERE endpoint=?", (endpoint,)).fetchone()
+        return r["created"] if r else None
+
     def _welcome_send(self, sub: dict, creek_names: dict[str, str] | None) -> int:
+        tag, created = sub_tag(sub["endpoint"]), self._created(sub["endpoint"])
         try:
             validate_endpoint(sub["endpoint"])
             code = self._send(sub, welcome_payload(sub, creek_names), "normal")
         except Exception as e:
-            log.warning("welcome push to %s failed: %s", urlsplit(sub["endpoint"]).hostname, type(e).__name__)
+            log.warning("welcome push sub=%s age_s=%s failed: %s", tag, age_s(created), type(e).__name__)
             return 0
+        log.info("welcome push sub=%s age_s=%s status=%s", tag, age_s(created), code)
         if code in (404, 410):
+            log_prune("welcome", sub["endpoint"], created, code)
             self.delete(sub["endpoint"])
-        log.info("welcome push to %s: %s", urlsplit(sub["endpoint"]).hostname, code)
         return code
 
     def drain(self, timeout: float = 10) -> None:
@@ -493,6 +527,7 @@ class PushService:
         data = payload_for(alert, kind)
         urgency = "high" if alert["severity"] == "alert" else "normal"
         targets = [s for s in self.all() if matches(s, alert, when)]
+        created_by_ep = {s["endpoint"]: s.get("created") for s in targets}
         stats["matched"] = len(targets)
 
         def one(sub: dict) -> tuple[str, int]:
@@ -500,7 +535,8 @@ class PushService:
                 validate_endpoint(sub["endpoint"])  # stored rows are re-checked before every send
                 return sub["endpoint"], self._send(sub, data, urgency)
             except Exception as e:
-                log.warning("push to %s failed: %s", urlsplit(sub["endpoint"]).hostname, type(e).__name__)
+                log.warning("alert push sub=%s age_s=%s failed: %s", sub_tag(sub["endpoint"]),
+                            age_s(sub.get("created")), type(e).__name__)
                 return sub["endpoint"], 0
 
         # NOT a `with` block: its exit would shutdown(wait=True) and silently wait for every send,
@@ -520,6 +556,7 @@ class PushService:
                     c.execute("UPDATE push_subscriptions SET failures=0, last_ok=? WHERE endpoint=?", (now, endpoint))
                 elif code in (404, 410):
                     stats["gone"] += 1
+                    log_prune("alert", endpoint, created_by_ep.get(endpoint), code)
                     c.execute("DELETE FROM push_subscriptions WHERE endpoint=?", (endpoint,))
                 else:
                     stats["failed"] += 1

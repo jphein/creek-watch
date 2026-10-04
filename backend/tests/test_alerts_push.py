@@ -523,3 +523,69 @@ def test_welcome_dedup_24h_lru(tmp_path):
     other = validate_subscription(body("https://fcm.googleapis.com/fcm/send/other"), set())
     svc.upsert(other); svc.welcome_async(other); svc.drain()
     assert len(sent) == 3
+
+
+# ---- diagnostic logging: hashed sub id + age, never the endpoint or keys ------------------------
+
+def _logs_clean(caplog, subs):
+    for s in subs:
+        assert s["endpoint"] not in caplog.text and s["p256dh"] not in caplog.text and s["auth"] not in caplog.text
+        assert s["endpoint"].split("/")[-1] not in caplog.text            # not even the token tail
+
+
+def test_welcome_410_on_first_send_warns_with_hash_and_age(tmp_path, caplog):
+    import hashlib
+    import logging
+    svc = PushService(tmp_path / "p.db", VapidKeys(vapid_private_b64(), None, "https://x.example"),
+                      sender=lambda *a: 410)
+    sub = validate_subscription(body("https://fcm.googleapis.com/fcm/send/tok-ABCDEF123"), set())
+    svc.upsert(sub)
+    with caplog.at_level(logging.INFO, logger="creekwatch.push"):
+        svc.welcome_async(sub).result(timeout=5)
+    tag = hashlib.sha256(sub["endpoint"].encode()).hexdigest()[:8]
+    warn = [r for r in caplog.records if r.levelno == logging.WARNING]
+    assert any(f"welcome push sub={tag} age_s=0 status=410: pruned on first send (age_s=0), "
+               "likely client unsubscribe/replace" == r.getMessage() for r in warn), caplog.text
+    assert f"welcome push sub={tag} age_s=0 status=410" in caplog.text
+    _logs_clean(caplog, [sub])
+
+
+def test_welcome_success_logs_hash_age_status(tmp_path, caplog):
+    import logging
+    svc = PushService(tmp_path / "p.db", VapidKeys(vapid_private_b64(), None, "https://x.example"),
+                      sender=lambda *a: 201)
+    sub = validate_subscription(body(), set())
+    svc.upsert(sub)
+    with caplog.at_level(logging.INFO, logger="creekwatch.push"):
+        svc.welcome_async(sub).result(timeout=5)
+    assert f"welcome push sub={push_mod.sub_tag(sub['endpoint'])} age_s=0 status=201" in caplog.text
+    assert not [r for r in caplog.records if r.levelno >= logging.WARNING]
+    _logs_clean(caplog, [sub])
+
+
+def test_alert_prune_old_vs_fresh_subscription(tmp_path, caplog):
+    import logging
+    svc = PushService(tmp_path / "p.db", VapidKeys(vapid_private_b64(), None, "https://x.example"),
+                      sender=lambda *a: 410)
+    old = validate_subscription(body("https://fcm.googleapis.com/fcm/send/old-sub"), set())
+    new = validate_subscription(body("https://fcm.googleapis.com/fcm/send/new-sub"), set())
+    svc.upsert(old); svc.upsert(new)
+    with svc._conn() as c:   # the old one subscribed 2 h ago
+        c.execute("UPDATE push_subscriptions SET created='2000-01-01T00:00:00Z' WHERE endpoint=?", (old["endpoint"],))
+    with caplog.at_level(logging.INFO, logger="creekwatch.push"):
+        svc.notify(validate_alert(make_alert(severity="alert")), "new")
+    msgs = {r.getMessage(): r.levelno for r in caplog.records}
+    old_lines = [m for m in msgs if f"sub={push_mod.sub_tag(old['endpoint'])}" in m]
+    new_lines = [m for m in msgs if f"sub={push_mod.sub_tag(new['endpoint'])}" in m]
+    assert any("pruned (subscription gone)" in m and msgs[m] == logging.INFO for m in old_lines)
+    assert any("pruned on first send" in m and msgs[m] == logging.WARNING for m in new_lines)
+    assert svc.count() == 0
+    _logs_clean(caplog, [old, new])
+
+
+def test_sub_tag_and_age():
+    import hashlib
+    ep = "https://fcm.googleapis.com/fcm/send/x"
+    assert push_mod.sub_tag(ep) == hashlib.sha256(ep.encode()).hexdigest()[:8]
+    assert push_mod.age_s("2026-10-04T00:00:00Z", datetime(2026, 10, 4, 0, 1, 5, tzinfo=timezone.utc)) == 65
+    assert push_mod.age_s(None) is None and push_mod.age_s("garbage") is None
