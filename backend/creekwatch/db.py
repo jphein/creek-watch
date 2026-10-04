@@ -24,7 +24,9 @@ CREATE TABLE IF NOT EXISTS reports (
     notes         TEXT,
     reporter_name TEXT,
     photo_file    TEXT,
-    flags         TEXT NOT NULL DEFAULT '[]'
+    flags         TEXT NOT NULL DEFAULT '[]',
+    trash_removed INTEGER NOT NULL DEFAULT 0,
+    trash_bags    INTEGER
 );
 CREATE INDEX IF NOT EXISTS reports_creek_obs ON reports (creek_id, observed_at DESC);
 """
@@ -40,5 +42,11 @@ def connect(db_path: Path) -> sqlite3.Connection:
 
 def init(db_path: Path) -> None:
     db_path.parent.mkdir(parents=True, exist_ok=True)
+    from .alerts.store import _add_column  # concurrency-safe ALTER ("duplicate column" = done)
+
     with connect(db_path) as conn:
         conn.executescript(SCHEMA)
+        # reports created before the cleanup fields (CREATE IF NOT EXISTS doesn't add columns)
+        _add_column(conn, "reports", "trash_removed", "INTEGER NOT NULL DEFAULT 0")
+        _add_column(conn, "reports", "trash_bags", "INTEGER")
+        conn.execute("CREATE INDEX IF NOT EXISTS reports_cleanups ON reports (creek_id) WHERE trash_removed = 1")
