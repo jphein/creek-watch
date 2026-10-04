@@ -1,0 +1,10 @@
+[Unit]
+Description=Creek Watch: redeploy if origin/main moved
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=jp
+ExecStart=/home/jp/creekwatch/bin/redeploy.sh --if-changed
+TimeoutStartSec=900
