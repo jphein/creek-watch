@@ -309,3 +309,23 @@ def test_inflight_marker_released_even_on_base_exception():
         pass
     assert "k-wedge" not in ingest._inflight
     assert ingest._cached("k-wedge", 60, lambda: {"ok": 1}) == {"ok": 1}     # refetches normally
+
+
+def test_shared_key_inflight_returns_last_good_not_none(monkeypatch):
+    """cdec:river is shared by both creeks: while one creek's refresh is in flight, the other
+    must get the last good value (flagged stale), not None ('no river data')."""
+    import threading as th
+    import time as _t
+    assert ingest._cached("cdec:shared", 60, lambda: {"stations": ["JBR"]}) == {"stations": ["JBR"]}
+    clock = {"t": ingest.time.time() + 120}                          # past the ttl: needs a refresh
+    monkeypatch.setattr(ingest.time, "time", lambda: clock["t"])
+    release = th.Event()
+    t = th.Thread(target=lambda: ingest._cached("cdec:shared", 60, lambda: release.wait(3) and {"stations": ["JBR", "ENG"]}))
+    t.start()
+    deadline = _t.monotonic() + 2
+    while "cdec:shared" not in ingest._inflight and _t.monotonic() < deadline:
+        release.wait(0.01)
+    other = ingest._cached("cdec:shared", 60, lambda: {"stations": ["DUPLICATE"]})
+    assert other == {"stations": ["JBR"], "stale": True}             # last good, not None, no 2nd fetch
+    release.set()
+    t.join(3)
