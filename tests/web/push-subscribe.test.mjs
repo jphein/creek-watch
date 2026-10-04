@@ -9,7 +9,7 @@ const json = (body, status = 200) => ({ status, contentType: 'application/json',
 const SERVER_KEY = JSON.parse(mock('vapid')).key;
 const OLD_KEY = 'BOLDOLDOLDkeyFromAnEarlierDeployAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'.slice(0, 87);
 
-async function run({ leftover = null, savedFilters = null, actions }) {
+async function run({ leftover = null, savedFilters = null, failSubscribe = false, actions }) {
   const ctx = await b.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, permissions: ['notifications'] });
   const calls = [];
   await ctx.route('**/api/**', async (r) => {
@@ -20,7 +20,7 @@ async function run({ leftover = null, savedFilters = null, actions }) {
     if (u.pathname === '/api/creeks') return r.fulfill(json(mock('creeks')));
     return r.fulfill(json('[]'));
   });
-  await ctx.addInitScript(({ leftover, savedFilters }) => {
+  await ctx.addInitScript(({ leftover, savedFilters, failSubscribe }) => {
     const dec = (s) => Uint8Array.from(atob(s.replace(/-/g, '+').replace(/_/g, '/') + '='.repeat((4 - (s.length % 4)) % 4)), (c) => c.charCodeAt(0));
     const same = (a, bb) => a.byteLength === bb.byteLength && new Uint8Array(a).every((v, i) => v === new Uint8Array(bb)[i]);
     const P = (window.__push = { log: [], n: 0, current: null });
@@ -39,11 +39,12 @@ async function run({ leftover = null, savedFilters = null, actions }) {
         if (same(P.current.options.applicationServerKey, k)) { P.log.push(['subscribe→existing', P.current.endpoint]); return P.current; }
         P.log.push(['subscribe→InvalidStateError']); throw new DOMException('different applicationServerKey', 'InvalidStateError');
       }
+      if (failSubscribe) { P.log.push(['subscribe→AbortError']); throw new DOMException('Registration failed - push service error', 'AbortError'); }
       P.current = make(`https://fcm.googleapis.com/fcm/send/fresh-${++P.n}`, k);
       P.log.push(['subscribe→new', P.current.endpoint]);
       return P.current;
     };
-  }, { leftover, savedFilters });
+  }, { leftover, savedFilters, failSubscribe });
   const p = await ctx.newPage(); const errs = []; p.on('pageerror', (e) => errs.push(e.message));
   await p.goto(base + '#alerts'); await p.waitForSelector('.alerts-list'); await p.evaluate(() => navigator.serviceWorker.register('sw.js').then(() => navigator.serviceWorker.ready));
   const out = await actions(p);
@@ -69,6 +70,19 @@ R.T3 = await run({ leftover: { endpoint: STALE.replace('STALE', 'GOOD'), key: SE
 R.T4 = await run({ actions: async (p) => {
   await openPanel(p); await p.click('[data-act="get-alerts"]'); await openPanel(p); await p.waitForSelector('.ga-form');
   await p.locator('.ga-form button[type="submit"]').dblclick(); await p.waitForSelector('.ga-on', { timeout: 10000 }); await p.waitForTimeout(500); return {}; } });
+// T6: leftover replaced, then the fresh subscribe() fails → plain "alerts are OFF" message, state cleared.
+R.T6 = await run({ leftover: { endpoint: STALE, key: SERVER_KEY }, savedFilters: { creek_ids: ['wolf'], min_severity: 'alert', quiet_hours: null }, failSubscribe: true,
+  actions: async (p) => {
+    await openPanel(p); await p.click('[data-ga="edit"]'); await p.waitForSelector('.ga-form');
+    // force a replace on "Save": make the saved state look like it came from an older flow (no saved filters)
+    await p.evaluate(() => localStorage.removeItem('cw-push-filters'));
+    await p.click('.ga-form button[type="submit"]'); await p.waitForTimeout(1200);
+    return { hint: await p.locator('.ga-form .need-hint').textContent(), filtersAfter: await p.evaluate(() => localStorage.getItem('cw-push-filters')), onShown: await p.locator('.ga-on').count() };
+  } });
+// T7: no leftover, subscribe() fails → the generic message (nothing was removed, so don't claim it was).
+R.T7 = await run({ failSubscribe: true, actions: async (p) => {
+  await openPanel(p); await p.waitForSelector('.ga-form'); await p.click('.ga-form button[type="submit"]'); await p.waitForTimeout(1200);
+  return { hint: await p.locator('.ga-form .need-hint').textContent() }; } });
 await b.close(); close();
 
 const fresh = (r) => r.posted.length === 1 && !r.posted[0].includes('STALE') && r.push.current === r.posted[0];
@@ -79,7 +93,10 @@ const checks = {
   T3_sameKeyReused: R.T3.posted.length === 1 && R.T3.posted[0].includes('GOOD') && R.T3.deleted.length === 0 && !R.T3.push.log.some(([k]) => k === 'unsubscribe'),
   T4_onceOnly: R.T4.posted.length === 1 && R.T4.push.log.filter(([k]) => k.startsWith('subscribe')).length === 1,
   T5_nothingAfterPost: [R.T1, R.T2, R.T3, R.T4].every((r) => r.push.current === r.posted.at(-1)),
-  noPageErrors: [R.T1, R.T2, R.T3, R.T4].every((r) => !r.errs.length),
+  noPageErrors: [R.T1, R.T2, R.T3, R.T4, R.T6, R.T7].every((r) => !r.errs.length),
+  T6_offMessageAfterReplace: R.T6.hint === 'Your previous alert subscription was removed and a new one couldn’t be created, so alerts are OFF on this phone. Tap Turn on alerts to try again.'
+    && R.T6.filtersAfter === null && R.T6.onShown === 0 && R.T6.deleted.includes(STALE) && R.T6.posted.length === 0,
+  T7_genericWhenNothingRemoved: /Couldn’t turn on alerts on this phone/.test(R.T7.hint || '') && !/OFF/.test(R.T7.hint || ''),
 };
 console.log(JSON.stringify({ R, checks }, null, 1));
 const ok = Object.values(checks).every(Boolean);
