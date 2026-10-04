@@ -152,21 +152,32 @@ def _resolve(use_data_package: bool) -> tuple[Callable, Callable, Callable]:
     return gc, ch, rf
 
 
+MIN_HINT_S = 5.0   # a cache_ttl_hint_s can shorten the conditions cache, never disable it
+
+
 class DataLayer:
     def __init__(self, conditions_ttl_s: int, use_data_package: bool = True):
         self._get_conditions, self._compute_health, self._report_flags = _resolve(use_data_package)
         self.stubbed = self._get_conditions is _stub_get_conditions or self._compute_health is _stub_compute_health
         self.ttl = conditions_ttl_s
-        self._cache: dict[str, tuple[float, dict]] = {}
+        self._cache: dict[str, tuple[float, dict, float]] = {}   # creek -> (stored_at, result, ttl_s)
         self._lock = threading.Lock()
         self._inflight: dict[str, threading.Lock] = {}   # single-flight: one upstream fetch per creek
 
     def _fresh(self, creek_id: str) -> dict[str, Any] | None:
         with self._lock:
             hit = self._cache.get(creek_id)
-            if hit and time.monotonic() - hit[0] < self.ttl:
+            if hit and time.monotonic() - hit[0] < hit[2]:
                 return hit[1]
         return None
+
+    def _ttl_for(self, result: dict[str, Any]) -> float:
+        """data.ingest may ask for a shorter cache life (e.g. water quality answered from the snapshot
+        because the RiverDB cap fired): honour `cache_ttl_hint_s`, clamped to [MIN_HINT_S, self.ttl]."""
+        hint = result.get("cache_ttl_hint_s") if isinstance(result, dict) else None
+        if isinstance(hint, bool) or not isinstance(hint, (int, float)) or hint <= 0:
+            return self.ttl
+        return max(MIN_HINT_S, min(float(hint), self.ttl))
 
     def conditions(self, creek_id: str) -> dict[str, Any]:
         hit = self._fresh(creek_id)
@@ -199,10 +210,13 @@ class DataLayer:
             log.exception("get_conditions(%s) failed", creek_id)
             result = {"gauge": None, "weather": None, "fetched_at": utcnow_iso(), "error": str(e)}
             with self._lock:  # short negative cache so a dead upstream isn't hammered
-                self._cache[creek_id] = (now - self.ttl + 60, result)
+                self._cache[creek_id] = (now, result, min(60.0, self.ttl))
             return result
+        ttl = self._ttl_for(result)
+        if isinstance(result, dict) and "cache_ttl_hint_s" in result:
+            result = {k: v for k, v in result.items() if k != "cache_ttl_hint_s"}  # internal: not in the API
         with self._lock:
-            self._cache[creek_id] = (now, result)
+            self._cache[creek_id] = (now, result, ttl)
         return result
 
     def health(self, creek_id: str, reports: list[dict], conditions: dict) -> dict[str, Any]:
