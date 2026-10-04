@@ -26,6 +26,7 @@ from fastapi.staticfiles import StaticFiles
 
 from . import db
 from .cache_headers import CacheControlMiddleware
+from .http_head import HeadAsGetMiddleware
 from .config import REPO_ROOT, Settings
 from .data_iface import DataLayer, load_creeks, utcnow_iso
 from . import photos as photos_mod
@@ -498,6 +499,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         log.warning("no web build at %s; serving API only", s.web_dir)
     if s.cache_control:
         app.add_middleware(CacheControlMiddleware)
+    # Added last = outermost, so inner layers only ever see GET. (Headers match either way; both are path-based.)
+    app.add_middleware(HeadAsGetMiddleware)  # HEAD answers like GET, without a body (uptime bots, curl -I)
 
     return app
 

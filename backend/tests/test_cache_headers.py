@@ -51,3 +51,11 @@ def test_off_by_default_is_unchanged(tmp_path, monkeypatch, on):
         assert _cc(c.get("/js/app.js")) == []
         assert _cc(c.get("/healthz")) == []
         assert _cc(c.get("/alerts.cap.xml")) == ["public, max-age=120"]
+
+
+def test_head_carries_the_same_cache_control(tmp_path, monkeypatch):
+    """With #103's HeadAsGetMiddleware outermost, HEAD gets exactly the GET's Cache-Control."""
+    with _app(tmp_path, monkeypatch, True) as c:
+        for path in ("/js/app.js", "/healthz", "/alerts.cap.xml"):
+            assert _cc(c.head(path)) == _cc(c.get(path)), path
+            assert c.head(path).status_code == 200, path
