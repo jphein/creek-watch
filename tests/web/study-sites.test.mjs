@@ -1,7 +1,7 @@
 // Past-study sites (data #109): the 2024 Regional Board study's 9 stations. Our 2 spots stay on top of
 // the history panel; the 7 study-only ones collapse under "Other sites in this study" and get grey,
 // dated map pins (never red, never "unsafe"). The Board's map is a link only.
-// Fixture: tests/web/fixtures/wolf-history-109.json = data.history.get_bacteria_history('wolf') on #109.
+// Fixture: tests/web/fixtures/wolf-history-109.json = data.history.get_bacteria_history('wolf') on main after #109 (= 228c955).
 // SHOTS=<dir> saves 390x844 screenshots (light + dark).
 import fs from 'node:fs';
 import { serveWeb, launch, mock } from './harness.mjs';
@@ -75,6 +75,7 @@ const checks = {
   ourSitesNoStudyPin: !L.titles.some((t) => /North Star Mining Museum|Wolf Road/.test(t)),
   greyNeverStatus: L.classes.join() === 'study-marker' && /Past study site/.test(L.legend),
   popupDatedPast: /Past study · 2024/i.test(L.popup) && /Tested weekly May–Sep 2024: a past study, not current conditions\./.test(L.popup) && /Rattlesnake|French|Cherry|Auburn|Lime Kiln|Cottage|South Wolf/.test(L.popup),
+  censoredWording: /highest above 2419\.6 MPN\/100 mL \(the test’s upper limit\)|highest above 2419\.6 MPN\/100 mL \(the test's upper limit\)/.test(L.popup),
   neverUnsafe: ![L.popup, R.dark.popup].some((t) => /unsafe|toxic|danger/i.test(t)),
   contextLinkOnly: L.popLinks.some((l) => l.href === HIST.studies[0].context_url && l.target === '_blank') && L.ctxLinks.some((l) => l.href === HIST.studies[0].context_url && /Regional Board’s map|Regional Board's map/.test(l.text)),
   panelOursTopOthersCollapsed: L.top.length === 2 && /Other sites in this study \(7\)/.test(L.othersSummary) && L.others.length === 7 && L.waters.includes('French Ravine (tributary)'),
