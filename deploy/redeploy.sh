@@ -73,6 +73,7 @@ run_app() {  # $1 = container name, $2 = host port, $3 = image, $4 = restart pol
     "${envfile[@]}" \
     --log-opt max-size=10m --log-opt max-file=3 \
     --memory "$CW_MEMORY" --memory-swap "$CW_MEMORY" --pids-limit "$CW_PIDS" \
+    --security-opt no-new-privileges --cap-drop ALL \
     "$3" >/dev/null
 }
 
