@@ -1,0 +1,207 @@
+{
+ "_source": "CEDEN via data.ca.gov, resource 15a63495-8d9f-4a49-b43a-3092ef3106b9",
+ "_licence": "not specified (California open data portal lists no licence for this dataset)",
+ "_built": "2026-10-04T03:48:12Z",
+ "stations": {
+  "516NEV101": {
+   "name": "Wolf Creek at Wolf Road",
+   "lat": 39.05216,
+   "lon": -121.10846,
+   "project": "RWB5 Microbial Source Tracking Wolf Cr Study 2024",
+   "method": "SM 9223 B-SOP ASWAU",
+   "samples": [
+    {
+     "date": "2024-05-22",
+     "ecoli": 648.8,
+     "qual": "=",
+     "gm6w": 648.8,
+     "gm6w_n": 1
+    },
+    {
+     "date": "2024-06-19",
+     "ecoli": 155.3,
+     "qual": "=",
+     "gm6w": 317.425,
+     "gm6w_n": 2
+    },
+    {
+     "date": "2024-06-26",
+     "ecoli": 115.3,
+     "qual": "=",
+     "gm6w": 226.484,
+     "gm6w_n": 3
+    },
+    {
+     "date": "2024-07-02",
+     "ecoli": 139.1,
+     "qual": "=",
+     "gm6w": 200.498,
+     "gm6w_n": 4
+    },
+    {
+     "date": "2024-07-10",
+     "ecoli": 137.4,
+     "qual": "=",
+     "gm6w": 136.012,
+     "gm6w_n": 4
+    },
+    {
+     "date": "2024-07-17",
+     "ecoli": 67.7,
+     "qual": "=",
+     "gm6w": 118.299,
+     "gm6w_n": 5
+    },
+    {
+     "date": "2024-07-24",
+     "ecoli": 124.6,
+     "qual": "=",
+     "gm6w": 119.326,
+     "gm6w_n": 6
+    },
+    {
+     "date": "2024-07-31",
+     "ecoli": 78.9,
+     "qual": "=",
+     "gm6w": 106.591,
+     "gm6w_n": 6
+    },
+    {
+     "date": "2024-08-07",
+     "ecoli": 116.9,
+     "qual": "=",
+     "gm6w": 106.836,
+     "gm6w_n": 6
+    },
+    {
+     "date": "2024-08-14",
+     "ecoli": 49.6,
+     "qual": "=",
+     "gm6w": 89.966,
+     "gm6w_n": 6
+    },
+    {
+     "date": "2024-08-21",
+     "ecoli": 53.8,
+     "qual": "=",
+     "gm6w": 76.95,
+     "gm6w_n": 6
+    },
+    {
+     "date": "2024-08-28",
+     "ecoli": 104.3,
+     "qual": "=",
+     "gm6w": 80.367,
+     "gm6w_n": 7
+    },
+    {
+     "date": "2024-09-04",
+     "ecoli": 90.9,
+     "qual": "=",
+     "gm6w": 78.463,
+     "gm6w_n": 6
+    }
+   ]
+  },
+  "516NEV109": {
+   "name": "Wolf Creek at the North Star Mining Museum",
+   "lat": 39.207851,
+   "lon": -121.06952,
+   "project": "RWB5 Microbial Source Tracking Wolf Cr Study 2024",
+   "method": "SM 9223 B-SOP ASWAU",
+   "samples": [
+    {
+     "date": "2024-05-22",
+     "ecoli": 10.9,
+     "qual": "=",
+     "gm6w": 10.9,
+     "gm6w_n": 1
+    },
+    {
+     "date": "2024-06-19",
+     "ecoli": 7.4,
+     "qual": "=",
+     "gm6w": 8.981,
+     "gm6w_n": 2
+    },
+    {
+     "date": "2024-06-26",
+     "ecoli": 14.8,
+     "qual": "=",
+     "gm6w": 10.608,
+     "gm6w_n": 3
+    },
+    {
+     "date": "2024-07-02",
+     "ecoli": 14.6,
+     "qual": "=",
+     "gm6w": 11.49,
+     "gm6w_n": 4
+    },
+    {
+     "date": "2024-07-10",
+     "ecoli": 19.9,
+     "qual": "=",
+     "gm6w": 13.356,
+     "gm6w_n": 4
+    },
+    {
+     "date": "2024-07-17",
+     "ecoli": 13.5,
+     "qual": "=",
+     "gm6w": 13.385,
+     "gm6w_n": 5
+    },
+    {
+     "date": "2024-07-24",
+     "ecoli": 29.2,
+     "qual": "=",
+     "gm6w": 15.243,
+     "gm6w_n": 6
+    },
+    {
+     "date": "2024-07-31",
+     "ecoli": 770.1,
+     "qual": "=",
+     "gm6w": 33.059,
+     "gm6w_n": 6
+    },
+    {
+     "date": "2024-08-07",
+     "ecoli": 22.8,
+     "qual": "=",
+     "gm6w": 35.528,
+     "gm6w_n": 6
+    },
+    {
+     "date": "2024-08-14",
+     "ecoli": 34.5,
+     "qual": "=",
+     "gm6w": 41.003,
+     "gm6w_n": 6
+    },
+    {
+     "date": "2024-08-21",
+     "ecoli": 18.3,
+     "qual": "=",
+     "gm6w": 40.434,
+     "gm6w_n": 6
+    },
+    {
+     "date": "2024-08-28",
+     "ecoli": 13.2,
+     "qual": "=",
+     "gm6w": 34.458,
+     "gm6w_n": 7
+    },
+    {
+     "date": "2024-09-04",
+     "ecoli": 9.8,
+     "qual": "=",
+     "gm6w": 33.581,
+     "gm6w_n": 6
+    }
+   ]
+  }
+ }
+}

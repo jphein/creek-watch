@@ -352,8 +352,14 @@ def get_conditions(creek_id: str, *, max_age_s: int | None = None, timeout_s: fl
             "stale": any(bool(x and x.get("stale")) for x in (obs, fc, rain)),
         }
     water_quality = res.get("wq") or {"stations": []}
+    from . import history
+    try:   # dated official studies (static snapshot, no network); never affects the score
+        bacteria_history = history.get_bacteria_history(creek_id)
+    except Exception:  # noqa: BLE001
+        bacteria_history = {"studies": []}
     return {"creek_id": creek_id, "gauge": gauge, "weather": weather,
-            "water_quality": water_quality, "fetched_at": _now_iso()}
+            "water_quality": water_quality, "bacteria_history": bacteria_history,
+            "fetched_at": _now_iso()}
 
 
 if __name__ == "__main__":  # python3 -m data.ingest
