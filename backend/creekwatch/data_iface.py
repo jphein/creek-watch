@@ -51,6 +51,16 @@ STUB_CREEKS: list[dict[str, Any]] = [
 
 
 def load_creeks(sites_json: Path) -> list[dict[str, Any]]:
+    # Default location: prefer the data lane's loader, which also attaches geojson_line from creeks.geojson.
+    if sites_json.resolve() == (Path(__file__).resolve().parents[2] / "data" / "sites.json"):
+        try:
+            from data import sites  # type: ignore
+
+            creeks = sites.load_creeks()
+            log.info("loaded %d creeks via data.sites", len(creeks))
+            return creeks
+        except Exception as e:
+            log.warning("data.sites unavailable (%s); reading %s directly", e, sites_json)
     try:
         creeks = json.loads(sites_json.read_text())
         if isinstance(creeks, dict):  # tolerate {"creeks": [...]}
