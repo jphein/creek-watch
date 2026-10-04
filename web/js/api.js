@@ -7,14 +7,19 @@ export const MOCK = params.has('mock');
 const MOCK_FAIL = params.get('mock') === 'fail';
 
 export class ApiError extends Error {
-  constructor(message, { status = 0, offline = false } = {}) {
+  constructor(message, { status = 0, offline = false, retryAfter = null } = {}) {
     super(message);
     this.status = status;
     this.offline = offline;
+    this.retryAfter = retryAfter; // seconds, from a Retry-After header (429/503)
   }
 }
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+/** Worth retrying later (keep the report in the outbox): no connection, rate-limited, or the server is
+ *  temporarily unavailable (e.g. 503 + Retry-After during a planned move). 4xx otherwise = rejected for good. */
+export const isRetryable = (e) => !!e && (e.offline || [429, 502, 503, 504].includes(e.status));
 const mockPosted = () => { try { return JSON.parse(sessionStorage.getItem('cw-mock-posted') || '[]'); } catch { return []; } };
 const mockCache = new Map();
 async function mockJson(name) {
@@ -56,7 +61,10 @@ async function request(path, opts = {}) {
   } catch {
     /* non-JSON */
   }
-  if (!res.ok) throw new ApiError(plainDetail(body, res.status), { status: res.status });
+  if (!res.ok) {
+    const ra = Number(res.headers.get('Retry-After'));
+    throw new ApiError(plainDetail(body, res.status), { status: res.status, retryAfter: Number.isFinite(ra) && ra > 0 ? ra : null });
+  }
   return body;
 }
 

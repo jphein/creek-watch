@@ -1,5 +1,5 @@
 // Report page — the guided 6-step flow (SPEC "Pages" #1, Track 1).
-import { getCreeks, postReport, ApiError, reportBand, warningFlags } from './api.js';
+import { getCreeks, postReport, ApiError, reportBand, warningFlags, isRetryable } from './api.js';
 import { icon } from './icons.js';
 import { kvGet, kvSet, kvDel, outboxAdd, outboxAll, outboxDel, draftLoad, draftSave, draftClear } from './store.js';
 import { esc, haversineKm, fmtDistance, bandLabel, flagText, toast } from './ui.js';
@@ -427,8 +427,9 @@ function errorBanner() {
     <span>${esc(lastError.message)} Your answers are saved on this phone.</span></div>
     <div class="banner-actions">
       <button type="button" class="btn primary" data-act="send">Try again</button>
-      ${offline ? `<button type="button" class="btn secondary" data-act="queue">Send later automatically</button>` : ''}
-      ${photo && [413, 415, 503].includes(lastError.status) ? `<button type="button" class="btn secondary" data-act="send-nophoto">Send without the photo</button>` : ''}
+      ${isRetryable(lastError) ? `<button type="button" class="btn secondary" data-act="queue">Send later automatically</button>` : ''}
+      ${photo && ([413, 415].includes(lastError.status) || (lastError.status === 503 && /photo/i.test(lastError.message)))
+        ? `<button type="button" class="btn secondary" data-act="send-nophoto">Send without the photo</button>` : ''}
     </div>
   </div>`;
 }
@@ -446,7 +447,9 @@ function renderDone() {
     <h2 id="done-h" class="step-title" tabindex="-1">${r.queued ? 'Saved — it will send itself' : 'Report sent. Thank you!'}</h2>
     <p class="lead">${
       r.queued
-        ? 'No signal right now. Your report is safe on this phone and will send as soon as you have a connection. You can close this page.'
+        ? r.queuedReason === 'server'
+          ? 'Creek Watch is busy for a few minutes. Your report is safe on this phone and will send itself when it’s back, or the next time you open Creek Watch.'
+          : 'No signal right now. Your report is safe on this phone and will send as soon as you have a connection. You can close this page.'
         : `Your eyes on ${esc(creek ? creek.name : 'the creek')} help everyone downstream.`
     }</p>
     ${!r.queued && r.photo_url ? `<img class="done-photo" src="${esc(r.photo_url)}" alt="Your creek photo">` : ''}
@@ -666,9 +669,11 @@ async function send() {
 
 async function queue() {
   const fields = buildForm();
+  const why = lastError;
   const ok = await outboxAdd({ fields, photo, created: Date.now() });
   if (!ok) return toast('Couldn’t save on this phone. Please try sending again.');
-  done = { ...fields, queued: true };
+  done = { ...fields, queued: true, queuedReason: why && !why.offline ? 'server' : 'offline' };
+  scheduleFlush(why?.retryAfter);
   finish(fields);
   render();
   updateOutboxBadge();
@@ -707,8 +712,8 @@ export async function flushOutbox() {
         await outboxDel(item.key);
         toast('A saved report was sent. Thank you!');
       } catch (e) {
-        if (e.offline) break;
-        if (e.status && e.status < 500 && e.status !== 429) await outboxDel(item.key); // rejected for good
+        if (isRetryable(e)) { scheduleFlush(e.retryAfter); break; } // keep it; try again later
+        if (e.status && e.status < 500) await outboxDel(item.key); // rejected for good (4xx other than 429)
         break;
       }
     }
@@ -716,6 +721,15 @@ export async function flushOutbox() {
     flushing = false;
     updateOutboxBadge();
   }
+}
+
+// One pending automatic retry while the page is open, honouring Retry-After (clamped 5 s – 15 min).
+// Page load, coming back online and returning to the tab also flush.
+let flushTimer = null;
+function scheduleFlush(retryAfterS) {
+  if (flushTimer) return;
+  const s = Math.min(900, Math.max(5, Number(retryAfterS) || 120));
+  flushTimer = setTimeout(() => { flushTimer = null; flushOutbox(); }, s * 1000);
 }
 
 async function updateOutboxBadge() {
