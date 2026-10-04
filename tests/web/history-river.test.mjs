@@ -31,6 +31,8 @@ for (const scheme of ['light', 'dark']) {
     credit: await hist.locator('.credit').innerText(),
     methodNote: await hist.locator('.h-method').textContent().catch(() => ''),
     refLabels: await hist.locator('.hist-chart text.hl').allTextContents(),
+    captions: await hist.locator('.hist-chart figcaption').allTextContents(),
+    overBars: await hist.locator('rect.hb.over').count(),
     objectiveLink: await hist.locator('.credit a', { hasText: 'state objective' }).getAttribute('href'),
     unsafeWord: /unsafe/i.test(await wolf.innerText()),
     charts: await hist.locator('.hist-chart svg[role="img"]').count(),
@@ -65,7 +67,10 @@ for (const scheme of ['light', 'dark']) {
   st.title = '<img src=x onerror="window.__xss=1">2024 study';
   st.stations[0].samples[1].ecoli = null; st.stations[0].samples[2].ecoli = '<1'; st.stations[0].samples[3].ecoli = '12';
   st.stations[1].samples[4].qual = '<'; st.stations[1].samples[4].ecoli = 10; st.stations[1].samples[5].qual = '>'; st.stations[1].samples[5].ecoli = 2419.6;
-  deer.river.stations[0].age_hours = 9;
+  deer.river.stations[0].age_hours = 1; deer.river.stations[0].observed_at = new Date(Date.now() - 9 * 3600e3).toISOString(); // cached age is stale on purpose
+  deer.river.stations[1].observed_at = new Date(Date.now() - 2 * 3600e3).toISOString();
+  deer.river.stations[1].source_url = 'http://cdec.water.ca.gov/insecure';
+  st.objective = { ...st.objective, url: 'http://www.waterboards.ca.gov/insecure.pdf' };
   deer.bacteria_history = { studies: [{ ...st, is_current: true, id: 'current-should-not-show' }] }; // only dated history renders
   const ctx = await b.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: 'block' });
   await ctx.route('**/api/creeks', (r) => r.fulfill(json(mock('creeks'))));
@@ -84,6 +89,9 @@ for (const scheme of ['light', 'dark']) {
     qualBars: await w.locator('.h-station').nth(1).locator('rect.hb').count(),
     qualCaption: await w.locator('.h-station').nth(1).locator('figcaption').innerText(),
     staleNote: (await d.locator('.river .r-st').first().innerText()).includes('older reading'),
+    computedAge: /\(9 h ago\)/.test(await d.locator('.river .r-age').first().innerText()) && /\(2 h ago\)/.test(await d.locator('.river .r-age').nth(1).innerText()),
+    httpLinks: await p.locator('a[href^="http:"]').count(),
+    objLinkPresent: await w.locator('details.history .credit a', { hasText: 'state objective' }).count(),
     staleClass: await d.locator('.river .r-st.stale').count(),
     currentStudyHidden: (await d.locator('details.history').count()) === 0,
     errors: errs,
@@ -112,7 +120,11 @@ const checks = {
   textVerbatim: JSON.stringify(L.stationTexts) === JSON.stringify(expectedTexts),
   creditAndObjective: L.credit.includes('Central Valley Regional Water Quality Control Board') && L.objectiveLink === COND.wolf.bacteria_history.studies[0].objective.url,
   methodNoteShown: L.methodNote === COND.wolf.bacteria_history.studies[0].method_note,
-  objectiveUnitsLabelled: L.refLabels.includes('objective 320 single sample (cfu)') && L.refLabels.includes('objective 100 6-week avg (cfu)'),
+  objectiveLabelsHonest: L.refLabels.includes('320 statistical threshold (cfu)') && L.refLabels.includes('100 six-week geometric mean (cfu)') && !L.refLabels.some((t) => /single sample/i.test(t)),
+  captionNotViolation: L.captions.every((c) => c.includes('One sample above 320 isn’t by itself a violation.')),
+  noWatchFillOnBars: L.overBars === 0,
+  httpsOnlyLinks: R.edge.httpLinks === 0 && R.edge.objLinkPresent === 0,
+  riverAgeFromObservedAt: R.edge.computedAge,
   neverUnsafe: !L.unsafeWord && !D.unsafeWord,
   chartsPlotAllNumbers: L.charts === 2 && L.barsPlotted === 26,
   deerHasNoHistory: L.deerHistory === 0, riverOnlyOnDeer: L.wolfRiver === 0 && L.deerRiverStations === 2,

@@ -1,7 +1,7 @@
 // Dashboard — one card per creek: score gauge, band, explained signals,
 // gauge + weather, 7-day report sparkline, recent reports.
 import { getCreeks, getHealth, getConditions, getReports, getAlerts, getCleanupStats, reportBand } from './api.js';
-import { esc, BANDS, bandLabel, timeAgo, reportCardHTML, signalLabel, signalValue, safeUrl, alertHTML } from './ui.js';
+import { esc, BANDS, bandLabel, timeAgo, reportCardHTML, signalLabel, signalValue, safeUrl, httpsUrl, alertHTML } from './ui.js';
 
 const BAND_GLYPH = { good: '✓', fair: '~', watch: '!', alert: '✕' };
 
@@ -133,7 +133,7 @@ function historyChart(st, obj, minN) {
   const bw = Math.max(3, plotW / pts.length - 3);
   const x = (i) => padL + i * (plotW / pts.length) + 1.5;
   const bars = pts.map((p, i) => (exact(p)
-    ? `<rect class="hb ${p.v > stv ? 'over' : ''}" x="${x(i).toFixed(1)}" y="${Math.min(y(p.v), top + plotH - 2).toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(2, top + plotH - y(p.v)).toFixed(1)}" rx="2"><title>${esc(p.d)}: ${esc(p.v)}</title></rect>`
+    ? `<rect class="hb" x="${x(i).toFixed(1)}" y="${Math.min(y(p.v), top + plotH - 2).toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(2, top + plotH - y(p.v)).toFixed(1)}" rx="2"><title>${esc(p.d)}: ${esc(p.v)}</title></rect>`
     : '')).join('');
   const gpts = pts.map((p, i) => (Number.isFinite(p.g) && p.n >= (minN || 5) ? `${(x(i) + bw / 2).toFixed(1)},${y(p.g).toFixed(1)}` : null)).filter(Boolean);
   const ref = (v, cls, label) => `<line class="${cls}" x1="${padL}" x2="${W - 4}" y1="${y(v).toFixed(1)}" y2="${y(v).toFixed(1)}"/><text class="hl" x="${W - 6}" y="${(y(v) - 3).toFixed(1)}" text-anchor="end">${label}</text>`;
@@ -145,10 +145,10 @@ function historyChart(st, obj, minN) {
       <text class="ht" x="${padL - 4}" y="${(top + 8).toFixed(1)}" text-anchor="end">${Math.round(yMax)}</text>
       ${bars}
       ${gpts.length > 1 ? `<polyline class="hg" points="${gpts.join(' ')}"/>` : ''}
-      ${ref(stv, 'ref stv', `objective ${stv} single sample${unitTag(obj)}`)}${ref(gm, 'ref gm', `objective ${gm} 6-week avg${unitTag(obj)}`)}
+      ${ref(stv, 'ref stv', `${stv} statistical threshold${unitTag(obj)}`)}${ref(gm, 'ref gm', `${gm} six-week geometric mean${unitTag(obj)}`)}
       <text class="ht" x="${padL}" y="${H - 3}">${esc(first)}</text><text class="ht" x="${W - 4}" y="${H - 3}" text-anchor="end">${esc(last)}</text>
     </svg>
-    <figcaption class="small muted">Bars: each sample. Line: 6-week geometric mean (only with ${minN || 5}+ samples). Dashed lines: the state objectives.${
+    <figcaption class="small muted">Bars: each sample. Line: 6-week geometric mean (only with ${minN || 5}+ samples). Dashed lines: the state objectives; ${stv} is a statistical threshold for a month’s samples, not a single-sample limit. One sample above ${stv} isn’t by itself a violation.${
       limits.length ? ` ${limits.length} result(s) outside the lab’s measuring range (${esc(limits.slice(0, 3).join(', '))}) not drawn as exact values.` : ''}${
       pts.length - plotted.length - limits.length ? ` ${pts.length - plotted.length - limits.length} value(s) not shown (no number reported).` : ''}</figcaption>
   </figure>`;
@@ -158,7 +158,7 @@ function historyHTML(cond) {
   const studies = (cond?.bacteria_history?.studies || []).filter((s) => s && s.is_current === false);
   if (!studies.length) return '';
   return studies.map((s) => {
-    const objUrl = safeUrl(s.objective?.url), srcUrl = safeUrl(s.source_url);
+    const objUrl = httpsUrl(s.objective?.url), srcUrl = httpsUrl(s.source_url);
     const year = String(s.period || '').slice(0, 4);
     return `<details class="history" data-study="${esc(s.id || '')}">
       <summary><span class="h-kicker">Past study · ${esc(year || 'history')}</span><strong>${esc(s.title || 'Past study')}</strong>
@@ -195,9 +195,11 @@ function riverHTML(cond) {
       const vals = st.kind === 'reservoir'
         ? [n0(st.storage_af) && `${n0(st.storage_af)} acre-feet stored`, n0(st.elevation_ft, 1) && `water level ${n0(st.elevation_ft, 1)} ft`]
         : [n0(st.flow_cfs, 1) && `${n0(st.flow_cfs, 1)} cfs flow`, n0(st.stage_ft, 2) && `stage ${n0(st.stage_ft, 2)} ft`];
-      const age = Number(st.age_hours);
+      // Age from observed_at, client-side (the API's age_hours is frozen when its response was cached).
+      const obsT = Date.parse(st.observed_at || '');
+      const age = obsT ? Math.max(0, (Date.now() - obsT) / 3600e3) : Number(st.age_hours);
       const stale = Number.isFinite(age) && age > 6;
-      const href = safeUrl(st.source_url);
+      const href = httpsUrl(st.source_url);
       return `<div class="r-st${stale ? ' stale' : ''}">
         <p class="r-name"><strong>${esc(st.name)}</strong></p>
         <p class="r-vals">${esc(vals.filter(Boolean).join(' · ') || 'No reading')}</p>

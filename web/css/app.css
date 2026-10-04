@@ -860,10 +860,9 @@ html[data-save-data] .photo-figure { display: none; }
 .hist-chart { margin: 6px 0 4px; }
 .hist-chart svg { width: 100%; height: auto; display: block; }
 .hist-chart .hb { fill: var(--brand); }
-.hist-chart .hb.over { fill: var(--watch); }
 .hist-chart .hg { fill: none; stroke: var(--ink); stroke-width: 2; }
 .hist-chart .ref { stroke-width: 1.5; stroke-dasharray: 4 4; }
-.hist-chart .ref.stv { stroke: var(--watch); }
+.hist-chart .ref.stv { stroke: var(--ink-2); }
 .hist-chart .ref.gm { stroke: var(--muted); }
 .hist-chart .axis { stroke: var(--line); }
 .hist-chart text { font: 9px var(--font); fill: var(--muted); }
