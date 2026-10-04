@@ -139,7 +139,7 @@ Details and retrieval URLs: [`data/SOURCES.md`](https://github.com/jphein/creek-
 - Add a Creek Watch layer inside the team's [Forage for All](https://forage.techempower.org/) community map, and build an Expo/native version of the report flow.
 
 ## Team
-- **Jeffrey "JP" Hein:** Sierra College student, full-stack developer, and founder of TechEMPOWER. Design and development.
+- **Jeffrey "JP" Hein:** Sierra College student and full-stack developer. Design and development.
 - **Alec:** student. Field reports, writing, and testing.
 
 ## Built with

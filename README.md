@@ -123,7 +123,7 @@ Creek Watch is not affiliated with or endorsed by USGS, NOAA/NWS, Open-Meteo or 
 
 ## Team
 
-- **Jeffrey "JP" Hein:** Sierra College student, full-stack developer, founder of TechEMPOWER. Design and development.
+- **Jeffrey "JP" Hein:** Sierra College student and full-stack developer. Design and development.
 - **Alec:** student. Field reports, writing, demo narration and testing.
 
 Built with AI coding assistance (Claude Code) under human direction and review. The health score itself uses deterministic, explainable rules, not AI.
