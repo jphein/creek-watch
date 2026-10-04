@@ -364,9 +364,9 @@ def welcome_payload(sub: dict, creek_names: dict[str, str] | None = None) -> byt
     sev = (min(sub["severities"], key=SEVERITY_RANK.get) if sub.get("severities") else sub["min_severity"])
     body = (f"You'll get {SEVERITY_WORDS.get(sev, sev + '+')} alerts for {creeks}. "
             "For emergencies: Nevada County Alerts, AwareCA, 911.")
-    # id None (and no alert_id): the SW builds /#alerts?id=<id> for alerts; a welcome is not an alert, so
+    # No id / alert_id: the SW builds /#alerts?id=<id> for alerts; a welcome is not an alert, so
     # it must fall back to /#alerts (sw.js uses tag||id for the notification tag).
-    data = {"id": None, "tag": WELCOME_TAG, "kind": "welcome", "severity": "info",
+    data = {"tag": WELCOME_TAG, "kind": "welcome", "severity": "info",
             "category": "other", "title": "Creek Watch alerts are on", "body": body[:200], "summary": body[:200],
             # no `notice`: the body already carries the emergency line, and sw.js appends notice to the body
             "source_name": "Creek Watch", "official": False, "url": "/#alerts",
