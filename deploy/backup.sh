@@ -45,6 +45,7 @@ rm -rf "${STAGE:?}/uploads" "$STAGE"/snap.db "$STAGE"/snap.db-wal "$STAGE"/snap.
 
 MAX_DB="${CW_BACKUP_MAX_DB_BYTES:-2000000000}"
 MAX_UP="${CW_BACKUP_MAX_UPLOADS_BYTES:-5000000000}"
+MAX_FILES="${CW_BACKUP_MAX_FILES:-200000}"   # ~6 photos/report: far above any real field season
 rm -f "$STAGE"/snap.db-wal "$STAGE"/snap.db-shm "$STAGE"/*.tar
 
 # Everything that comes out of the container is container-controlled (a compromised app could lie
@@ -71,13 +72,16 @@ capped_cp() {
 }
 # safe_extract <tar> <dest dir> <byte cap>: regular files and directories only; nothing absolute, nothing
 # via ".."; no sparse members; total extracted bytes <= cap (a sparse member can expand far past the
-# capped stream size).
+# capped stream size); at most $MAX_FILES members (inode exhaustion via millions of empty files).
 safe_extract() {
-  python3 - "$1" "$2" "$3" <<'PY'
+  python3 - "$1" "$2" "$3" "$MAX_FILES" <<'PY'
 import sys, tarfile
-cap = int(sys.argv[3]); total = 0
+cap = int(sys.argv[3]); max_members = int(sys.argv[4]); total = 0; count = 0
 def only_plain(m, path):
-    global total
+    global total, count
+    count += 1   # every member costs an inode (empty files are only 512 B of tar each)
+    if count > max_members:
+        raise tarfile.FilterError(f"more than {max_members} archive members")
     # Keep this type check BEFORE data_filter: links never reach tarfile's link handling at all, which
     # also sidesteps the 2024-25 CPython tarfile filter-bypass CVEs that affect ubox0's Python 3.12.3.
     if not (m.isreg() or m.isdir()):

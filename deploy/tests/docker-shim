@@ -6,6 +6,9 @@ if [ "$1" = cp ] && [ "${3:-}" = - ] && [[ "$2" == *uploads ]] && [ -n "${SHIM_M
     partial)   # cut exactly at the start of the 2nd file member, then die like a broken stream
       off=$(python3 -c "import tarfile,sys;f=[m for m in tarfile.open(sys.argv[1]) if m.isfile()];print(f[1].offset)" "$t")
       head -c "$off" "$t"; rm -f "$t"; exit 1 ;;
+    many)      # a valid tar of 3000 empty files (inode-exhaustion shape, scaled down)
+      d=$(mktemp -d); mkdir "$d/uploads"; (cd "$d/uploads" && seq 1 3000 | xargs touch)
+      tar -C "$d" -cf - uploads; rm -rf "$d" "$t"; exit 0 ;;
     sparse)    # a valid tar holding a GNU sparse member of 3 GB apparent size
       d=$(mktemp -d); mkdir "$d/uploads"; truncate -s 3G "$d/uploads/big.jpg"
       tar -C "$d" --sparse --format=gnu -cf - uploads; rm -rf "$d" "$t"; exit 0 ;;

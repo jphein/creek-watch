@@ -14,6 +14,8 @@ PATH=$HOME/creekwatch/test-shim:$PATH SHIM_MODE=partial $B >/dev/null 2>&1 && { 
 [ "$($M | wc -l)" = "$before" ] || { echo "FAIL: mirror changed after partial stream"; pass=0; }
 PATH=$HOME/creekwatch/test-shim:$PATH SHIM_MODE=sparse $B >/dev/null 2>&1 && { echo "FAIL: sparse member was accepted"; pass=0; }
 [ "$($M | wc -l)" = "$before" ] || { echo "FAIL: mirror changed after sparse archive"; pass=0; }
+PATH=$HOME/creekwatch/test-shim:$PATH SHIM_MODE=many CW_BACKUP_MAX_FILES=1000 $B >/dev/null 2>&1 && { echo "FAIL: 3000-member archive accepted with a 1000 cap"; pass=0; }
+[ "$($M | wc -l)" = "$before" ] || { echo "FAIL: mirror changed after member flood"; pass=0; }
 $B >/dev/null || { echo "FAIL: normal run failed"; pass=0; }
 rm -rf ~/creekwatch/test-shim ~/creekwatch/test-bin
-[ $pass = 1 ] && echo "PASS: partial stream + sparse member rejected, mirror untouched ($before photos), normal run OK"; [ $pass = 1 ]'
+[ $pass = 1 ] && echo "PASS: partial stream, sparse member and member flood rejected, mirror untouched ($before photos), normal run OK"; [ $pass = 1 ]'
