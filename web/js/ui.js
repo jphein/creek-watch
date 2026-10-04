@@ -179,6 +179,15 @@ export function fmtWhen(iso) {
   return new Date(t).toLocaleString(undefined, { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
 }
 
+// NWS zone lists can run to hundreds of characters; keep the kicker to the first area.
+export function shortArea(d) {
+  const t = String(d || '');
+  if (t.length <= 70) return t;
+  const parts = t.split(/;\s*/).filter(Boolean);
+  if (parts.length > 1 && parts[0].length <= 70) return `${parts[0]} + ${parts.length - 1} more area${parts.length > 2 ? 's' : ''}`;
+  return t.slice(0, 67).trimEnd() + '…';
+}
+
 /** One alert. `compact` = banner/popup form (title + summary + source link). */
 export function alertHTML(a, { compact = false, open = false } = {}) {
   const sev = SEV[a.severity] ? a.severity : 'info';
@@ -200,7 +209,7 @@ export function alertHTML(a, { compact = false, open = false } = {}) {
     <span class="a-glyph" aria-hidden="true">${s.glyph}</span>
     <div class="a-body">
       <p class="a-kicker"><span class="a-sev">${s.label}</span> · ${esc(CATEGORY_LABEL[a.category] || 'Alert')}${
-        a.area?.area_desc ? ` · <span class="a-area">${esc(a.area.area_desc)}</span>` : ''
+        a.area?.area_desc ? ` · <span class="a-area">${esc(shortArea(a.area.area_desc))}</span>` : ''
       }</p>
       <h3 class="a-title">${esc(a.title)}</h3>
       ${a.summary ? `<p class="a-sum">${esc(a.summary)}</p>` : ''}
@@ -209,6 +218,7 @@ export function alertHTML(a, { compact = false, open = false } = {}) {
       ${sev === 'alert' ? officialLine({ compact: true }) : ''}
       <details class="a-more" ${open ? 'open' : ''}><summary>Source and details</summary>
         <p class="a-src">Official source: ${src}${href ? ' (opens the original alert)' : ''}</p>
+        ${a.area?.area_desc && shortArea(a.area.area_desc) !== a.area.area_desc ? `<p class="a-src">Area: ${esc(a.area.area_desc)}</p>` : ''}
         ${a.updated ? `<p class="a-src">Updated ${esc(fmtWhen(a.updated))}</p>` : ''}
         ${a.attribution ? `<p class="a-src">${esc(a.attribution)}</p>` : ''}
       </details>
