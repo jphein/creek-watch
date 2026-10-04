@@ -99,6 +99,9 @@ export const icon = {
   navDash: svg(
     '<path d="M8 34a16 16 0 1 1 32 0" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round"/><path d="M24 34l8-10" stroke="currentColor" stroke-width="3.5" stroke-linecap="round"/><circle cx="24" cy="34" r="3" fill="currentColor"/>'
   ),
+  navAlerts: svg(
+    '<path d="M24 6a12 12 0 0 0-12 12v8l-4 7h32l-4-7v-8A12 12 0 0 0 24 6Z" fill="none" stroke="currentColor" stroke-width="3" stroke-linejoin="round"/><path d="M19 37a5 5 0 0 0 10 0" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>'
+  ),
   navAbout: svg(
     '<circle cx="24" cy="24" r="17" fill="none" stroke="currentColor" stroke-width="3"/><path d="M24 22v12" stroke="currentColor" stroke-width="3.5" stroke-linecap="round"/><circle cx="24" cy="15" r="2.5" fill="currentColor"/>'
   ),

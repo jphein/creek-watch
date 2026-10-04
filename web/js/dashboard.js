@@ -1,7 +1,7 @@
 // Dashboard — one card per creek: score gauge, band, explained signals,
 // gauge + weather, 7-day report sparkline, recent reports.
-import { getCreeks, getHealth, getConditions, getReports, reportBand } from './api.js';
-import { esc, BANDS, bandLabel, timeAgo, reportCardHTML, signalLabel, signalValue } from './ui.js';
+import { getCreeks, getHealth, getConditions, getReports, getAlerts, reportBand } from './api.js';
+import { esc, BANDS, bandLabel, timeAgo, reportCardHTML, signalLabel, signalValue, safeUrl, alertHTML } from './ui.js';
 
 const BAND_GLYPH = { good: '✓', fair: '~', watch: '!', alert: '✕' };
 
@@ -87,7 +87,7 @@ function condHTML(c) {
         ? `<div class="big">${g.discharge_cfs != null ? `${esc(g.discharge_cfs)} <small>cfs</small>` : '—'}</div>
            <p>${g.gage_height_ft != null ? `Water height ${esc(g.gage_height_ft)} ft · ` : ''}${esc(timeAgo(g.observed_at))}</p>
            ${g.pct_of_median != null ? `<p>${esc(Math.round(g.pct_of_median))}% of normal for today</p>` : ''}
-           ${g.source_url ? `<a href="${esc(g.source_url)}" target="_blank" rel="noopener">USGS ${esc(g.site_no || '')}</a>` : ''}`
+           ${g.source_url ? `<a href="${esc(safeUrl(g.source_url))}" target="_blank" rel="noopener">USGS ${esc(g.site_no || '')}</a>` : ''}`
         : `<p>No live USGS gauge on this creek. Reports and weather fill the gap.</p>`
     }</div>
     <div class="cond"><h4>Weather</h4>${
@@ -99,9 +99,9 @@ function condHTML(c) {
            ${w.forecast_short ? `<p>${esc(w.forecast_short)}</p>` : ''}
            <p class="credit">Temperature &amp; forecast: ${
              w.forecast_url || w.source_url
-               ? `<a href="${esc(w.forecast_url || w.source_url)}" target="_blank" rel="noopener">NWS</a>`
+               ? `<a href="${esc(safeUrl(w.forecast_url || w.source_url))}" target="_blank" rel="noopener">NWS</a>`
                : 'NWS'
-           }. Rain: <a href="${esc(w.precip_source_url || 'https://open-meteo.com/')}" target="_blank" rel="noopener">Open-Meteo</a> model estimate (<a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a>).</p>`
+           }. Rain: <a href="${esc(safeUrl(w.precip_source_url || 'https://open-meteo.com/'))}" target="_blank" rel="noopener">Open-Meteo</a> model estimate (<a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a>).</p>`
         : '<p>Not available right now.</p>'
     }</div>
   </div>
@@ -146,8 +146,8 @@ function stationHTML(st, { compact = false } = {}) {
       }</span></p>
     ${compact ? '' : `<ul class="wq-list">${rows}</ul>`}
     <p class="credit">${esc(st.credit || st.agency || 'Volunteer monitoring')}${
-      st.source_url ? ` · <a href="${esc(st.source_url)}" target="_blank" rel="noopener">data</a>` : ''
-    }${st.agency_url ? ` · <a href="${esc(st.agency_url)}" target="_blank" rel="noopener">${esc(st.agency || 'group')}</a>` : ''}</p>
+      st.source_url ? ` · <a href="${esc(safeUrl(st.source_url))}" target="_blank" rel="noopener">data</a>` : ''
+    }${st.agency_url ? ` · <a href="${esc(safeUrl(st.agency_url))}" target="_blank" rel="noopener">${esc(st.agency || 'group')}</a>` : ''}</p>
   </div>`;
 }
 
@@ -168,18 +168,20 @@ function wqHTML(cond) {
   </section>`;
 }
 
-const WARN_GLYPH = { alert: '✕', watch: '!', advisory: 'i' };
-function warningsHTML(h) {
-  const ws = h?.warnings || [];
-  if (!ws.length) return '';
-  return `<ul class="warnings" aria-label="Early warnings">${ws
-    .map(
-      (w) => `<li class="warning lvl-${esc(w.level)}" role="${w.level === 'alert' ? 'alert' : 'note'}">
-        <span class="w-glyph" aria-hidden="true">${WARN_GLYPH[w.level] || '!'}</span>
-        <div><strong>${esc(w.title)}</strong><span class="sr-only"> (${esc(w.level)})</span>
-        ${w.explanation ? `<p>${esc(w.explanation)}</p>` : ''}</div></li>`
-    )
-    .join('')}</ul>`;
+// Creek banners: this creek's active alerts (official + Creek Watch). Until /api/alerts lists
+// Creek Watch's own warnings, fall back to health.warnings so nothing disappears.
+function bannersHTML(c, alerts, h) {
+  const own = alerts.some((a) => a.source === 'creekwatch');
+  const items = [...alerts];
+  if (!own) for (const w of h?.warnings || []) items.push({ id: `creekwatch:${c.id}:${w.id}`, source: 'creekwatch', source_name: 'Creek Watch early warning',
+    category: 'other', severity: w.level, title: w.title, summary: w.explanation, url: null });
+  if (!items.length) return '';
+  const top = items.slice(0, 3);
+  return `<div class="creek-alerts" aria-label="Active alerts for ${esc(c.name)}">${top.map((a) => alertHTML(a, { compact: true })).join('')}${
+    items.length > top.length || alerts.length
+      ? `<a class="see-alerts" href="#alerts?creek=${encodeURIComponent(c.id)}">See ${items.length > top.length ? `all ${items.length} alerts` : 'alert details'} for ${esc(c.name)} →</a>`
+      : ''
+  }</div>`;
 }
 
 const CONFIDENCE = {
@@ -190,10 +192,11 @@ const CONFIDENCE = {
 
 async function creekCard(c) {
   const since = new Date(Date.now() - 7 * 864e5).toISOString().replace(/\.\d{3}Z$/, 'Z');
-  const [health, cond, reports] = await Promise.all([
+  const [health, cond, reports, alerts] = await Promise.all([
     getHealth(c.id).catch(() => null),
     getConditions(c.id).catch(() => null),
     getReports({ creek_id: c.id, since, limit: 200 }).catch(() => []),
+    getAlerts({ creek_id: c.id }).catch(() => []),
   ]);
   const band = health?.band || 'fair';
   const spark = sparkSVG(reports);
@@ -208,11 +211,11 @@ async function creekCard(c) {
       </div>
       ${health ? gaugeSVG(health.score, band) : ''}
     </div>
+    ${bannersHTML(c, alerts, health)}
     ${
       health
         ? `<div class="band-line"><span class="band-dot band-${esc(band)}" aria-hidden="true"></span>
              <span><strong>${BAND_GLYPH[band] || ''} ${esc(bandLabel(band))}</strong> — ${esc(BANDS[band]?.blurb || '')}</span></div>
-           ${warningsHTML(health)}
            ${health.confidence ? `<p class="confidence">${esc(CONFIDENCE[health.confidence] || `Confidence: ${health.confidence}`)}</p>` : ''}
            <h3 class="sr-only">Why this score</h3>
            <ul class="signals">${(health.signals || []).map(signalHTML).join('') || '<li class="signal">No warning signs right now.</li>'}</ul>`

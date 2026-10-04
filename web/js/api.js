@@ -140,3 +140,56 @@ export function reportBand(r) {
     return 'fair';
   return 'good';
 }
+
+/* ---------- alerts + push (docs/ALERTS-SPEC.md) ---------- */
+
+export const SEVERITIES = ['alert', 'watch', 'advisory', 'info'];
+const SEV_RANK = { alert: 0, watch: 1, advisory: 2, info: 3 };
+export const bySeverity = (a, b) =>
+  (SEV_RANK[a.severity] ?? 9) - (SEV_RANK[b.severity] ?? 9) || String(b.updated || '').localeCompare(String(a.updated || ''));
+
+/** @returns {Promise<Array>} active alerts, most severe first */
+export async function getAlerts({ creek_id, severity, category, status = 'active' } = {}) {
+  let list;
+  if (MOCK) {
+    list = await mockJson('alerts');
+    if (creek_id) list = list.filter((a) => a.area?.creek_ids?.includes(creek_id));
+    if (severity) list = list.filter((a) => a.severity === severity);
+    if (category) list = list.filter((a) => a.category === category);
+    if (status) list = list.filter((a) => (a.status || 'active') === status);
+  } else {
+    const q = new URLSearchParams();
+    if (creek_id) q.set('creek_id', creek_id);
+    if (severity) q.set('severity', severity);
+    if (category) q.set('category', category);
+    if (status) q.set('status', status);
+    list = await request(`/api/alerts?${q}`);
+  }
+  return (Array.isArray(list) ? list : []).sort(bySeverity);
+}
+
+export async function getVapidKey() {
+  if (MOCK) return (await mockJson('vapid')).key;
+  return (await request('/api/push/vapid-public-key')).key;
+}
+
+export async function pushSubscribe(subscription, filters) {
+  const body = { subscription, filters };
+  if (MOCK) {
+    await sleep(300);
+    sessionStorage.setItem('cw-mock-push', JSON.stringify(body));
+    return { id: 'mock', filters };
+  }
+  return request('/api/push/subscribe', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+}
+
+export async function pushUnsubscribe(endpoint) {
+  if (MOCK) { sessionStorage.removeItem('cw-mock-push'); return; }
+  const res = await fetch('/api/push/unsubscribe', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ endpoint }) }).catch(() => null);
+  if (res && !res.ok && res.status !== 404) throw new ApiError('Couldn’t reach Creek Watch to stop alerts. Try again.', { status: res.status });
+}
+
+export function feedUrls(creek_id) {
+  const q = creek_id ? `?creek_id=${encodeURIComponent(creek_id)}` : '';
+  return { atom: `/alerts.atom${q}`, cap: `/alerts.cap.xml${q}` };
+}

@@ -1,6 +1,6 @@
 // Map — creek lines, site markers, recent-report pins coloured by band.
-import { getCreeks, getReports, getConditions, reportBand } from './api.js';
-import { esc, bandLabel, reportCardHTML } from './ui.js';
+import { getCreeks, getReports, getConditions, getAlerts, reportBand } from './api.js';
+import { esc, bandLabel, reportCardHTML, alertHTML, SEV } from './ui.js';
 
 const LEAFLET_CSS = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css';
 const LEAFLET_JS = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js';
@@ -40,7 +40,7 @@ export async function mountMap(el, qs) {
     <div class="map-wrap"><div id="map-canvas" role="region" aria-label="Map of Wolf Creek and Deer Creek with recent reports"></div>
     <div class="map-legend" aria-label="Legend">${['good', 'fair', 'watch', 'alert']
       .map((b) => `<span><span class="band-dot band-${b}"></span>${BAND_GLYPH[b]} ${bandLabel(b)}</span>`)
-      .join('')}<span><span class="flask-marker sm" aria-hidden="true">⚗</span> Water test</span></div></div>`;
+      .join('')}<span><span class="flask-marker sm" aria-hidden="true">⚗</span> Water test</span><span><span class="alert-marker sm sev-watch" aria-hidden="true"><span>!</span></span> Alert area</span></div></div>`;
   try {
     L = await loadLeaflet();
   } catch (e) {
@@ -103,6 +103,26 @@ export async function mountMap(el, qs) {
         .addTo(map);
     }
   });
+
+  // Alert areas (docs/ALERTS-SPEC.md): polygons dashed + lightly filled, points as glyph markers.
+  const SEV_VAR = { alert: '--alert', watch: '--watch', advisory: '--brand', info: '--muted' };
+  for (const a of await getAlerts().catch(() => [])) {
+    const sev = SEV[a.severity] ? a.severity : 'info';
+    const color = cssVar(SEV_VAR[sev]) || '#888';
+    const popup = alertHTML(a, { compact: true }) + `<a class="see-alerts" href="#alerts?id=${encodeURIComponent(a.id)}">Open alert →</a>`;
+    if (a.area?.polygon_geojson) {
+      try {
+        L.geoJSON(a.area.polygon_geojson, { style: { color, weight: 2, dashArray: '6 6', fillColor: color, fillOpacity: 0.08 } })
+          .bindPopup(popup, { maxWidth: 300 }).addTo(map);
+      } catch { /* malformed polygon from a feed: skip it */ }
+    }
+    if (a.area?.lat != null && a.area?.lon != null) {
+      L.marker([a.area.lat, a.area.lon], {
+        icon: L.divIcon({ className: '', html: `<div class="alert-marker sev-${sev}" aria-hidden="true"><span>${SEV[sev].glyph}</span></div>`, iconSize: [26, 26], iconAnchor: [13, 13] }),
+        title: `${SEV[sev].label}: ${a.title}`, alt: `${SEV[sev].label}: ${a.title}`, keyboard: true, zIndexOffset: 500,
+      }).bindPopup(popup, { maxWidth: 300 }).addTo(map);
+    }
+  }
 
   for (const r of reports) {
     if (r.lat == null || r.lon == null) continue;

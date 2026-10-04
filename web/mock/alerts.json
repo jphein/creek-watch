@@ -1,0 +1,195 @@
+[
+ {
+  "instruction": "Keep people and pets out of Deer Creek between Broad St and Champion Mine Rd.",
+  "status": "active",
+  "updated": "2026-10-04T01:40:00Z",
+  "expires": null,
+  "attribution": "Data: California State Water Resources Control Board (mock)",
+  "id": "sso:mock-1182",
+  "source": "sso",
+  "source_name": "CA Water Boards (CIWQS) sewage spill report",
+  "category": "sewage_spill",
+  "severity": "alert",
+  "title": "Sewage spill reported near Deer Creek",
+  "summary": "About 1,200 gallons of sewage reached a storm drain that flows to Deer Creek below Nevada City. Avoid contact with the water downstream until the county says it is clear.",
+  "area": {
+   "creek_ids": [
+    "deer"
+   ],
+   "site_ids": [
+    "deer-tribute-trail-lower"
+   ],
+   "lat": 39.2604,
+   "lon": -121.0335,
+   "polygon_geojson": null,
+   "area_desc": "Deer Creek below Nevada City"
+  },
+  "effective": "2026-10-03T23:00:00Z",
+  "url": "https://ciwqs.waterboards.ca.gov/"
+ },
+ {
+  "instruction": "Do not let dogs drink or swim in green or scummy water.",
+  "status": "active",
+  "updated": "2026-10-04T01:40:00Z",
+  "expires": "2026-10-06T02:00:00Z",
+  "attribution": "Creek Watch citizen reports",
+  "id": "creekwatch:wolf:algal_bloom_watch",
+  "source": "creekwatch",
+  "source_name": "Creek Watch early warning",
+  "category": "algal_bloom",
+  "severity": "watch",
+  "title": "Algal bloom watch: Wolf Creek",
+  "summary": "Lots of algae was reported this week and air temperature is 80 \u00b0F or more. Keep dogs out of slow, green water.",
+  "area": {
+   "creek_ids": [
+    "wolf"
+   ],
+   "site_ids": [
+    "wolf-allison-ranch-rd"
+   ],
+   "lat": 39.176,
+   "lon": -121.067,
+   "polygon_geojson": null,
+   "area_desc": "Wolf Creek, Allison Ranch Rd area"
+  },
+  "effective": "2026-10-03T16:00:00Z",
+  "url": "https://creekwatch.realm.watch/#dashboard"
+ },
+ {
+  "instruction": "Do not let pets swim in or drink the water. Rinse off after contact.",
+  "status": "active",
+  "updated": "2026-10-04T01:40:00Z",
+  "expires": null,
+  "attribution": "California Water Quality Monitoring Council (mock)",
+  "id": "hab:mock-scotts-flat",
+  "source": "hab",
+  "source_name": "California Harmful Algal Blooms portal",
+  "category": "algal_bloom",
+  "severity": "watch",
+  "title": "Caution advisory: Scotts Flat Reservoir",
+  "summary": "A harmful algal bloom may be present. Avoid algae and scum in the water and keep pets away.",
+  "area": {
+   "creek_ids": [
+    "deer"
+   ],
+   "site_ids": [],
+   "lat": 39.2826,
+   "lon": -120.923,
+   "polygon_geojson": null,
+   "area_desc": "Scotts Flat Reservoir (upstream of Deer Creek)"
+  },
+  "effective": "2026-09-30T02:00:00Z",
+  "url": "https://mywaterquality.ca.gov/habs/"
+ },
+ {
+  "instruction": "Drink plenty of water and stay out of the sun during the afternoon.",
+  "status": "active",
+  "updated": "2026-10-04T01:40:00Z",
+  "expires": "2026-10-04T20:00:00Z",
+  "attribution": "National Weather Service (public domain) (mock)",
+  "id": "nws:mock-heat",
+  "source": "nws",
+  "source_name": "National Weather Service",
+  "category": "heat",
+  "severity": "advisory",
+  "title": "Heat Advisory",
+  "summary": "Afternoon highs near 100 \u00b0F in the foothills. Warm, slow water helps algae grow; check on pets near creeks.",
+  "area": {
+   "creek_ids": [
+    "wolf",
+    "deer"
+   ],
+   "site_ids": [],
+   "lat": null,
+   "lon": null,
+   "polygon_geojson": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       -121.28,
+       39.05
+      ],
+      [
+       -120.95,
+       39.05
+      ],
+      [
+       -120.85,
+       39.3
+      ],
+      [
+       -121.0,
+       39.42
+      ],
+      [
+       -121.28,
+       39.35
+      ],
+      [
+       -121.28,
+       39.05
+      ]
+     ]
+    ]
+   },
+   "area_desc": "Western Nevada County foothills"
+  },
+  "effective": "2026-10-03T20:00:00Z",
+  "url": "https://alerts.weather.gov/"
+ },
+ {
+  "instruction": null,
+  "status": "active",
+  "updated": "2026-10-04T01:40:00Z",
+  "expires": null,
+  "attribution": "Sierra Streams Institute volunteer monitoring, via RiverDB (mock)",
+  "id": "riverdb:mock-ecoli-pioneer",
+  "source": "riverdb",
+  "source_name": "RiverDB volunteer monitoring (Sierra Streams Institute)",
+  "category": "bacteria",
+  "severity": "advisory",
+  "title": "High E. coli at Pioneer Park",
+  "summary": "A volunteer test found E. coli at 410 per 100 mL, above the 320 swim limit. Avoid swallowing the water.",
+  "area": {
+   "creek_ids": [
+    "deer"
+   ],
+   "site_ids": [
+    "deer-pioneer-park"
+   ],
+   "lat": 39.2591,
+   "lon": -121.0098,
+   "polygon_geojson": null,
+   "area_desc": "Little Deer Creek at Pioneer Park"
+  },
+  "effective": "2026-10-02T02:00:00Z",
+  "url": "https://riverdb.org/org/SSI"
+ },
+ {
+  "instruction": null,
+  "status": "active",
+  "updated": "2026-10-04T01:40:00Z",
+  "expires": null,
+  "attribution": "USGS (public domain)",
+  "id": "usgs:mock-lowflow-11418500",
+  "source": "usgs",
+  "source_name": "U.S. Geological Survey",
+  "category": "low_flow",
+  "severity": "info",
+  "title": "Low flow on Deer Creek",
+  "summary": "Deer Creek is flowing at about 4.8 cubic feet per second, low but normal for early October.",
+  "area": {
+   "creek_ids": [
+    "deer"
+   ],
+   "site_ids": [],
+   "lat": 39.2218,
+   "lon": -121.2647,
+   "polygon_geojson": null,
+   "area_desc": "USGS 11418500, Deer Creek near Smartsville"
+  },
+  "effective": "2026-10-04T01:00:00Z",
+  "url": "https://waterdata.usgs.gov/monitoring-location/11418500/"
+ }
+]
