@@ -12,4 +12,4 @@ BASE=http://127.0.0.1:8099/ DB=../../data/creekwatch.db npm run test:live   # ne
 - `push-sw.test.mjs`: pushes delivered via CDP; checks the official-channel notice, same-tag escalation replacement, same-origin click targets, literal HTML titles, malformed payloads.
 - `push-live.test.mjs`: subscribe → update → unsubscribe against a running backend (201 → 200 → 204). Local backends only.
 
-Without `CHROME_PATH`, Playwright's bundled Chromium is used (`npx playwright-core install chromium`).
+Without `CHROME_PATH`, stable Google Chrome is used when installed (`/usr/bin/google-chrome`), else Playwright's bundled Chromium (`npx playwright-core install chromium`). The bundled headless shell **denies notifications** even when the test grants them, so `push-sw` and `push-subscribe` stop with exit 2 and a `SKIP-FAIL: Notification.permission is "denied"` line there instead of failing every push check.

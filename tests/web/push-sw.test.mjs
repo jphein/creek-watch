@@ -1,14 +1,15 @@
 // Service-worker push handler: delivers pushes over CDP and reads back the notifications.
 // Desktop context on purpose: mobile emulation hides notifications from getNotifications().
 // The first CDP push after ServiceWorker.enable is dropped by the instrument, so a warm-up is sent first.
-import { serveWeb, launch } from './harness.mjs';
+import { serveWeb, launch, requireNotifications } from './harness.mjs';
 
 const { base, close } = await serveWeb();
 const b = await launch();
 const ctx = await b.newContext({ permissions: ['notifications'] });
 await ctx.route('**/api/**', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: '[]' }));
 const p = await ctx.newPage();
-await p.goto(base + '#about'); await p.evaluate(() => navigator.serviceWorker.register('sw.js').then(() => navigator.serviceWorker.ready));
+await p.goto(base + '#about'); await requireNotifications(p);
+await p.evaluate(() => navigator.serviceWorker.register('sw.js').then(() => navigator.serviceWorker.ready));
 const cdp = await ctx.newCDPSession(p);
 const regs = []; cdp.on('ServiceWorker.workerRegistrationUpdated', (e) => regs.push(...e.registrations));
 await cdp.send('ServiceWorker.enable'); await p.waitForTimeout(600);

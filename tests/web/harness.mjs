@@ -25,5 +25,19 @@ export function serveWeb() {
 
 export const mock = (name) => fs.readFileSync(path.join(WEB, 'mock', `${name}.json`), 'utf8');
 
-// CHROME_PATH=/usr/bin/google-chrome, or Playwright's bundled Chromium (npx playwright-core install chromium).
-export const launch = () => chromium.launch(process.env.CHROME_PATH ? { executablePath: process.env.CHROME_PATH } : {});
+// Browser: CHROME_PATH, else stable Google Chrome when installed, else Playwright's bundled Chromium
+// (npx playwright-core install chromium). The bundled headless shell DENIES notifications even when the
+// context grants them, so the push suites only run green in real Chrome (2026-10-04 triage).
+const STABLE_CHROME = ['/usr/bin/google-chrome', '/usr/bin/google-chrome-stable', '/opt/google/chrome/chrome'].find((x) => fs.existsSync(x));
+export const BROWSER = process.env.CHROME_PATH || STABLE_CHROME || 'playwright-bundled';
+export const launch = () => chromium.launch(BROWSER === 'playwright-bundled' ? {} : { executablePath: BROWSER });
+
+// Precondition for push suites: notifications must really be granted in this browser, or every push check
+// fails for a reason that has nothing to do with the app. Fail loudly instead (exit 2).
+export async function requireNotifications(page) {
+  const perm = await page.evaluate(() => (typeof Notification === 'undefined' ? 'unsupported' : Notification.permission));
+  if (perm !== 'granted') {
+    console.error(`SKIP-FAIL: Notification.permission is "${perm}" in ${BROWSER}; push suites need real Chrome (set CHROME_PATH=/usr/bin/google-chrome).`);
+    process.exit(2);
+  }
+}
