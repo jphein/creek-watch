@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Creek Watch</title>
+  <meta name="description" content="Report what you see at Wolf Creek and Deer Creek. Citizen reports plus public data become a plain-language creek-health score and early warning.">
+  <meta name="color-scheme" content="light dark">
+  <meta name="theme-color" content="#f3f7f5" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#0b1d22" media="(prefers-color-scheme: dark)">
+  <link rel="icon" href="icons/favicon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="manifest" href="manifest.webmanifest">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Creek Watch">
+  <link rel="stylesheet" href="css/app.css">
+  <script type="module" src="js/app.js"></script>
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+  <header class="topbar">
+    <a class="brand" href="#report" aria-label="Creek Watch home">
+      <img src="icons/favicon.svg" alt="" width="34" height="34">
+      <span class="brand-text"><span class="brand-name">Creek Watch</span><span class="brand-sub">Wolf Creek &amp; Deer Creek</span></span>
+    </a>
+    <span id="mock-badge" class="mock-badge" hidden>Demo data</span>
+  </header>
+  <p id="outbox" class="outbox" role="status" hidden></p>
+
+  <main id="main" tabindex="-1">
+    <section id="page-report" class="page" aria-label="Report" hidden></section>
+    <section id="page-map" class="page page-map" aria-label="Map" hidden></section>
+    <section id="page-dashboard" class="page" aria-label="Dashboard" hidden></section>
+    <section id="page-about" class="page prose" aria-labelledby="about-h" hidden>
+      <h2 id="about-h">About the data</h2>
+      <p class="lead">Creek Watch puts three kinds of information side by side, so anyone can see how Wolf Creek and Deer Creek are doing, and why.</p>
+
+      <h3>Where the numbers come from</h3>
+      <ul class="sources">
+        <li><strong>Citizen reports</strong> come from people like you, sent from the Report page with a photo. They show water color, flow, algae, trash, smell and dead fish.</li>
+        <li><strong>Stream gauges</strong> come from the <a href="https://waterdata.usgs.gov/" rel="noopener" target="_blank">U.S. Geological Survey (USGS)</a>, which measures how much water is flowing (in cubic feet per second) and how high the water is.</li>
+        <li><strong>Weather</strong> comes from the <a href="https://www.weather.gov/" rel="noopener" target="_blank">National Weather Service (NWS)</a>: the temperature, the rain in the last 24 hours and the short forecast.</li>
+      </ul>
+
+      <h3>How the creek score works</h3>
+      <p>Each creek starts at 100. Recent reports and conditions can move the score down. Every change is listed on the Dashboard with a plain-language reason, so the score is never a black box.</p>
+      <ul class="band-key">
+        <li><span class="band-dot band-good"></span><strong>Good</strong>: looking healthy.</li>
+        <li><span class="band-dot band-fair"></span><strong>Fair</strong>: mostly fine, with a few things to watch.</li>
+        <li><span class="band-dot band-watch"></span><strong>Watch</strong>: an early warning. For example, heavy rain plus muddy-water reports (runoff), or lots of algae in warm weather (a possible algal bloom).</li>
+        <li><span class="band-dot band-alert"></span><strong>Alert</strong>: dead fish, or a sewage or chemical smell. Avoid contact with the water and tell the city or county.</li>
+      </ul>
+
+      <h3>Limits</h3>
+      <p>Creek Watch is <strong>not a lab test</strong> and can’t tell you whether the water is safe to drink or swim in. Reports are what people see and smell, and those can differ from person to person. Gauges can be miles from where you’re standing. Treat a Watch or Alert as a reason to look closer, not as proof.</p>
+
+      <h3>Privacy</h3>
+      <ul>
+        <li>Photos have their hidden location data (EXIF) <strong>removed</strong> before they are stored. Your phone shrinks the photo first, and our server strips it again.</li>
+        <li>Your name is <strong>optional</strong>. We don’t ask for an email address.</li>
+        <li>We save only the location you send with a report, and it is shown on the public map.</li>
+      </ul>
+
+      <h3>One Health</h3>
+      <p>Creek health, wildlife health and human health are connected. The same runoff that clouds the water can harm fish and insects, and the same algae bloom that kills fish can sicken a dog or a child who wades in. Watching the creek together is a way to look after all three.</p>
+
+      <p class="muted small">Built for the IEEE OneAquaHealth Global Hackathon 2026. Open source (MIT). <a href="/api/version">Version</a></p>
+    </section>
+  </main>
+
+  <nav class="tabbar" aria-label="Pages">
+    <a href="#report" data-page="report"><span class="tab-ico" data-ico="navReport"></span><span>Report</span></a>
+    <a href="#map" data-page="map"><span class="tab-ico" data-ico="navMap"></span><span>Map</span></a>
+    <a href="#dashboard" data-page="dashboard"><span class="tab-ico" data-ico="navDash"></span><span>Creeks</span></a>
+    <a href="#about" data-page="about"><span class="tab-ico" data-ico="navAbout"></span><span>About</span></a>
+  </nav>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+</body>
+</html>
