@@ -45,7 +45,9 @@ mkdir -p "$STAGE"
 exec 9>"$STAGE/.lock"
 # redeploy.sh takes this same lock around its container swap, so a backup never runs inside the
 # ~3 s window where no container is named $NAME (seen 2026-10-03 18:47: "No such container").
-flock -w "${CW_BACKUP_LOCK_WAIT:-120}" 9 || { log "another backup or a redeploy swap holds the lock; skipping"; exit 0; }
+# Exit 75 (EX_TEMPFAIL) when skipped: a missed hour must show up as a failed unit (systemctl --failed,
+# journal priority), not as a quiet success. The next hourly run is unaffected.
+flock -w "${CW_BACKUP_LOCK_WAIT:-120}" 9 || { log "WARN: another backup or a redeploy swap held the lock for ${CW_BACKUP_LOCK_WAIT:-120}s; this run is SKIPPED"; exit 75; }
 # Belt and braces: wait for the container to be running (e.g. a manual docker restart).
 for _ in $(seq 1 30); do
   [ "$(docker inspect -f '{{.State.Running}}' "$NAME" 2>/dev/null)" = true ] && break; sleep 2

@@ -82,7 +82,20 @@ status() {
   log "deployed.sha=$(cat "$BASE/deployed.sha" 2>/dev/null || echo none)"
 }
 
+# take_backup_lock: hold backup.sh's stage lock (fd 8) until this script exits, so a backup never runs
+# while no container is named $NAME (swap or rollback). Idempotent. Waits for an in-flight backup, but at
+# most CW_SWAP_LOCK_WAIT (default 300 s) so build + wait + swap stays inside the unit's TimeoutStartSec=900.
+take_backup_lock() {
+  [ -n "${BACKUP_LOCK_HELD:-}" ] && return 0
+  local stage="${CW_BACKUP_STAGE:-$HOME/creekwatch/backup-stage}"
+  mkdir -p "$stage"
+  exec 8>"$stage/.lock"
+  flock -w "${CW_SWAP_LOCK_WAIT:-300}" 8 || log "WARN: backup lock still busy after ${CW_SWAP_LOCK_WAIT:-300}s; proceeding anyway"
+  BACKUP_LOCK_HELD=1
+}
+
 rollback() {
+  take_backup_lock
   docker inspect "$PREV" >/dev/null 2>&1 || die "no $PREV container to roll back to"
   log "rolling back to $(docker inspect -f '{{.Config.Image}}' "$PREV")"
   docker rm -f "$NAME" >/dev/null 2>&1 || true
@@ -153,11 +166,8 @@ docker rm -f "$STAGE" >/dev/null
 log "staged OK; swapping"
 
 # Hold the backup lock across the swap (released when this script exits) so backup.sh never runs while
-# no container is named $NAME. Wait for an in-flight backup; never block a deploy forever on it.
-BACKUP_STAGE="${CW_BACKUP_STAGE:-$HOME/creekwatch/backup-stage}"
-mkdir -p "$BACKUP_STAGE"
-exec 8>"$BACKUP_STAGE/.lock"
-flock -w "${CW_SWAP_LOCK_WAIT:-600}" 8 || log "WARN: backup lock still busy; swapping anyway"
+# no container is named $NAME.
+take_backup_lock
 # 2) Swap: keep the old container (stopped) as $PREV so rollback is one `docker start`. Gap is ~1-2 s.
 docker rm -f "$PREV" >/dev/null 2>&1 || true
 if docker inspect "$NAME" >/dev/null 2>&1; then
