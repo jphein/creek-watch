@@ -17,7 +17,9 @@
   "notes": "Small side stream below an old mine adit; rusty orange water and staining on the rocks.",
   "reporter_name": null,
   "photo_url": null,
-  "flags": [],
+  "flags": [
+   "orange_water"
+  ],
   "trash_removed": false
  },
  {

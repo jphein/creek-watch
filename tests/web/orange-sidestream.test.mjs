@@ -66,8 +66,17 @@ for (const scheme of ['light', 'dark']) {
   const p = await ctx.newPage();
   await p.goto(base + 'index.html?mock=1#dashboard'); await p.waitForSelector('.creek-card .rep-card');
   const c = p.locator('.rep-card', { hasText: 'rusty orange water' }).first();
-  R[`D_${scheme}`] = { tags: await c.locator('.rep-tags span').allTextContents() };
+  R[`D_${scheme}`] = { tags: await c.locator('.rep-tags span').allTextContents(), dot: await c.locator('.band-dot').getAttribute('class') };
+  if (scheme === 'light') R.bands = await p.evaluate(async () => {
+    const { reportBand, POSITIVE_FLAGS, deriveFlags } = await import('/js/api.js');
+    const { flagText } = await import('/js/ui.js');
+    const base = { algae: 'none', trash: 'none', odor: 'none', dead_fish: false };
+    return { serverFlag: reportBand({ ...base, water_color: 'orange', flags: ['orange_water'] }), noFlags: reportBand({ ...base, water_color: 'orange', flags: [] }),
+      derived: deriveFlags({ ...base, water_color: 'orange' }), positive: POSITIVE_FLAGS.has('orange_water'), text: flagText('orange_water') };
+  });
   if (SHOTS) { await c.scrollIntoViewIfNeeded(); await p.screenshot({ path: `${SHOTS}/card-orange-sidestream-${scheme}.png` }); }
+  await p.goto(base + 'index.html?mock=1#map'); await p.waitForSelector('.leaflet-marker-icon .pin', { timeout: 20000 }); await p.waitForTimeout(1000);
+  R[`D_${scheme}`].sidePin = await p.locator('.leaflet-marker-icon:has(.pin)').evaluateAll((els) => els.map((e) => e.title).find((t) => /side stream/.test(t)) || '');
   await ctx.close();
 }
 await b.close(); close();
@@ -83,6 +92,9 @@ const checks = {
   chooseElsewhereWorks: R.C.autoPicked === 'wolf-memorial-park' && R.C.post.site_id === null && R.C.post.location_kind === 'side_stream' && R.C.post.lat === '39.2127',
   cardsLabelOrange: R.D_light.tags.includes('Orange / rusty') && R.D_dark.tags.includes('Orange / rusty'),
   cardsLabelSideStream: R.D_light.tags.includes('Side stream'),
+  orangeIsWatch: R.bands.serverFlag === 'watch' && R.bands.noFlags === 'watch' && R.bands.derived.includes('orange_water') && !R.bands.positive && /band-watch/.test(R.D_light.dot),
+  sideStreamPinTitle: R.D_light.sidePin === 'Watch report · side stream near Wolf Creek',
+  orangeWordingPlain: /orange or rusty-looking water/.test(R.bands.text) && !/toxic|unsafe/i.test(R.bands.text),
   noPageErrors: [R.B, R.C, R.N].every((r) => !r.errs.length),
 };
 console.log(JSON.stringify({ R, checks }, null, 1));
