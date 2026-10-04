@@ -41,23 +41,59 @@ DATADIR=$(docker inspect -f "{{range .Mounts}}{{if eq .Name \"$VOLUME\"}}{{.Dest
 
 STAMP=$(date -u +%Y%m%dT%H%MZ)
 mkdir -p "$STAGE"
-rm -rf "${STAGE:?}/uploads" "$STAGE"/snap.db
+rm -rf "${STAGE:?}/uploads" "$STAGE"/snap.db "$STAGE"/snap.db-wal "$STAGE"/snap.db-shm "$STAGE"/*.tar
 
-# 1) Consistent DB copy via SQLite's online backup API, inside the container (WAL-safe, no app downtime).
+MAX_DB="${CW_BACKUP_MAX_DB_BYTES:-2000000000}"
+MAX_UP="${CW_BACKUP_MAX_UPLOADS_BYTES:-5000000000}"
+rm -f "$STAGE"/snap.db-wal "$STAGE"/snap.db-shm "$STAGE"/*.tar
+
+# Everything that comes out of the container is container-controlled (a compromised app could lie
+# about sizes, plant symlinks, or craft the DB). So: stream out as tar through a hard byte cap, check
+# host free space first, extract only regular files/dirs, and open the DB read-only with
+# trusted_schema=OFF.
+need=$(( MAX_DB + MAX_UP + 1000000000 ))
+free=$(df -B1 --output=avail "$STAGE" | tail -1 | tr -d ' ')
+[ "$free" -gt "$need" ] || { log "FAIL: only $free bytes free on ubox0 for staging (need > $need)"; exit 1; }
+
+# capped_cp <container path> <tar out> <cap>: docker cp streamed through head -c; returns 3 if capped.
+capped_cp() {
+  docker cp "$NAME:$1" - | head -c "$(( $3 + 1 ))" > "$2" || true
+  [ "$(stat -c %s "$2")" -le "$3" ] || { rm -f "$2"; return 3; }
+}
+# safe_extract <tar> <dest dir>: regular files and directories only; nothing absolute, nothing via "..".
+safe_extract() {
+  python3 - "$1" "$2" <<'PY'
+import sys, tarfile
+def only_plain(m, path):
+    if not (m.isreg() or m.isdir()):
+        print(f"skipping non-regular member {m.name!r}", file=sys.stderr)   # links, devices, fifos
+        return None
+    return tarfile.data_filter(m, path)   # rejects absolute paths and "..": raises, which aborts the run
+with tarfile.open(sys.argv[1]) as t:
+    t.extractall(sys.argv[2], filter=only_plain)
+PY
+}
+
+# 1) Consistent DB copy via SQLite's online backup API, inside the container (WAL-safe, no app downtime),
+#    switched to rollback journal so the copy is one self-contained file (no -wal/-shm on the host).
 docker exec -i "$NAME" python - "$DATADIR" <<'PY'
 import sqlite3, sys
 d = sys.argv[1]
 src = sqlite3.connect(f"{d}/creekwatch.db")
 dst = sqlite3.connect("/tmp/creekwatch-snap.db")
-src.backup(dst); dst.close(); src.close()
+src.backup(dst)
+dst.execute("PRAGMA journal_mode=DELETE")
+dst.close(); src.close()
 PY
-docker cp -q "$NAME:/tmp/creekwatch-snap.db" "$STAGE/snap.db"
+capped_cp /tmp/creekwatch-snap.db "$STAGE/snap.tar" "$MAX_DB" || { docker exec "$NAME" rm -f /tmp/creekwatch-snap.db; log "FAIL: DB snapshot exceeds cap $MAX_DB"; exit 1; }
 docker exec "$NAME" rm -f /tmp/creekwatch-snap.db
-# Everything docker cp hands us is container-controlled: a compromised app could plant symlinks so host-side
-# tools (sqlite, rsync with a trailing slash) follow them into ubox0's own files. Accept only plain files/dirs.
-[ -f "$STAGE/snap.db" ] && [ ! -L "$STAGE/snap.db" ] || { log "FAIL: snapshot is not a regular file"; exit 1; }
-# The snapshot is container-controlled too: open it read-only with trusted_schema=OFF so a planted
-# trigger/view can't call functions from host-side sqlite.
+mkdir -p "$STAGE/db.x"
+safe_extract "$STAGE/snap.tar" "$STAGE/db.x" || { log "FAIL: unsafe or unreadable DB archive"; exit 1; }
+rm -f "$STAGE/snap.tar"
+[ -f "$STAGE/db.x/creekwatch-snap.db" ] || { log "FAIL: snapshot missing or not a regular file"; exit 1; }
+mv "$STAGE/db.x/creekwatch-snap.db" "$STAGE/snap.db"; rm -rf "${STAGE:?}/db.x"
+# Header bytes 18/19 are 1/1 for a rollback-journal DB (2/2 = WAL): anything else, refuse to open.
+[ "$(od -An -tu1 -j18 -N2 "$STAGE/snap.db" | tr -s ' ')" = " 1 1" ] || { log "FAIL: snapshot is not a rollback-journal SQLite file"; exit 1; }
 COUNT=$(python3 - "$STAGE/snap.db" <<'PY'
 import sqlite3, sys
 c = sqlite3.connect(f"file:{sys.argv[1]}?mode=ro", uri=True)
@@ -66,25 +102,19 @@ assert c.execute("pragma integrity_check").fetchone()[0] == "ok", "integrity_che
 print(c.execute("select count(*) from reports").fetchone()[0])
 PY
 )
+rm -f "$STAGE"/snap.db-wal "$STAGE"/snap.db-shm
 
-# 2) Photos. Size-capped: a flood of uploads must not fill ubox0's disk (staging) or disks' RAID.
-MAX_UP="${CW_BACKUP_MAX_UPLOADS_BYTES:-5000000000}"
-claimed=$(docker exec "$NAME" du -sb "$DATADIR/uploads" | cut -f1)
-case "$claimed" in ''|*[!0-9]*) log "FAIL: can't size uploads"; exit 1 ;; esac
-if [ "$claimed" -gt "$MAX_UP" ]; then
-  log "WARN: uploads are $claimed bytes (> cap $MAX_UP): photo mirror SKIPPED this run, DB still backed up"
-  SKIP_UPLOADS=1
+# 2) Photos, through the same hard cap. Over the cap -> skip the mirror this run (DB still saved).
+SKIP_UPLOADS=0
+if capped_cp "$DATADIR/uploads" "$STAGE/uploads.tar" "$MAX_UP"; then
+  mkdir -p "$STAGE/up.x"
+  safe_extract "$STAGE/uploads.tar" "$STAGE/up.x" || { rm -rf "${STAGE:?}/up.x"; log "FAIL: unsafe or unreadable uploads archive"; exit 1; }
+  rm -f "$STAGE/uploads.tar"
+  [ -d "$STAGE/up.x/uploads" ] || { log "FAIL: uploads missing from the container archive"; exit 1; }
+  mv "$STAGE/up.x/uploads" "$STAGE/uploads"; rm -rf "${STAGE:?}/up.x"
 else
-  SKIP_UPLOADS=0
-  docker cp -q "$NAME:$DATADIR/uploads" "$STAGE/uploads"
-fi
-if [ "$SKIP_UPLOADS" = 0 ]; then
-  [ -d "$STAGE/uploads" ] && [ ! -L "$STAGE/uploads" ] || { log "FAIL: uploads is not a plain directory"; exit 1; }
-  # du inside the container is container-reported; re-measure what actually landed on the host.
-  actual=$(du -sb "$STAGE/uploads" | cut -f1)
-  [ "$actual" -le "$MAX_UP" ] || { log "FAIL: staged uploads $actual bytes exceed cap $MAX_UP"; rm -rf "${STAGE:?}/uploads"; exit 1; }
-  links=$(find "$STAGE/uploads" ! -type f ! -type d | wc -l)
-  [ "$links" = 0 ] || log "WARN: skipping $links non-regular entries (symlinks/devices) in uploads"
+  log "WARN: uploads exceed cap $MAX_UP bytes: photo mirror SKIPPED this run, DB still backed up"
+  SKIP_UPLOADS=1
 fi
 
 # 3) Ship off-host.
@@ -92,7 +122,7 @@ ssh "$DEST_HOST" "mkdir -p $DEST/db $DEST/uploads"
 rsync -a --no-links --no-devices --no-specials "$STAGE/snap.db" "$DEST_HOST:$DEST/db/creekwatch-$STAMP.db"
 [ "$SKIP_UPLOADS" = 1 ] || rsync -a --no-links --no-devices --no-specials --delete "$STAGE/uploads/" "$DEST_HOST:$DEST/uploads/"
 ssh "$DEST_HOST" "echo '$STAMP reports=$COUNT' > $DEST/LATEST; find $DEST/db -name 'creekwatch-*.db' -mtime +$KEEP_DAYS -delete"
-rm -rf "${STAGE:?}/uploads" "$STAGE"/snap.db
+rm -rf "${STAGE:?}/uploads" "$STAGE"/snap.db "$STAGE"/snap.db-wal "$STAGE"/snap.db-shm "$STAGE"/*.tar
 log "OK $STAMP reports=$COUNT photos=$(ssh "$DEST_HOST" "ls $DEST/uploads | wc -l") -> $DEST_HOST:$DEST"
 }
 main "$@"
