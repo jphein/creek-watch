@@ -1,0 +1,74 @@
+{
+ "wolf-creek": {
+  "score": 72,
+  "band": "fair",
+  "signals": [
+   {
+    "name": "Rain in the last 24 hours",
+    "value": "0.4 in",
+    "weight": -8,
+    "explanation": "A moderate rain can wash street dirt and oil into the creek. Worth watching for muddy water.",
+    "source": "NWS"
+   },
+   {
+    "name": "Water level",
+    "value": "Normal for October",
+    "weight": 0,
+    "explanation": "The creek is flowing about as usual for this time of year.",
+    "source": "USGS"
+   },
+   {
+    "name": "Muddy-water reports",
+    "value": "2 in 3 days",
+    "weight": -12,
+    "explanation": "Two people saw brown water recently, which can mean soil is washing in.",
+    "source": "Citizen reports"
+   },
+   {
+    "name": "Trash reports",
+    "value": "1 with lots",
+    "weight": -8,
+    "explanation": "Trash was reported near Mill St. Trash can hurt wildlife and block flow.",
+    "source": "Citizen reports"
+   }
+  ],
+  "recent_report_count": 9,
+  "last_updated": "2026-10-03T22:50:00Z"
+ },
+ "deer-creek": {
+  "score": 41,
+  "band": "watch",
+  "signals": [
+   {
+    "name": "Algae reports",
+    "value": "Lots, 2 reports",
+    "weight": -20,
+    "explanation": "Thick algae plus warm afternoons can lead to an algal bloom, which can be harmful to dogs and people.",
+    "source": "Citizen reports"
+   },
+   {
+    "name": "Air temperature",
+    "value": "84 \u00b0F",
+    "weight": -10,
+    "explanation": "Warm weather helps algae grow faster.",
+    "source": "NWS"
+   },
+   {
+    "name": "Sewage smell",
+    "value": "1 report",
+    "weight": -15,
+    "explanation": "Someone smelled sewage. That can mean a leak, so it is flagged for follow-up.",
+    "source": "Citizen reports"
+   },
+   {
+    "name": "Water level",
+    "value": "Low",
+    "weight": -4,
+    "explanation": "Low, slow water warms up faster and holds less oxygen for fish.",
+    "source": "USGS"
+   }
+  ],
+  "recent_report_count": 9,
+  "last_updated": "2026-10-03T22:50:00Z"
+ }
+}
