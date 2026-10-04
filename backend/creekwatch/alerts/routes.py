@@ -20,7 +20,8 @@ MAX_BODY = 4096  # push subscription bodies are ~500 bytes
 
 
 def register(app: FastAPI, store: AlertStore, push: PushService, poller, creek_ids: set[str],
-             client_ip: Callable[[Request], str], public_url: str | None, sub_limiter: RateLimiter) -> None:
+             client_ip: Callable[[Request], str], public_url: str | None, sub_limiter: RateLimiter,
+             creek_names: dict[str, str] | None = None) -> None:
 
     def base_url(request: Request) -> str:
         return (public_url or str(request.base_url)).rstrip("/")
@@ -119,6 +120,8 @@ def register(app: FastAPI, store: AlertStore, push: PushService, poller, creek_i
         try:
             sub = validate_subscription(await _json_body(request), creek_ids)
             result = push.upsert(sub)
+            if result == "created":  # one confirmation push, new subscriptions only, never on update
+                push.welcome_async(sub, creek_names)
         except SubscriptionInvalid as e:
             raise HTTPException(422, str(e))
         except OverflowError:
