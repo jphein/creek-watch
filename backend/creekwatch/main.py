@@ -25,6 +25,7 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from . import db
+from .cache_headers import CacheControlMiddleware
 from .config import REPO_ROOT, Settings
 from .data_iface import DataLayer, load_creeks, utcnow_iso
 from . import photos as photos_mod
@@ -495,6 +496,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         app.mount("/", StaticFiles(directory=s.web_dir, html=True), name="web")
     else:
         log.warning("no web build at %s; serving API only", s.web_dir)
+    if s.cache_control:
+        app.add_middleware(CacheControlMiddleware)
 
     return app
 

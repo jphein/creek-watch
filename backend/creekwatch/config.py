@@ -49,6 +49,10 @@ class Settings:
     push_rate_count: int = field(default_factory=lambda: int(os.environ.get("CREEKWATCH_PUSH_RATE_COUNT", "20")))
     public_url: str | None = field(default_factory=lambda: os.environ.get("CREEKWATCH_PUBLIC_URL") or None)
 
+    # App-set Cache-Control mirroring the homelab Caddy policy, for hosts whose proxy can't set headers (AWS /
+    # kamal-proxy). Off by default: behind Caddy it would add a duplicate header (cache_headers.py).
+    cache_control: bool = field(default_factory=lambda: _env_bool("CREEKWATCH_CACHE_CONTROL", False))
+
     # Cutover write freeze: report + push-subscription writes return 503 "maintenance"; reads keep working.
     read_only: bool = field(default_factory=lambda: _env_bool("CREEKWATCH_READ_ONLY", False))
 
