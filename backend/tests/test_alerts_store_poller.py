@@ -287,3 +287,117 @@ def test_sources_endpoint_contract_frozen(tmp_path):
     assert j["sources"][0]["last_ok"].endswith("Z") and "last_error" in j["sources"][0]
     assert j["schedule"]["nws"]["interval_s"] == 300
     p.shutdown()
+
+
+def test_new_incident_after_long_gap_notifies_again(tmp_path):
+    """Same id, same severity: flapping (short gap) stays quiet; a new incident after REARM_AFTER_S
+    notifies again (else a deploy test alert would silence the real one forever)."""
+    from creekwatch.alerts import store as store_mod
+    st = AlertStore(tmp_path / "r.db")
+    a = validate_alert(make_alert(id="creekwatch:deer:contamination_alert", source="creekwatch", severity="alert",
+                                  expires=None))
+    st.apply_fetch("creekwatch", [a], now="2026-10-04T00:00:00Z")
+    assert st.claim_push(a["id"], "alert") is True
+    st.apply_fetch("creekwatch", [], now="2026-10-04T01:00:00Z")            # cleared
+    assert [c.kind for c in st.apply_fetch("creekwatch", [a], now="2026-10-04T02:00:00Z")] == ["new"]
+    assert st.claim_push(a["id"], "alert") is False                          # 1 h gap: flapping, quiet
+    st.apply_fetch("creekwatch", [], now="2026-10-04T03:00:00Z")            # cleared again
+    later = f"2026-10-04T{3 + store_mod.REARM_AFTER_S // 3600:02d}:00:00Z"
+    assert [c.kind for c in st.apply_fetch("creekwatch", [a], now=later)] == ["new"]
+    assert st.claim_push(a["id"], "alert") is True                           # new incident: announce
+
+
+def test_inactive_since_migration(tmp_path):
+    import sqlite3
+    db = tmp_path / "old.db"
+    c = sqlite3.connect(db)
+    c.executescript("CREATE TABLE alerts (id TEXT PRIMARY KEY, source TEXT NOT NULL, payload TEXT NOT NULL, "
+                    "status TEXT NOT NULL, severity TEXT NOT NULL, category TEXT NOT NULL, first_seen TEXT NOT NULL, "
+                    "updated TEXT NOT NULL, expires TEXT, last_pushed_severity TEXT);")
+    c.close()
+    AlertStore(db)
+    assert "inactive_since" in {r[1] for r in sqlite3.connect(db).execute("PRAGMA table_info(alerts)")}
+
+
+class _Cursorish:
+    def __init__(self, rows):
+        self._rows = rows
+
+    def fetchone(self):
+        return self._rows[0] if self._rows else None
+
+    def fetchall(self):
+        return self._rows
+
+    def __iter__(self):
+        return iter(self._rows)
+
+
+class _InterleavingConn:
+    """Proxy: after B's per-alert SELECT has been READ (materialised, so it is provably stale),
+    run A's whole re-activate + claim before B writes anything."""
+
+    def __init__(self, real, owner):
+        self._real, self._owner = real, owner
+
+    def execute(self, sql, *a):
+        cur = self._real.execute(sql, *a)
+        if sql.startswith("SELECT payload, status") and not self._owner.fired:
+            rows = cur.fetchall()
+            self._owner.fired = True
+            self._owner.hook()
+            return _Cursorish(rows)
+        return cur
+
+    def __getattr__(self, k):
+        return getattr(self._real, k)
+
+    def __enter__(self):
+        self._real.__enter__()
+        return self
+
+    def __exit__(self, *exc):
+        return self._real.__exit__(*exc)
+
+
+def test_rearm_is_compare_and_set_under_interleaving(tmp_path):
+    db = tmp_path / "cas.db"
+    a_store = AlertStore(db)
+    al = validate_alert(make_alert(id="creekwatch:deer:contamination_alert", source="creekwatch",
+                                   severity="alert", expires=None))
+    a_store.apply_fetch("creekwatch", [al], now="2026-10-04T00:00:00Z")
+    assert a_store.claim_push(al["id"], "alert")
+    a_store.apply_fetch("creekwatch", [], now="2026-10-04T01:00:00Z")      # inactive since 01:00
+    back = "2026-10-04T14:00:00Z"                                           # 13 h later: re-arm due
+    wins = []
+
+    class B(AlertStore):
+        fired = False
+
+        def hook(self):  # poller A completes re-activation + claim between B's read and B's write
+            a_store.apply_fetch("creekwatch", [al], now=back)
+            wins.append(("A", a_store.claim_push(al["id"], "alert")))
+
+        def _conn(self):
+            return _InterleavingConn(super()._conn(), self)
+
+    b_store = B(db)
+    b_store.apply_fetch("creekwatch", [al], now=back)                       # B decided from a stale row
+    wins.append(("B", b_store.claim_push(al["id"], "alert")))
+    assert b_store.fired
+    assert [w for w in wins if w[1]] == [("A", True)], f"exactly one claim may win, got {wins}"
+
+
+def test_rearm_migration_backfills_inactive_rows(tmp_path):
+    import sqlite3
+    db = tmp_path / "old2.db"
+    c = sqlite3.connect(db)
+    c.executescript("CREATE TABLE alerts (id TEXT PRIMARY KEY, source TEXT NOT NULL, payload TEXT NOT NULL, "
+                    "status TEXT NOT NULL, severity TEXT NOT NULL, category TEXT NOT NULL, first_seen TEXT NOT NULL, "
+                    "updated TEXT NOT NULL, expires TEXT, last_pushed_severity TEXT);"
+                    "INSERT INTO alerts VALUES ('x:1','x','{}','expired','alert','other','t','t',NULL,'alert');"
+                    "INSERT INTO alerts VALUES ('x:2','x','{}','active','alert','other','t','t',NULL,'alert');")
+    c.commit(); c.close()
+    AlertStore(db)
+    rows = dict(sqlite3.connect(db).execute("SELECT id, inactive_since FROM alerts").fetchall())
+    assert rows["x:1"] and rows["x:1"].endswith("Z") and rows["x:2"] is None
