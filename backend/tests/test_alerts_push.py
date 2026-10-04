@@ -85,8 +85,11 @@ def test_matches_creek_severity_quiet_hours():
     day = datetime(2026, 10, 3, 20, 0, tzinfo=timezone.utc)    # 13:00 PDT
     night = datetime(2026, 10, 4, 7, 0, tzinfo=timezone.utc)   # 00:00 PDT
     a = validate_alert(make_alert())                            # deer, watch
-    assert matches(sub, a, day) and not matches(sub, a, night)  # quiet hours hold back a watch
-    assert matches(sub, validate_alert(make_alert(severity="alert")), night)  # ... but not an alert
+    assert matches(sub, a, day) and matches(sub, a, night)      # watch goes through quiet hours
+    adv = dict(sub, min_severity="info")
+    assert matches(adv, validate_alert(make_alert(severity="advisory")), day)
+    assert not matches(adv, validate_alert(make_alert(severity="advisory")), night)  # advisory held
+    assert matches(sub, validate_alert(make_alert(severity="alert")), night)  # alert always
     assert not matches(sub, validate_alert(make_alert(creek_ids=("wolf",))), day)
     assert matches(sub, validate_alert(make_alert(creek_ids=())), day)        # regional -> everyone
     assert not matches(sub, validate_alert(make_alert(severity="advisory")), day)
@@ -256,3 +259,58 @@ def test_subscription_rate_limit(tmp_path, monkeypatch):
         codes = [c.post("/api/push/subscriptions", json=body(f"https://fcm.googleapis.com/fcm/send/{i}")).status_code
                  for i in range(4)]
     assert codes == [201, 201, 201, 429]
+
+
+def test_fanout_deadline_is_real(tmp_path, monkeypatch):
+    import time as _t
+    monkeypatch.setattr(push_mod, "FANOUT_DEADLINE_S", 0.5)
+    svc = PushService(tmp_path / "p.db", VapidKeys(vapid_private_b64(), None, "https://x.example"),
+                      sender=lambda *a: _t.sleep(3) or 201)
+    for i in range(3):
+        svc.upsert(validate_subscription(body(f"https://fcm.googleapis.com/fcm/send/{i}"), set()))
+    t0 = _t.monotonic()
+    stats = svc.notify(validate_alert(make_alert(severity="alert")), "new")
+    assert _t.monotonic() - t0 < 1.5, "fan-out must return at its deadline, not wait for slow sends"
+    assert stats["failed"] == 3 and stats["sent"] == 0
+
+
+def test_payload_web_fields_and_deferral():
+    import json as _json
+    p = _json.loads(push_mod.payload_for(validate_alert(make_alert(summary="s" * 280)), "escalated"))
+    assert p["alert_id"] == p["tag"] == "nws:abc-1" and len(p["body"]) <= 140
+    assert p["url"] == "/#alerts?id=nws%3Aabc-1" and "911" in p["notice"] and p["official"] is True
+    assert p["kind"] == "escalated"
+
+
+def test_severities_list_filter():
+    sub = {"creek_ids": [], "min_severity": "advisory", "severities": ["advisory", "alert"],
+           "quiet_start": None, "quiet_end": None, "tz": "UTC"}
+    now = datetime(2026, 10, 3, 20, tzinfo=timezone.utc)
+    assert matches(sub, validate_alert(make_alert(severity="alert")), now)
+    assert not matches(sub, validate_alert(make_alert(severity="watch")), now)
+
+
+def test_web_alias_routes(push_client):
+    c = push_client
+    b = {"subscription": body()["subscription"],
+         "filters": {"creek_ids": ["deer"], "severities": ["alert", "watch"], "quiet_hours": None}}
+    r = c.post("/api/push/subscribe", json=b)
+    assert r.status_code == 201
+    j = r.json()
+    assert len(j["id"]) == 16 and j["filters"]["severities"] == ["watch", "alert"] and j["filters"]["quiet_hours"] is None
+    assert b["subscription"]["endpoint"] not in r.text
+    assert c.post("/api/push/unsubscribe", json={"endpoint": b["subscription"]["endpoint"]}).status_code == 204
+
+
+def test_vapid_key_never_in_repr_or_api(tmp_path, monkeypatch):
+    priv = vapid_private_b64()
+    monkeypatch.setenv("CREEKWATCH_VAPID_PRIVATE", priv)
+    s = Settings(data_dir=tmp_path / "d", web_dir=tmp_path / "w", sites_json=tmp_path / "m.json")
+    assert priv not in repr(s) and priv not in str(vars(s))
+    v = VapidKeys.from_env()
+    assert priv not in repr(v) and priv not in str(v)
+    with TestClient(create_app(s)) as c:
+        app = c.app
+        for path in ("/api/version", "/api/meta", "/api/push/vapid-public-key", "/api/alerts/sources"):
+            assert priv not in c.get(path).text
+        assert priv not in repr(app.state.push.vapid)

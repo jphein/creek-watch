@@ -27,6 +27,14 @@ LIMITS = {"title": 200, "summary": 280, "instruction": 1000, "source_name": 120,
           "area_desc": 300, "event": 120}
 
 
+# Life-safety deferral (docs/devpost/PRIOR-ART.md §2b): Creek Watch relays and summarises; it is not an
+# official warning service. Shown in feeds, CAP notes and push payloads.
+OFFICIAL_CHANNELS = ("For emergencies call 911. Official alerts: Nevada County Alerts "
+                     "(https://www.nevadacountyca.gov/3780/Emergency-Alerts), AwareCA, and NWS Wireless Emergency Alerts.")
+DEFER_SHORT = "Emergencies: 911. Official: Nevada County Alerts, AwareCA."
+CAP_TOKEN_RE = re.compile(r"^[^\s,<&]{1,240}$")  # CAP identifier/sender: no spaces, commas or < &
+
+
 class AlertInvalid(ValueError):
     pass
 
@@ -150,4 +158,15 @@ def validate_alert(raw: dict[str, Any]) -> dict[str, Any]:
                        ("cap_certainty", CAP_CERTAINTY)):
         if raw.get(k) in allowed:
             a[k] = raw[k]
+    # Relay provenance for official CAP sources (NWS): the original message's identifier/sender/sent,
+    # emitted as CAP <references> so we are a relay with attribution, not a re-issuer.
+    for k in ("cap_identifier", "cap_sender"):
+        v = raw.get(k)
+        if isinstance(v, str) and CAP_TOKEN_RE.match(v):
+            a[k] = v
+    if raw.get("cap_sent"):
+        try:
+            a["cap_sent"] = _time(raw["cap_sent"], "cap_sent")
+        except AlertInvalid:
+            pass
     return a

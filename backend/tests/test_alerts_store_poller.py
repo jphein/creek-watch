@@ -146,3 +146,31 @@ def test_poller_rejects_non_list(store):
     p = Poller([Weird("nws")], store, ctx_factory)
     assert "nws" in p.run_due(force=True)["failed"]
     p.shutdown()
+
+
+def test_claim_push_is_atomic_across_processes(tmp_path):
+    a, b = AlertStore(tmp_path / "x.db"), AlertStore(tmp_path / "x.db")   # live + staging container
+    a.apply_fetch("nws", [validate_alert(make_alert())])
+    assert a.claim_push("nws:abc-1", "watch") is True
+    assert b.claim_push("nws:abc-1", "watch") is False                   # second process loses
+    assert b.claim_push("nws:abc-1", "advisory") is False                # lower: never re-announce
+    assert b.claim_push("nws:abc-1", "alert") is True                    # escalation: exactly once
+    assert a.claim_push("nws:abc-1", "alert") is False
+
+
+def test_two_pollers_one_push(tmp_path):
+    push_a, push_b = RecordingPush(), RecordingPush()
+    pa = Poller([FakeAdapter("nws", [make_alert()])], AlertStore(tmp_path / "y.db"), ctx_factory, push=push_a)
+    pb = Poller([FakeAdapter("nws", [make_alert()])], AlertStore(tmp_path / "y.db"), ctx_factory, push=push_b)
+    pa.run_due(force=True); pb.run_due(force=True)
+    assert len(push_a.sent) + len(push_b.sent) == 1
+    pa.shutdown(); pb.shutdown()
+
+
+def test_app_without_lifespan_has_reports_table(tmp_path):
+    """The CLI poller builds the app but never runs its lifespan; the creekwatch adapter reads reports."""
+    from creekwatch.config import Settings
+    from creekwatch.main import create_app
+    app = create_app(Settings(data_dir=tmp_path / "d", web_dir=tmp_path / "w", sites_json=tmp_path / "m.json"))
+    ctx = app.state.alert_poller.ctx_factory()
+    assert ctx.reports(ctx.creek_ids[0], 14) == []

@@ -17,7 +17,6 @@ import os
 import re
 import sqlite3
 import threading
-import time
 from concurrent.futures import ThreadPoolExecutor, wait
 from datetime import datetime, timezone
 from pathlib import Path
@@ -25,7 +24,9 @@ from typing import Any
 from urllib.parse import urlsplit
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from .model import SEVERITY_RANK
+from urllib.parse import quote
+
+from .model import DEFER_SHORT, SEVERITY_RANK
 
 log = logging.getLogger("creekwatch.push")
 
@@ -46,6 +47,7 @@ CREATE TABLE IF NOT EXISTS push_subscriptions (
     auth          TEXT NOT NULL,
     creek_ids     TEXT NOT NULL DEFAULT '[]',
     min_severity  TEXT NOT NULL DEFAULT 'watch',
+    severities    TEXT,
     quiet_start   TEXT,
     quiet_end     TEXT,
     tz            TEXT NOT NULL DEFAULT 'America/Los_Angeles',
@@ -117,16 +119,24 @@ def validate_subscription(body: Any, known_creeks: set[str]) -> dict[str, Any]:
         raise SubscriptionInvalid("keys.p256dh must be an uncompressed P-256 public key")
     if len(_b64url_decode(auth)) != 16:
         raise SubscriptionInvalid("keys.auth must be 16 bytes")
+    if isinstance(body.get("filters"), dict):  # web shape: {subscription, filters:{...}}
+        body = {**body["filters"], "subscription": sub}
     creek_ids = body.get("creek_ids") or []
     if not isinstance(creek_ids, list) or not all(isinstance(c, str) for c in creek_ids):
         raise SubscriptionInvalid("creek_ids must be a list of creek ids")
     unknown = [c for c in creek_ids if c not in known_creeks]
     if unknown:
         raise SubscriptionInvalid(f"unknown creek_ids: {', '.join(unknown[:5])}")
-    min_sev = body.get("min_severity", "watch")
+    severities = body.get("severities")
+    if severities is not None:
+        if (not isinstance(severities, list) or not severities
+                or not all(isinstance(x, str) and x in SEVERITY_RANK for x in severities)):
+            raise SubscriptionInvalid("severities must be a non-empty list of info, advisory, watch, alert")
+        severities = sorted(set(severities), key=SEVERITY_RANK.get)
+    min_sev = body.get("min_severity") or (severities[0] if severities else "watch")
     if min_sev not in SEVERITY_RANK:
         raise SubscriptionInvalid("min_severity must be one of info, advisory, watch, alert")
-    qh = body.get("quiet_hours") or {}
+    qh = body.get("quiet_hours") or {}  # null = no quiet hours
     if not isinstance(qh, dict):
         raise SubscriptionInvalid("quiet_hours must be an object")
     tz = qh.get("tz") or body.get("tz") or "America/Los_Angeles"
@@ -140,7 +150,7 @@ def validate_subscription(body: Any, known_creeks: set[str]) -> dict[str, Any]:
     if (start is None) != (end is None):
         raise SubscriptionInvalid("quiet_hours needs both start and end")
     return {"endpoint": endpoint, "p256dh": p256dh, "auth": auth, "creek_ids": sorted(set(creek_ids)),
-            "min_severity": min_sev, "quiet_start": start, "quiet_end": end, "tz": tz}
+            "min_severity": min_sev, "severities": severities, "quiet_start": start, "quiet_end": end, "tz": tz}
 
 
 def in_quiet_hours(sub: dict, when: datetime) -> bool:
@@ -152,22 +162,29 @@ def in_quiet_hours(sub: dict, when: datetime) -> bool:
 
 
 def matches(sub: dict, alert: dict, when: datetime) -> bool:
-    """Creek filter (an alert with no creek ids is regional and goes to everyone), minimum severity,
-    and quiet hours (which hold back everything except 'alert', the life-safety level)."""
+    """Creek filter (an alert with no creek ids is regional and goes to everyone), severity filter
+    (explicit list, else minimum), and quiet hours (hold back advisory/info; watch and alert go through)."""
     creeks = sub["creek_ids"]
     if creeks and alert["area"]["creek_ids"] and not set(creeks) & set(alert["area"]["creek_ids"]):
         return False
-    if SEVERITY_RANK[alert["severity"]] < SEVERITY_RANK[sub["min_severity"]]:
+    if sub.get("severities"):
+        if alert["severity"] not in sub["severities"]:
+            return False
+    elif SEVERITY_RANK[alert["severity"]] < SEVERITY_RANK[sub["min_severity"]]:
         return False
-    if alert["severity"] != "alert" and in_quiet_hours(sub, when):
+    if SEVERITY_RANK[alert["severity"]] < SEVERITY_RANK["watch"] and in_quiet_hours(sub, when):
         return False
     return True
 
 
 def payload_for(alert: dict, kind: str) -> bytes:
-    body = {"id": alert["id"], "kind": kind, "severity": alert["severity"], "category": alert["category"],
-            "title": alert["title"], "summary": alert["summary"], "source_name": alert["source_name"],
-            "url": "/#alerts", "source_url": alert["url"], "creek_ids": alert["area"]["creek_ids"]}
+    short = alert["summary"] if len(alert["summary"]) <= 140 else alert["summary"][:139].rstrip() + "…"
+    body = {"id": alert["id"], "alert_id": alert["id"], "tag": alert["id"], "kind": kind,
+            "severity": alert["severity"], "category": alert["category"], "title": alert["title"],
+            "body": short, "summary": alert["summary"], "source_name": alert["source_name"],
+            "official": alert["source"] != "creekwatch", "notice": DEFER_SHORT,
+            "url": "/#alerts?id=" + quote(alert["id"], safe=""), "source_url": alert["url"],
+            "creek_ids": alert["area"]["creek_ids"]}
     raw = json.dumps(body, separators=(",", ":")).encode()
     while len(raw) > MAX_PAYLOAD and len(body["summary"]) > 40:
         body["summary"] = body["summary"][: int(len(body["summary"]) * 0.7)].rstrip() + "…"
@@ -197,6 +214,11 @@ class VapidKeys:
         if not re.match(r"^(mailto:|https://)", subject):
             raise ValueError("VAPID subject must be mailto: or https://")
         self.subject = subject
+
+    def __repr__(self) -> str:  # never let a log line or debug dump carry the private key
+        return f"VapidKeys(public={self.public[:12]}…, subject={self.subject!r})"
+
+    __str__ = __repr__
 
     @classmethod
     def from_env(cls) -> "VapidKeys | None":
@@ -264,12 +286,14 @@ class PushService:
             exists = c.execute("SELECT 1 FROM push_subscriptions WHERE endpoint=?", (sub["endpoint"],)).fetchone()
             if not exists and c.execute("SELECT COUNT(*) FROM push_subscriptions").fetchone()[0] >= self.max_subs:
                 raise OverflowError("subscription limit reached")
-            c.execute("INSERT INTO push_subscriptions (endpoint, p256dh, auth, creek_ids, min_severity, quiet_start,"
-                      " quiet_end, tz, created, updated) VALUES (?,?,?,?,?,?,?,?,?,?) ON CONFLICT(endpoint) DO UPDATE"
-                      " SET p256dh=excluded.p256dh, auth=excluded.auth, creek_ids=excluded.creek_ids,"
-                      " min_severity=excluded.min_severity, quiet_start=excluded.quiet_start,"
+            c.execute("INSERT INTO push_subscriptions (endpoint, p256dh, auth, creek_ids, min_severity, severities,"
+                      " quiet_start, quiet_end, tz, created, updated) VALUES (?,?,?,?,?,?,?,?,?,?,?)"
+                      " ON CONFLICT(endpoint) DO UPDATE SET p256dh=excluded.p256dh, auth=excluded.auth,"
+                      " creek_ids=excluded.creek_ids, min_severity=excluded.min_severity,"
+                      " severities=excluded.severities, quiet_start=excluded.quiet_start,"
                       " quiet_end=excluded.quiet_end, tz=excluded.tz, updated=excluded.updated, failures=0",
                       (sub["endpoint"], sub["p256dh"], sub["auth"], json.dumps(sub["creek_ids"]), sub["min_severity"],
+                       json.dumps(sub["severities"]) if sub.get("severities") else None,
                        sub["quiet_start"], sub["quiet_end"], sub["tz"], now, now))
         return "updated" if exists else "created"
 
@@ -282,6 +306,7 @@ class PushService:
             rows = [dict(r) for r in c.execute("SELECT * FROM push_subscriptions")]
         for r in rows:
             r["creek_ids"] = json.loads(r["creek_ids"])
+            r["severities"] = json.loads(r["severities"]) if r.get("severities") else None
         return rows
 
     def count(self) -> int:
@@ -319,10 +344,14 @@ class PushService:
                 log.warning("push to %s failed: %s", urlsplit(sub["endpoint"]).hostname, type(e).__name__)
                 return sub["endpoint"], 0
 
-        deadline = time.monotonic() + FANOUT_DEADLINE_S
-        with ThreadPoolExecutor(max_workers=FANOUT_WORKERS) as ex:
+        # NOT a `with` block: its exit would shutdown(wait=True) and silently wait for every send,
+        # making the deadline dead. Stragglers are abandoned (their own timeouts end them).
+        ex = ThreadPoolExecutor(max_workers=FANOUT_WORKERS, thread_name_prefix="push")
+        try:
             futs = [ex.submit(one, s) for s in targets]
-            done, _ = wait(futs, timeout=max(1, deadline - time.monotonic()))
+            done, _ = wait(futs, timeout=FANOUT_DEADLINE_S)
+        finally:
+            ex.shutdown(wait=False, cancel_futures=True)
         now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
         with self._conn() as c:
             for f in done:

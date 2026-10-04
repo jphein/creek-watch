@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 from datetime import datetime, timezone
 from typing import Any, Callable
@@ -109,6 +110,7 @@ def register(app: FastAPI, store: AlertStore, push: PushService, poller, creek_i
         return {"key": push.vapid.public}
 
     @app.post("/api/push/subscriptions", status_code=201)
+    @app.post("/api/push/subscribe", status_code=201, include_in_schema=False)  # web lane's name
     async def subscribe(request: Request) -> JSONResponse:
         _limit(request)
         if not push.enabled:
@@ -120,11 +122,16 @@ def register(app: FastAPI, store: AlertStore, push: PushService, poller, creek_i
             raise HTTPException(422, str(e))
         except OverflowError:
             raise HTTPException(503, "Subscriptions are full right now; please try again later.")
-        return JSONResponse({"status": result, "creek_ids": sub["creek_ids"], "min_severity": sub["min_severity"],
-                             "quiet_hours": {"start": sub["quiet_start"], "end": sub["quiet_end"], "tz": sub["tz"]}},
+        filters = {"creek_ids": sub["creek_ids"], "min_severity": sub["min_severity"],
+                   "severities": sub["severities"],
+                   "quiet_hours": ({"start": sub["quiet_start"], "end": sub["quiet_end"], "tz": sub["tz"]}
+                                   if sub["quiet_start"] else None)}
+        sid = hashlib.sha256(sub["endpoint"].encode()).hexdigest()[:16]  # opaque; never echo the endpoint
+        return JSONResponse({"id": sid, "status": result, "filters": filters, **filters},
                             status_code=201 if result == "created" else 200)
 
     @app.delete("/api/push/subscriptions", status_code=204)
+    @app.post("/api/push/unsubscribe", status_code=204, include_in_schema=False)  # web lane's name
     async def unsubscribe(request: Request) -> Response:
         _limit(request)
         body = await _json_body(request)

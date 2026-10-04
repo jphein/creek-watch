@@ -69,7 +69,10 @@ def test_cap_single_document_valid_and_passthrough(app_client):
 def test_creekwatch_alert_flagged_as_unofficial_in_cap(app_client):
     doc = etree.fromstring(app_client.get("/alerts.cap.xml", params={"id": "creekwatch:deer:algal"}).content)
     assert XSD.validate(etree.ElementTree(doc))
-    assert "not an official warning" in doc.findtext("cap:note", namespaces=NS)
+    note = doc.findtext("cap:note", namespaces=NS)
+    assert "Not an official warning" in note and "volunteer" in note and "911" in note
+    assert doc.find("cap:references", NS) is None
+    assert doc.findtext("cap:scope", namespaces=NS) == "Public" and doc.findtext("cap:status", namespaces=NS) == "Actual"
 
 
 def test_feeds_escape_injection(app_client):
@@ -107,3 +110,25 @@ def test_api_alerts_filters(app_client):
     assert c.get("/api/alerts", params={"status": "bogus"}).status_code == 422
     assert c.get("/api/alerts/item", params={"id": "nws:poly"}).json()["severity"] == "alert"
     assert "sources" in c.get("/api/alerts/sources").json()
+
+
+def test_nws_relay_references_and_deference(app_client):
+    doc = etree.fromstring(app_client.get("/alerts.cap.xml", params={"id": "nws:poly"}).content)
+    assert XSD.validate(etree.ElementTree(doc)), XSD.error_log.last_error
+    assert doc.findtext("cap:references", namespaces=NS) == "w-nws.webmaster@noaa.gov,poly,2026-10-03T18:00:00+00:00"
+    assert doc.findtext("cap:info/cap:senderName", namespaces=NS) == "National Weather Service"
+    note = doc.findtext("cap:note", namespaces=NS)
+    assert "Relayed by Creek Watch from National Weather Service" in note and "Nevada County Alerts" in note
+    atom = app_client.get("/alerts.atom").content.decode()
+    assert "Not an official warning service" in atom and atom.count("For emergencies call 911") >= 4
+
+
+def test_cap_references_prefer_adapter_provenance():
+    from creekwatch.alerts.feeds import cap_alert, relay_references
+    a = validate_alert(make_alert(id="nws:urn:oid:2.49.0.1.840.0.abc.001.1", cap_identifier="urn:oid:2.49.0.1.840.0.def.002.1",
+                                  cap_sender="w-nws.webmaster@noaa.gov", cap_sent="2026-10-03T17:55:00-07:00"))
+    assert relay_references(a) == "w-nws.webmaster@noaa.gov,urn:oid:2.49.0.1.840.0.def.002.1,2026-10-04T00:55:00+00:00"
+    import xml.etree.ElementTree as ET
+    assert XSD.validate(etree.ElementTree(etree.fromstring(ET.tostring(cap_alert(a)))))
+    bad = validate_alert(make_alert(cap_identifier="has space, comma"))
+    assert "cap_identifier" not in bad

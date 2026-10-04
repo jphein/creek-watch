@@ -216,6 +216,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     # -- alerts (store, poller, feeds, push) --------------------------------
     s.data_dir.mkdir(parents=True, exist_ok=True)
+    db.init(s.db_path)  # idempotent; also needed by the CLI poller, which never runs the lifespan
     alert_store = AlertStore(s.db_path)
     push_service = PushService(s.db_path, VapidKeys.from_env(), max_subs=s.push_max_subs)
 

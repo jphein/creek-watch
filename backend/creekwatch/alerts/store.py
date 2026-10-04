@@ -143,6 +143,18 @@ class AlertStore:
                           (json.dumps(p, sort_keys=True, separators=(",", ":")), r["id"]))
         return len(rows)
 
+    def claim_push(self, alert_id: str, severity: str) -> bool:
+        """Atomically claim the right to announce (alert_id, severity). Exactly one caller wins, even
+        across processes sharing the DB (e.g. the redeploy staging container overlapping the live
+        one): the UPDATE only matches if nothing at this severity or higher was announced yet."""
+        rank = SEVERITY_RANK[severity]
+        with self._conn() as c:
+            cur = c.execute(
+                "UPDATE alerts SET last_pushed_severity=? WHERE id=? AND (last_pushed_severity IS NULL OR "
+                "CASE last_pushed_severity WHEN 'info' THEN 0 WHEN 'advisory' THEN 1 WHEN 'watch' THEN 2 "
+                "WHEN 'alert' THEN 3 ELSE -1 END < ?)", (severity, alert_id, rank))
+            return cur.rowcount == 1
+
     def mark_pushed(self, alert_id: str, severity: str) -> None:
         with self._conn() as c:
             c.execute("UPDATE alerts SET last_pushed_severity=? WHERE id=?", (severity, alert_id))

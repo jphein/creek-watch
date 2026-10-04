@@ -6,6 +6,8 @@ from __future__ import annotations
 import xml.etree.ElementTree as ET
 from typing import Any
 
+from .model import OFFICIAL_CHANNELS
+
 ATOM = "http://www.w3.org/2005/Atom"
 CAP = "urn:oasis:names:tc:emergency:cap:1.2"
 ET.register_namespace("", ATOM)
@@ -47,8 +49,9 @@ def atom_feed(alerts: list[dict], base: str, self_url: str, updated: str, title:
     feed = ET.Element(f"{{{ATOM}}}feed")
     _sub(feed, "id", f"{TAG}:alerts" + (self_url.split("?", 1)[1].replace("&", ":") if "?" in self_url else ""))
     _sub(feed, "title", title)
-    _sub(feed, "subtitle", "Water-related alerts for Nevada County creeks: official sources plus "
-                           "Creek Watch early warnings. Always check the linked official source.")
+    _sub(feed, "subtitle", "Water-related alerts for Nevada County creeks, relayed from official sources with "
+                           "attribution, plus Creek Watch community early warnings. Not an official warning "
+                           "service. " + OFFICIAL_CHANNELS)
     _sub(feed, "updated", max([a["updated"] for a in alerts], default=updated))
     _sub(feed, "link", rel="self", href=self_url, type="application/atom+xml")
     _sub(feed, "link", rel="alternate", href=f"{base}/#alerts", type="text/html")
@@ -73,6 +76,9 @@ def atom_feed(alerts: list[dict], base: str, self_url: str, updated: str, title:
         body += f"\n\nArea: {a['area']['area_desc']}. Source: {a['source_name']} ({a['url']})."
         if a.get("expires"):
             body += f" Expires {a['expires']}."
+        if a["source"] == "creekwatch":
+            body += "\n\nCommunity early warning derived from volunteer reports and public data; not an official warning."
+        body += f"\n\n{OFFICIAL_CHANNELS}"
         _sub(e, "summary", body, type="text")
         _sub(e, "rights", a["attribution"])
     return ET.tostring(feed, encoding="utf-8", xml_declaration=True)
@@ -96,6 +102,20 @@ def _cap_polygons(geo: dict | None) -> list[str]:
     return out
 
 
+NWS_SENDER = "w-nws.webmaster@noaa.gov"
+
+
+def relay_references(a: dict) -> str | None:
+    """CAP <references> ("sender,identifier,sent") pointing at the original official message.
+    Uses the adapter's cap_identifier/cap_sender/cap_sent when given; for NWS falls back to the
+    identifier embedded in our id ("nws:<identifier>") and the alert's updated time."""
+    ident = a.get("cap_identifier") or (a["id"].split(":", 1)[1] if a["source"] == "nws" else None)
+    sender = a.get("cap_sender") or (NWS_SENDER if a["source"] == "nws" else None)
+    if not ident or not sender or any(ch in ident + sender for ch in " ,<&"):
+        return None
+    return f"{sender},{ident},{cap_time(a.get('cap_sent') or a['updated'])}"
+
+
 def cap_alert(a: dict, sender: str = "creekwatch.realm.watch") -> ET.Element:
     """One schema-valid CAP 1.2 <alert> (element order follows the OASIS XSD sequence)."""
     al = ET.Element(f"{{{CAP}}}alert")
@@ -104,11 +124,19 @@ def cap_alert(a: dict, sender: str = "creekwatch.realm.watch") -> ET.Element:
     c(al, "sender", sender)
     c(al, "sent", cap_time(a["updated"]))
     c(al, "status", "Actual")
+    refs = relay_references(a)
     c(al, "msgType", "Cancel" if a["status"] == "cancelled" else "Alert")
     c(al, "source", a["source_name"])
     c(al, "scope", "Public")
     if a["source"] == "creekwatch":
-        c(al, "note", "Creek Watch early warning derived from citizen reports and public data; not an official warning.")
+        note = ("Creek Watch community early warning, derived from volunteer citizen reports and public data. "
+                "Not an official warning. ")
+    else:
+        note = (f"Relayed by Creek Watch from {a['source_name']} with attribution; the official message is "
+                f"authoritative ({a['url']}). Creek Watch does not issue official warnings. ")
+    c(al, "note", note + OFFICIAL_CHANNELS)
+    if refs:
+        c(al, "references", refs)
     info = c(al, "info")
     c(info, "language", "en-US")
     c(info, "category", CAP_CATEGORY.get(a["category"], "Other"))

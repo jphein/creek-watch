@@ -141,14 +141,14 @@ class Poller:
             for ch in self.store.apply_fetch(src, alerts):
                 if ch.kind in ("new", "escalated") and ch.alert["status"] == "active":
                     summary[ch.kind].append(ch.alert["id"])
-                    if self.store.needs_push(ch.alert["id"], ch.alert["severity"]):
-                        if self.push is not None:
-                            try:
-                                summary["pushed"] += self.push.notify(ch.alert, ch.kind).get("sent", 0)
-                            except Exception:
-                                log.exception("push fan-out failed for %s", ch.alert["id"])
-                        # mark even with no subscribers/push off: a later subscriber must not get a backlog
-                        self.store.mark_pushed(ch.alert["id"], ch.alert["severity"])
+                    # Claim first (atomic, DB-level): at most one process announces each (id, severity),
+                    # even during the redeploy overlap. Claimed even with push off, so a later
+                    # subscriber never receives a backlog.
+                    if self.store.claim_push(ch.alert["id"], ch.alert["severity"]) and self.push is not None:
+                        try:
+                            summary["pushed"] += self.push.notify(ch.alert, ch.kind).get("sent", 0)
+                        except Exception:
+                            log.exception("push fan-out failed for %s", ch.alert["id"])
         self.store.expire_due()
         return summary
 
