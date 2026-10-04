@@ -116,7 +116,7 @@ def _snapshot() -> dict:
 
 
 def get_water_quality(creek_id: str, *, timeout_s: float = 10, now: datetime | None = None,
-                      fetch=None) -> dict:
+                      fetch=None, cached_only: bool = False) -> dict:
     """Latest volunteer lab/field readings for each station on the creek (never raises)."""
     from . import ingest  # shared TTL cache
 
@@ -128,7 +128,11 @@ def get_water_quality(creek_id: str, *, timeout_s: float = 10, now: datetime | N
     for st in STATIONS.get(creek_id, []):
         data, live = None, False
         if st.get("live"):
-            data = ingest._cached(f"riverdb:{st['id']}", 86400, lambda ref=st["id"]: fetch(ref))
+            key = f"riverdb:{st['id']}"
+            if cached_only:   # no network: whatever a previous (or still-running) fetch cached
+                data = ingest._peek(key, ttl=86400)   # expired -> flagged stale -> live: false
+            else:
+                data = ingest._cached(key, 86400, lambda ref=st["id"]: fetch(ref))
             # A stale value served during back-off is NOT live (it's the last good fetch).
             live = data is not None and not data.get("stale")
         if data is None:

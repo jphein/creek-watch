@@ -54,6 +54,11 @@ SOURCES = {
 
 GAUGE_NAMES = {"11424000": "BEAR R NR WHEATLAND CA", "11418500": "DEER C NR SMARTSVILLE CA"}
 
+WQ_WAIT_S = 3.0          # don't hold a request longer than this for RiverDB; answer from the snapshot
+CAPPED_TTL_HINT_S = 30   # a capped answer is good for ~30 s; the live fetch is still running
+INFLIGHT_WAIT_S = 20.0   # a COLD key's concurrent caller waits this long for the in-flight fetch
+                         # (> the 2x8 s + 2 s job bound in get_conditions; then gives up -> None)
+
 TTL = {"gauge": 900, "weather": 900, "stats": 86400}
 
 
@@ -80,6 +85,7 @@ def _retry_once(fn):
 # -------------------------------------------------------------------------- cache
 _cache: dict[str, tuple[float, object]] = {}
 _failed: dict[str, float] = {}
+_inflight: dict[str, threading.Event] = {}   # key -> set when its running fetch finishes
 _lock = threading.Lock()
 
 
@@ -106,18 +112,42 @@ def _cached(key: str, ttl: float, fn):
         return hit[1]
     if failed_at is not None and now - failed_at < FAIL_BACKOFF_S:
         return _stale(hit)
-    err = None
+    with _lock:
+        ev = _inflight.get(key)
+        if ev is None:
+            ev = _inflight[key] = threading.Event()
+            owner = True
+        else:
+            owner = False
+    if not owner:
+        # Another caller is already fetching this key: never start a duplicate upstream call.
+        if hit is not None:
+            return _stale(hit)        # warm: last good value at once (flagged stale)
+        # Cold (no last good value): wait for that fetch rather than answer None, because None
+        # would become a partial answer the API caches (shared keys like obs:KGOO, cdec:river).
+        ev.wait(INFLIGHT_WAIT_S)
+        with _lock:
+            done = _cache.get(key)
+        return done[1] if done else None
+    val, err, failed = None, None, False
     try:
         val = fn()
+        failed = val is None
     except Exception as e:  # noqa: BLE001 - any upstream failure degrades to stale/None
-        val, err = None, e
-    with _lock:
-        if val is not None:
-            _cache[key] = (now, val)
-            _failed.pop(key, None)
-        else:
-            _failed[key] = now
-    if val is None:
+        val, err, failed = None, e, True
+    finally:
+        # Order matters: store the result, THEN release the in-flight marker, THEN wake waiters,
+        # so a woken waiter always sees this fetch's outcome. Runs even on BaseException
+        # (SystemExit, thread teardown), so a key can never be wedged in-flight.
+        with _lock:
+            if val is not None:
+                _cache[key] = (now, val)
+                _failed.pop(key, None)
+            elif failed:          # a real upstream failure starts the back-off; a BaseException
+                _failed[key] = now    # (teardown) is not the upstream's fault and doesn't
+            _inflight.pop(key, None)
+        ev.set()
+    if failed:
         # At most one line per upstream per FAIL_BACKOFF_S: the back-off above stops re-calls.
         log.warning("upstream %s failed (%s); serving %s for %d min", key,
                     f"{type(err).__name__}: {err}"[:200] if err else "no data",
@@ -125,10 +155,23 @@ def _cached(key: str, ttl: float, fn):
     return val if val is not None else _stale(hit)
 
 
+def _peek(key: str, ttl: float | None = None):
+    """Cached value for key without fetching. If ttl is given and the value is older,
+    it's returned flagged stale (like _cached would). None if nothing was ever cached."""
+    with _lock:
+        hit = _cache.get(key)
+    if not hit:
+        return None
+    if ttl is not None and time.time() - hit[0] >= ttl:
+        return _stale(hit)
+    return hit[1]
+
+
 def clear_cache():
     with _lock:
         _cache.clear()
         _failed.clear()
+        _inflight.clear()
 
 
 def _utc_iso(s: str | None) -> str | None:
@@ -339,7 +382,7 @@ def get_conditions(creek_id: str, *, max_age_s: int | None = None, timeout_s: fl
         "fc": lambda: _cached(f"fc:{cfg['nws_forecast']}", ttl("weather"), lambda: _retry_once(lambda: fetch_nws_forecast(cfg["nws_forecast"], timeout_s))),
         "rain": lambda: _cached(f"rain:{lat},{lon}", ttl("weather"), lambda: _retry_once(lambda: fetch_rain(lat, lon, timeout_s))),
     }
-    from . import wq
+    from . import wq   # lazy: wq imports ingest
     jobs["wq"] = lambda: wq.get_water_quality(creek_id, timeout_s=timeout_s)
     from . import cdec
     jobs["river"] = lambda: _cached("cdec:river", ttl("gauge"), lambda: cdec.get_river(timeout_s=timeout_s))
@@ -347,9 +390,18 @@ def get_conditions(creek_id: str, *, max_age_s: int | None = None, timeout_s: fl
     res = {}
     for k, f in futs.items():
         try:
-            res[k] = f.result(timeout=timeout_s * 2 + 2)
+            res[k] = f.result(timeout=WQ_WAIT_S if k == "wq" else timeout_s * 2 + 2)
         except Exception:  # noqa: BLE001
             res[k] = None
+            if k == "wq":
+                # RiverDB slow (e.g. a cold process after a deploy): answer now from the snapshot
+                # plus any cached live value; the job keeps running and fills the cache for the
+                # next request. No fetch here, and no failure is recorded for the still-running job.
+                try:
+                    res[k] = dict(wq.get_water_quality(creek_id, timeout_s=timeout_s, cached_only=True),
+                                  capped=True)
+                except Exception:  # noqa: BLE001
+                    res[k] = None
 
     gauge = None
     if res["gauge"]:
@@ -386,7 +438,10 @@ def get_conditions(creek_id: str, *, max_age_s: int | None = None, timeout_s: fl
         bacteria_history = history.get_bacteria_history(creek_id)
     except Exception:  # noqa: BLE001
         bacteria_history = {"studies": []}
-    return {"creek_id": creek_id, "gauge": gauge, "weather": weather,
+    out_extra = {}
+    if (res.get("wq") or {}).get("capped"):
+        out_extra["cache_ttl_hint_s"] = CAPPED_TTL_HINT_S   # API: don't cache this partial answer long
+    return {**out_extra, "creek_id": creek_id, "gauge": gauge, "weather": weather,
             "water_quality": water_quality, "river": river,
             "bacteria_history": bacteria_history, "fetched_at": _now_iso()}
 

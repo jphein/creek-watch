@@ -242,3 +242,175 @@ def test_stale_riverdb_value_is_not_reported_live(monkeypatch):
     monkeypatch.setattr(ingest.time, "time", lambda: clock["t"])
     again = [s for s in wq.get_water_quality("deer", now=now)["stations"] if s["agency"] == "SYRCL"]
     assert again and all((not s["live"]) and s["stale"] for s in again)
+
+
+# ---- cold start: prewarm + bounded wait on RiverDB --------------------------------------
+def test_slow_riverdb_capped_then_live_from_cache(monkeypatch):
+    # NB: the autouse fixture no-ops time.sleep (global module), so delays use threading.Event.
+    import threading as th
+    import time as _t
+    monkeypatch.setattr(ingest, "_http_get_text", lambda url, timeout: route(url))
+    monkeypatch.setattr(ingest, "WQ_WAIT_S", 0.3)
+    release = th.Event()
+
+    def slow_gql(ref, timeout):
+        release.wait(5)                                     # RiverDB answering slowly
+        return RIVERDB
+    monkeypatch.setattr(wq, "_gql", slow_gql)
+    t0 = _t.monotonic()
+    c = ingest.get_conditions("deer")
+    assert _t.monotonic() - t0 < 0.9                        # didn't wait for RiverDB
+    syrcl = [s for s in c["water_quality"]["stations"] if s["agency"] == "SYRCL"]
+    assert syrcl and not any(s["live"] for s in syrcl)       # snapshot answer, honestly not live
+    assert c["water_quality"]["capped"] is True and c["cache_ttl_hint_s"] == ingest.CAPPED_TTL_HINT_S
+    assert not any(k.startswith("riverdb:") for k in ingest._failed)   # no false failure recorded
+    release.set()                                           # RiverDB answers; the job finishes
+    deadline = _t.monotonic() + 3
+    while ingest._peek("riverdb:17592187179149") is None and _t.monotonic() < deadline:
+        release.wait(0.05)
+    c2 = ingest.get_conditions("deer")
+    assert all(s["live"] for s in c2["water_quality"]["stations"] if s["agency"] == "SYRCL")
+    assert "capped" not in c2["water_quality"] and "cache_ttl_hint_s" not in c2   # full answer: no hint
+
+
+
+def test_concurrent_fetches_for_same_key_are_not_duplicated():
+    """Live run 2026-10-03: a visitor during prewarm started a 2nd RiverDB call for the same station."""
+    import threading as th
+    import time as _t
+    release, calls = th.Event(), {"n": 0}
+
+    def slow():
+        calls["n"] += 1
+        release.wait(3)
+        return {"v": 1}
+    t = th.Thread(target=lambda: ingest._cached("riverdb:dup", 60, slow))
+    t.start()
+    deadline = _t.monotonic() + 2
+    while "riverdb:dup" not in ingest._inflight and _t.monotonic() < deadline:
+        release.wait(0.01)
+    got = {}
+    waiter = th.Thread(target=lambda: got.setdefault("v", ingest._cached("riverdb:dup", 60, slow)))
+    waiter.start()                                               # cold key: waits for the owner...
+    release.wait(0.1)
+    assert waiter.is_alive() and calls["n"] == 1                 # ...without a duplicate call
+    release.set()
+    t.join(3)
+    waiter.join(3)
+    assert got["v"] == {"v": 1} and calls["n"] == 1              # gets the owner's fresh value
+    assert ingest._cached("riverdb:dup", 60, slow) == {"v": 1} and calls["n"] == 1
+    assert "riverdb:dup" not in ingest._inflight
+
+
+
+def test_inflight_marker_released_even_on_base_exception():
+    """Security review: a BaseException mid-fetch must not wedge the key (stale forever)."""
+    def teardown():
+        raise SystemExit("thread teardown")
+    try:
+        ingest._cached("k-wedge", 60, teardown)
+    except SystemExit:
+        pass
+    assert "k-wedge" not in ingest._inflight
+    assert ingest._cached("k-wedge", 60, lambda: {"ok": 1}) == {"ok": 1}     # refetches normally
+
+
+def test_shared_key_inflight_returns_last_good_not_none(monkeypatch):
+    """cdec:river is shared by both creeks: while one creek's refresh is in flight, the other
+    must get the last good value (flagged stale), not None ('no river data')."""
+    import threading as th
+    import time as _t
+    assert ingest._cached("cdec:shared", 60, lambda: {"stations": ["JBR"]}) == {"stations": ["JBR"]}
+    clock = {"t": ingest.time.time() + 120}                          # past the ttl: needs a refresh
+    monkeypatch.setattr(ingest.time, "time", lambda: clock["t"])
+    release = th.Event()
+    t = th.Thread(target=lambda: ingest._cached("cdec:shared", 60, lambda: release.wait(3) and {"stations": ["JBR", "ENG"]}))
+    t.start()
+    deadline = _t.monotonic() + 2
+    while "cdec:shared" not in ingest._inflight and _t.monotonic() < deadline:
+        release.wait(0.01)
+    other = ingest._cached("cdec:shared", 60, lambda: {"stations": ["DUPLICATE"]})
+    assert other == {"stations": ["JBR"], "stale": True}             # last good, not None, no 2nd fetch
+    release.set()
+    t.join(3)
+
+
+def test_cold_shared_key_waits_for_inflight_fetch_instead_of_none():
+    """Oracle #81: cold process, obs:KGOO shared by both creeks. While wolf's fetch is in flight,
+    a concurrent deer caller must get the fresh value, not None (which the API caches 600 s)."""
+    import threading as th
+    import time as _t
+    release, calls = th.Event(), {"n": 0}
+
+    def slow_kgoo():
+        calls["n"] += 1
+        release.wait(3)
+        return {"temp_f": 61.0}
+    wolf = th.Thread(target=lambda: ingest._cached("obs:KGOO-cold", 900, slow_kgoo))
+    wolf.start()
+    deadline = _t.monotonic() + 2
+    while "obs:KGOO-cold" not in ingest._inflight and _t.monotonic() < deadline:
+        release.wait(0.01)
+    got = {}
+    deer = th.Thread(target=lambda: got.setdefault("v", ingest._cached("obs:KGOO-cold", 900, slow_kgoo)))
+    deer.start()
+    release.wait(0.2)
+    assert deer.is_alive()                                   # cold: waiting, not answering None
+    release.set()
+    wolf.join(3)
+    deer.join(3)
+    assert got["v"] == {"temp_f": 61.0} and calls["n"] == 1  # fresh value, still one upstream call
+
+
+def test_cold_shared_key_waiter_gets_none_if_owner_fails():
+    import threading as th
+    release = th.Event()
+
+    def failing():
+        release.wait(3)
+        raise OSError("upstream down")
+    owner = th.Thread(target=lambda: ingest._cached("cold-fail", 900, failing))
+    owner.start()
+    while "cold-fail" not in ingest._inflight:
+        release.wait(0.01)
+    got = {}
+    waiter = th.Thread(target=lambda: got.setdefault("v", ingest._cached("cold-fail", 900, lambda: {"dup": 1})))
+    waiter.start()
+    release.set()
+    owner.join(3)
+    waiter.join(3)
+    assert got["v"] is None and "cold-fail" in ingest._failed   # honest None, no duplicate fetch
+
+
+def test_peek_respects_ttl():
+    ingest._cached("peek-k", 60, lambda: {"v": 1})
+    assert ingest._peek("peek-k", ttl=60) == {"v": 1}
+    assert ingest._peek("peek-k", ttl=0) == {"v": 1, "stale": True}    # expired -> flagged stale
+    assert ingest._peek("never") is None
+
+
+def test_waiters_woken_only_after_result_is_stored(monkeypatch):
+    """Store-then-wake ordering. The race window is between waking waiters (ev.set) and storing
+    the result; a set() that pauses after waking widens exactly that gap, so a wake-before-store
+    implementation deterministically hands the waiter None."""
+    import threading as th
+    import types
+
+    class PausingEvent(th.Event):
+        def set(self):
+            super().set()
+            th.Event().wait(0.3)             # owner lingers after waking waiters
+    monkeypatch.setattr(ingest, "threading", types.SimpleNamespace(Event=PausingEvent))
+    release = th.Event()
+    owner = th.Thread(target=lambda: ingest._cached("race-k", 60, lambda: release.wait(3) and {"v": 1}))
+    owner.start()
+    while "race-k" not in ingest._inflight:
+        release.wait(0.01)
+    got = {}
+    waiter = th.Thread(target=lambda: got.setdefault("v", ingest._cached("race-k", 60, lambda: {"dup": 1})))
+    waiter.start()
+    release.wait(0.05)
+    release.set()
+    owner.join(3)
+    waiter.join(3)
+    assert got["v"] == {"v": 1}
