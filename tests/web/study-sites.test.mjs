@@ -42,6 +42,9 @@ async function run(wolfHist, deerHist, { scheme = 'light', shots = false } = {})
     r.othersSummary = await h.locator('details.h-others > summary').textContent().catch(() => '');
     r.others = await h.locator('details.h-others .h-station h4').allTextContents();
     r.waters = await h.locator('details.h-others .h-water').allTextContents();
+    // French Ravine 2024-07-10 is censored (qual ">", above the 2419.6 upper limit): never an exact bar.
+    const fr = h.locator('.h-station[aria-label="French Ravine at Hidden Valley Road"]');
+    r.frBars = await fr.locator('rect.hb').count(); r.frCaption = await fr.locator('figcaption').textContent().catch(() => '');
     r.ctxLinks = await h.locator('.credit a').evaluateAll((a) => a.map((x) => ({ href: x.getAttribute('href'), text: x.textContent })));
     if (shots) {
       await h.locator('details.h-others').evaluate((d) => { d.open = true; });
@@ -75,6 +78,7 @@ const checks = {
   neverUnsafe: ![L.popup, R.dark.popup].some((t) => /unsafe|toxic|danger/i.test(t)),
   contextLinkOnly: L.popLinks.some((l) => l.href === HIST.studies[0].context_url && l.target === '_blank') && L.ctxLinks.some((l) => l.href === HIST.studies[0].context_url && /Regional Board’s map|Regional Board's map/.test(l.text)),
   panelOursTopOthersCollapsed: L.top.length === 2 && /Other sites in this study \(7\)/.test(L.othersSummary) && L.others.length === 7 && L.waters.includes('French Ravine (tributary)'),
+  censoredNotExact: L.frBars === 12 && /1 result\(s\) outside the lab’s measuring range \(>2419\.6\) not drawn as exact values/.test(L.frCaption),
   edgeHttpsOnly: !R.edge.popLinks.some((l) => /^http:/.test(l.href)) && !R.edge.ctxLinks.some((l) => /^http:/.test(l.href)),
   edgeEscapedAndBadCoords: !R.edge.xss && !R.edge.injected && R.edge.titles.length === 5 && R.edge.titles.some((t) => t.includes('<img')),
   noPageErrors: !L.errs.length && !R.dark.errs.length && !R.edge.errs.length,
