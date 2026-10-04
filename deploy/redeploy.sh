@@ -40,6 +40,11 @@ CW_VAR="${CW_VAR:-/srv/creekwatch}"
 VOLUME="${CW_VOLUME:-creekwatch-data}"
 HOSTNAME_PUBLIC=creekwatch.realm.watch
 HEALTH_TIMEOUT="${CW_HEALTH_TIMEOUT:-60}"
+# Resource caps so a hostile/huge upload OOM-kills the container (restart: unless-stopped), not ubox0.
+# Idle ~60 MB; one worst-case image decode measured ~600 MB maxrss (Oracle gate-13-17), so 1.5 GB fits two
+# concurrent worst cases. pids: ~14 in use.
+CW_MEMORY="${CW_MEMORY:-1536m}"
+CW_PIDS="${CW_PIDS:-256}"
 
 log() { printf '%s redeploy: %s\n' "$(date '+%F %T %Z')" "$*"; }
 die() { log "FAIL: $*"; exit 1; }
@@ -67,6 +72,7 @@ run_app() {  # $1 = container name, $2 = host port, $3 = image, $4 = restart pol
     -e "GIT_SHA=$SHA" -e "CREEKWATCH_PUBLIC_URL=https://${HOSTNAME_PUBLIC}" \
     "${envfile[@]}" \
     --log-opt max-size=10m --log-opt max-file=3 \
+    --memory "$CW_MEMORY" --memory-swap "$CW_MEMORY" --pids-limit "$CW_PIDS" \
     "$3" >/dev/null
 }
 
@@ -99,8 +105,11 @@ case "${1:-}" in
 esac
 
 mkdir -p "$BASE"
-[ -d "$SRC/.git" ] || git clone -q "$REPO" "$SRC"
-git -C "$SRC" fetch -q --prune origin
+# A stalled GitHub connection once hung `git fetch` for 12+ min, and a hung run blocks the timer
+# (OnUnitActiveSec never re-arms). Bound it; a network failure is NOT recorded as a failed sha.
+export GIT_SSH_COMMAND="ssh -o BatchMode=yes -o ConnectTimeout=15 -o ServerAliveInterval=15 -o ServerAliveCountMax=3"
+[ -d "$SRC/.git" ] || timeout 120 git clone -q "$REPO" "$SRC" || die "git clone failed or timed out"
+timeout 90 git -C "$SRC" fetch -q --prune origin || die "git fetch failed or timed out (network?); will retry next tick"
 SHA=$(git -C "$SRC" rev-parse --verify "${REF}^{commit}" 2>/dev/null || git -C "$SRC" rev-parse --verify "origin/${REF}^{commit}")
 SHORT=${SHA:0:12}
 

@@ -28,6 +28,8 @@ phone ─► Cloudflare edge (proxied CNAME, TLS) ─► cloudflared tunnel on u
 
 The container's port and data path come from the image's own `EXPOSE` and `VOLUME`. Whichever path that is, the **same named volume `creekwatch-data`** is mounted there, so an app-side contract change (for example 8080 with /srv/creekwatch → 8000 with /app/var) can't strand deploys or orphan the reports.
 
+The container runs with `--memory 1536m --memory-swap 1536m --pids-limit 256`, overridable with `CW_MEMORY` and `CW_PIDS`. Idle is about 60 MB; one worst-case image decode measured about 600 MB; and an OOM kills only the container, which then restarts. `git fetch` is bounded (90 s, plus ssh keepalives). A stall once hung the timer for 12 minutes, and a network failure is never recorded as a bad sha.
+
 A sha that fails is written to `~/creekwatch/failed.shas`, and the timer won't retry it. A new merge, or a manual run, will. Measured swap gap: one probe miss at a 0.5 s interval, so about 1 s.
 
 ## Backups
@@ -52,7 +54,7 @@ docker start creekwatch
 - `redeploy.sh`: build, stage, swap, verify and roll back. It re-execs itself on ubox0 and forwards `CW_*` overrides.
 - `install.sh`: idempotent. It copies `redeploy.sh` to `~/creekwatch/bin/` on ubox0 and installs and enables `creekwatch-redeploy.{service,timer}`. The installed copy is **never** self-updated from `main`: it runs on the host as a docker-group user, so a merge may only change what runs inside the container. Re-run `install.sh` to adopt a changed `redeploy.sh`.
 - `Caddyfile.snippet`: the site block in `/etc/caddy/Caddyfile` on ubox0. Besides the proxy it sets two things:
-  - Tunnel traffic gets `X-Forwarded-For` from `CF-Connecting-IP`, so per-IP rate limiting sees real phones and not cloudflared. Requests that reach Caddy directly, with no CF header, keep Caddy's own XFF.
+  - Tunnel traffic gets `X-Forwarded-For` from `CF-Connecting-IP`, so per-IP rate limiting sees real phones and not cloudflared. Only requests from cloudflared on localhost are trusted for `CF-Connecting-IP`. Anything that reaches Caddy directly has that header stripped and XFF set to its real peer, so another VLAN can't forge its IP.
   - `Cache-Control` keeps the Cloudflare edge from caching: photos are marked `private`, so deletion is effective, and everything else is `no-cache`, so a redeploy reaches phones at once. Every response is `no-transform`, which stops Cloudflare injecting its Web Analytics beacon; the About page promises no trackers.
 - `cloudflared-ingress.yml`: the rule in `/etc/cloudflared/config.yml`, placed above the catch-all 404. It shares the tunnel with `list.techempower.org`.
 - `backup.sh` plus `creekwatch-backup.{service,timer}`: the hourly off-host backup described above.
