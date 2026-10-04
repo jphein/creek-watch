@@ -24,11 +24,15 @@ class USGSFlow(Source):
     poll_interval_s = 900
 
     def _fetch(self, now: datetime) -> list[dict]:
+        return self.from_conditions(now, ingest.get_conditions)
+
+    def from_conditions(self, now: datetime, get_conditions) -> list[dict]:
         out = []
         for creek_id in ingest.SOURCES:
-            g = (ingest.get_conditions(creek_id) or {}).get("gauge")
+            g = (get_conditions(creek_id) or {}).get("gauge")
             if not g or g.get("pct_of_median") is None:
-                continue
+                # Unknown is not "normal": raise so a full-set store doesn't resolve live alerts.
+                raise RuntimeError(f"no usable gauge reading for {creek_id}")
             pct = g["pct_of_median"]
             if pct >= 300:
                 cat, sev, words = "high_flow", "watch", "far above normal (storm runoff likely)"
@@ -105,7 +109,7 @@ class OEHHA(Source):
 
     def _fetch(self, now: datetime) -> list[dict]:
         d = http.get_json("https://data.ca.gov/api/3/action/datastore_search"
-                          f"?resource_id={self.RESOURCE}&q=Nevada&limit=200", timeout=60)
+                          f"?resource_id={self.RESOURCE}&q=Nevada&limit=200", timeout=10)
         out = []
         for r in d["result"]["records"]:
             try:

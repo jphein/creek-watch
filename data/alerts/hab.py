@@ -38,7 +38,7 @@ class HAB(Source):
                f'WHERE "Bloom_Latitude" BETWEEN {s} AND {n} AND "Bloom_Longitude" BETWEEN {w} AND {e} '
                f'AND "Observation_Date" >= \'{since}\' ORDER BY "Observation_Date" DESC LIMIT 500')
         d = http.get_json("https://data.ca.gov/api/3/action/datastore_search_sql?sql=" + urllib.parse.quote(sql),
-                          timeout=60)
+                          timeout=10)
         return self.from_records(d["result"]["records"], now)
 
     def from_records(self, records, now: datetime) -> list[dict]:

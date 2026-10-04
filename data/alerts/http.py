@@ -14,7 +14,7 @@ _cond: dict[str, tuple[str | None, str | None, str]] = {}   # url -> (etag, last
 _lock = threading.Lock()
 
 
-def get_text(url: str, timeout: float = 20, conditional: bool = False, accept: str = "*/*") -> str:
+def get_text(url: str, timeout: float = 10, conditional: bool = False, accept: str = "*/*") -> str:
     """GET url as text. With conditional=True, sends If-None-Match/If-Modified-Since and
     returns the cached body on 304 (used for the 10 MB daily sewage-spill file)."""
     headers = {"User-Agent": UA, "Accept": accept}
@@ -41,5 +41,5 @@ def get_text(url: str, timeout: float = 20, conditional: bool = False, accept: s
         raise
 
 
-def get_json(url: str, timeout: float = 20, accept: str = "application/json"):
+def get_json(url: str, timeout: float = 10, accept: str = "application/json"):
     return json.loads(get_text(url, timeout=timeout, accept=accept))

@@ -21,7 +21,43 @@ from .sso import SSO
 
 REGISTRY: dict[str, Source] = {s.id: s for s in (NWS(), NWPS(), USGSFlow(), SSO(), HAB(), RiverDBBacteria(), OEHHA())}
 
-__all__ = ["REGISTRY", "fetch_all", "creekwatch_alerts", "SEVERITY_ORDER", "SEVERITIES", "make_alert", "Source"]
+__all__ = ["ADAPTERS", "REGISTRY", "fetch_all", "creekwatch_alerts", "SEVERITY_ORDER", "SEVERITIES", "make_alert", "Source"]
+
+
+
+# ---- API poller interface (agreed with morpheus-creekwatch-api) ----------------------------
+# Each adapter: .source, .source_name, .interval_s, .fetch(ctx) -> list[Alert].
+# Contract: a successful fetch returns the FULL current set (the store expires what's missing),
+# so adapters RAISE on failure instead of returning a partial or empty list.
+class _Adapter:
+    def __init__(self, src: Source, fn=None):
+        self.source, self.source_name, self.interval_s = src.id, src.name, src.poll_interval_s
+        self._src, self._fn = src, fn
+
+    def fetch(self, ctx) -> list[dict]:
+        return self._fn(ctx) if self._fn else self._src._fetch(ctx.now)   # raises on failure
+
+    def __repr__(self):
+        return f"<alert adapter {self.source} every {self.interval_s}s>"
+
+
+class _CreekWatchSource(Source):
+    id, name, poll_interval_s = "creekwatch", "Creek Watch", 300
+
+
+def _creekwatch_fetch(ctx) -> list[dict]:
+    from .. import score
+    out = []
+    for cid in ctx.creek_ids:
+        health = score.compute_health(cid, ctx.reports(cid, days=14), ctx.conditions(cid), now=ctx.now)
+        out += creekwatch_alerts(cid, health, ctx.now)
+    return out
+
+
+ADAPTERS = [_Adapter(REGISTRY[i]) for i in ("nws", "nwps", "sso", "hab", "riverdb", "oehha")] + [
+    _Adapter(REGISTRY["usgs"], lambda ctx: REGISTRY["usgs"].from_conditions(ctx.now, ctx.conditions)),
+    _Adapter(_CreekWatchSource(), _creekwatch_fetch),
+]
 
 _pool = ThreadPoolExecutor(max_workers=8, thread_name_prefix="creekwatch-alerts")
 

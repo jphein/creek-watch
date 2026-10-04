@@ -41,7 +41,7 @@ class SSO(Source):
     poll_interval_s = 12 * 3600
 
     def _fetch(self, now: datetime) -> list[dict]:
-        text = http.get_text(URL, timeout=90, conditional=True)
+        text = http.get_text(URL, timeout=60, conditional=True)  # 10 MB daily file: needs > 10 s
         latest: dict[str, dict] = {}
         for r in csv.DictReader(io.StringIO(text), delimiter="\t"):
             stype = (r.get("SPILL_TYPE") or "").strip()

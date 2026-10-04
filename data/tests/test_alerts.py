@@ -5,6 +5,9 @@ import pathlib
 import time
 from datetime import datetime, timezone
 
+import re
+import types
+
 import pytest
 
 from data import alerts, score, wq
@@ -15,6 +18,7 @@ from data.alerts.nws import NWS, stable_id
 from data.alerts.others import OEHHA, RiverDBBacteria, creekwatch_alerts
 from data.alerts.sso import SSO
 
+ID_RE = re.compile(r"^[a-z0-9_]+:[A-Za-z0-9._:/#-]{1,200}$")   # backend validation (morpheus)
 FIX = pathlib.Path(__file__).resolve().parent.parent / "alerts" / "fixtures"
 NOW = datetime(2026, 10, 4, 3, 0, tzinfo=timezone.utc)        # Sat 2026-10-03 20:00 PDT
 NWS_FIX = json.loads((FIX / "nws_active_point.json").read_text())
@@ -47,8 +51,11 @@ def offline(monkeypatch):
 
 
 def assert_spec_shape(a):
-    assert set(a) == {"id", "source", "source_name", "category", "severity", "title", "summary",
-                      "instruction", "area", "effective", "expires", "updated", "status", "url", "attribution"}
+    core = {"id", "source", "source_name", "category", "severity", "title", "summary",
+            "instruction", "area", "effective", "expires", "updated", "status", "url", "attribution"}
+    cap = {"event", "cap_urgency", "cap_severity", "cap_certainty"}   # optional CAP passthrough (NWS)
+    assert core <= set(a) <= core | cap
+    assert ID_RE.match(a["id"]), a["id"]                              # the API's validation regex
     assert set(a["area"]) == {"creek_ids", "site_ids", "lat", "lon", "polygon_geojson", "area_desc"}
     assert a["id"].startswith(a["source"] + ":")
     assert a["severity"] in model.SEVERITY_ORDER and a["category"] in model.CATEGORIES
@@ -203,3 +210,63 @@ def test_score_ecoli_rule_ignores_old_or_low_samples():
     for age, ec in ((90, 900), (13, 300)):
         h = score.compute_health("deer", [], _wq(age, ec), now=NOW)
         assert not any(w["id"] == "bacteria_watch" for w in h["warnings"])
+
+
+# ---- API poller contract (ADAPTERS, fetch(ctx), full current set, raise on failure) -------
+def ctx(reports=None, conditions=None):
+    return types.SimpleNamespace(
+        now=NOW, creek_ids=["wolf", "deer"], creeks=[],
+        reports=lambda cid, days=14: (reports or {}).get(cid, []),
+        conditions=lambda cid: (conditions or {}).get(cid, {"gauge": None, "weather": None}))
+
+
+GAUGE = {"site_no": "11418500", "name": "DEER C NR SMARTSVILLE CA", "discharge_cfs": 40.0,
+         "observed_at": "2026-10-04T02:45:00Z", "on_creek": True, "source_url": "https://waterdata.usgs.gov/x"}
+
+
+def test_adapters_shape_and_ids():
+    ads = {a.source: a for a in alerts.ADAPTERS}
+    assert set(ads) == {"nws", "nwps", "sso", "hab", "riverdb", "oehha", "usgs", "creekwatch"}
+    c = ctx(conditions={k: {"gauge": dict(GAUGE, pct_of_median=100)} for k in ("wolf", "deer")})
+    for src, ad in ads.items():
+        assert ad.source_name and ad.interval_s >= 300
+        for a in ad.fetch(c):
+            assert_spec_shape(a)
+
+
+def test_nws_adapter_raises_on_partial_outage(monkeypatch):
+    ok = route()
+
+    def half(url, **kw):
+        if "39.2081" in url:                       # Wolf point down, Deer point fine
+            raise OSError("timeout")
+        return ok(url, **kw)
+    monkeypatch.setattr(http, "get_text", half)
+    nws = next(a for a in alerts.ADAPTERS if a.source == "nws")
+    with pytest.raises(RuntimeError, match="wolf"):
+        nws.fetch(ctx())                           # never a partial set the store would 'resolve'
+    assert NWS().fetch(NOW) == [] and alerts.REGISTRY["nws"].fetch(NOW) == []  # non-raising path still safe
+
+
+def test_nws_cap_passthrough():
+    (a,) = NWS().fetch(NOW)
+    assert (a["event"], a["cap_severity"], a["cap_urgency"], a["cap_certainty"]) == \
+        ("Heat Advisory", "Moderate", "Expected", "Likely")
+
+
+def test_usgs_adapter_uses_ctx_and_raises_when_blind():
+    usgs = next(a for a in alerts.ADAPTERS if a.source == "usgs")
+    high = {k: {"gauge": dict(GAUGE, pct_of_median=450, on_creek=(k == "deer"))} for k in ("wolf", "deer")}
+    out = usgs.fetch(ctx(conditions=high))
+    deer = [a for a in out if a["area"]["creek_ids"] == ["deer"]]
+    assert deer and deer[0]["category"] == "high_flow" and deer[0]["severity"] == "watch"
+    with pytest.raises(RuntimeError, match="no usable gauge"):
+        usgs.fetch(ctx())                          # gauge unknown: don't report "all clear"
+
+
+def test_creekwatch_adapter_from_ctx_reports():
+    cw = next(a for a in alerts.ADAPTERS if a.source == "creekwatch")
+    dead = {"deer": [{"observed_at": "2026-10-04T02:00:00Z", "dead_fish": True}]}
+    out = cw.fetch(ctx(reports=dead))
+    assert [a["id"] for a in out] == ["creekwatch:deer:contamination_alert"]
+    assert cw.fetch(ctx()) == []                   # warning gone -> full set empty -> store expires it

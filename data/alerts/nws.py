@@ -66,7 +66,9 @@ class NWS(Source):
                 # keep the newest message of the thread
                 if sid not in seen or (p.get("sent") or "") > (seen[sid]["properties"].get("sent") or ""):
                     seen[sid] = f
-        if errors and not seen and len(errors) == len(POINTS):
+        if errors:
+            # The API poller treats a successful fetch as the FULL current set, so a partial
+            # result would wrongly resolve the failed point's alerts. Fail the whole fetch.
             raise RuntimeError("; ".join(errors))
         out = []
         for sid, f in seen.items():
@@ -79,7 +81,7 @@ class NWS(Source):
             else:
                 status = "active"
             lat, lon = POINTS[sorted(creeks_for[sid])[0]]
-            out.append(make_alert(
+            a = make_alert(
                 source="nws", source_id=sid, source_name=p.get("senderName") or self.name,
                 category=category_for(p["event"]),
                 severity=CAP_SEVERITY.get((p.get("severity") or "").lower(), "info"),
@@ -93,5 +95,9 @@ class NWS(Source):
                 creek_ids=sorted(creeks_for[sid]), site_ids=[],
                 url=f"https://forecast.weather.gov/MapClick.php?lat={lat}&lon={lon}",
                 attribution=self.attribution,
-            ))
+            )
+            # Optional CAP 1.2 passthrough (API's CAP feed uses these verbatim, not re-derived).
+            a.update(event=p["event"], cap_urgency=p.get("urgency"), cap_severity=p.get("severity"),
+                     cap_certainty=p.get("certainty"))
+            out.append(a)
         return out
