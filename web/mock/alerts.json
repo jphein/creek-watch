@@ -139,7 +139,7 @@
   "url": "https://alerts.weather.gov/"
  },
  {
-  "instruction": null,
+  "instruction": "Consider skipping swimming or putting your face in the water here until a newer test comes back lower, and wash hands after contact.",
   "status": "active",
   "updated": "2026-10-04T01:40:00Z",
   "expires": null,
@@ -148,9 +148,9 @@
   "source": "riverdb",
   "source_name": "RiverDB volunteer monitoring (Sierra Streams Institute)",
   "category": "bacteria",
-  "severity": "advisory",
-  "title": "High E. coli at Pioneer Park",
-  "summary": "A volunteer test found E. coli at 410 per 100 mL, above 320 (the state's statistical threshold; one sample isn't a violation). Avoid swallowing the water.",
+  "severity": "watch",
+  "title": "E. coli above the recreational threshold at Little Deer Creek at Pioneer Park",
+  "summary": "A volunteer test on Oct 1, 2026 measured E. coli of 410 MPN/100 mL at Little Deer Creek at Pioneer Park, above California's recreational water-quality threshold of 320 (a statistical threshold, not a single-sample limit). It also lowers this creek's Creek Watch score.",
   "area": {
    "creek_ids": [
     "deer"
