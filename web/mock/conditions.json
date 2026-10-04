@@ -361,6 +361,81 @@
     }
    ],
    "fetched_at": "2026-10-04T04:00:00Z"
+  },
+  "swim_holes": {
+   "stations": [
+    {
+     "station_id": "17592186178137",
+     "name": "Purdon Crossing",
+     "river": "South Yuba River",
+     "lat": 39.32772,
+     "lon": -121.04731,
+     "date": "2026-08-08",
+     "age_days": 57,
+     "ecoli_mpn_100ml": 5.2,
+     "live": false,
+     "stale": false,
+     "credit": "South Yuba River Citizens League volunteer bacteria monitoring, via RiverDB",
+     "source_url": "https://riverdb.org/org/SYRCL"
+    },
+    {
+     "station_id": "17592186178152",
+     "name": "Edwards Crossing",
+     "river": "South Yuba River",
+     "lat": 39.33029,
+     "lon": -120.98347,
+     "date": "2026-08-08",
+     "age_days": 57,
+     "ecoli_mpn_100ml": 5.2,
+     "live": false,
+     "stale": false,
+     "credit": "South Yuba River Citizens League volunteer bacteria monitoring, via RiverDB",
+     "source_url": "https://riverdb.org/org/SYRCL"
+    },
+    {
+     "station_id": "17592186178153",
+     "name": "Hwy 49 bridge (below)",
+     "river": "South Yuba River",
+     "lat": 39.2979,
+     "lon": -121.08923,
+     "date": "2026-08-08",
+     "age_days": 57,
+     "ecoli_mpn_100ml": 11.0,
+     "live": false,
+     "stale": false,
+     "credit": "South Yuba River Citizens League volunteer bacteria monitoring, via RiverDB",
+     "source_url": "https://riverdb.org/org/SYRCL"
+    },
+    {
+     "station_id": "17592186178155",
+     "name": "Bridgeport (South Yuba River State Park)",
+     "river": "South Yuba River",
+     "lat": 39.29267,
+     "lon": -121.19778,
+     "date": "2026-08-08",
+     "age_days": 57,
+     "ecoli_mpn_100ml": 4.1,
+     "live": false,
+     "stale": false,
+     "credit": "South Yuba River Citizens League volunteer bacteria monitoring, via RiverDB",
+     "source_url": "https://riverdb.org/org/SYRCL"
+    },
+    {
+     "station_id": "17592186178191",
+     "name": "Oregon Creek swimming hole",
+     "river": "Middle Yuba River (Oregon Creek)",
+     "lat": 39.404972,
+     "lon": -121.0754,
+     "date": "2026-08-08",
+     "age_days": 57,
+     "ecoli_mpn_100ml": 9.8,
+     "live": false,
+     "stale": false,
+     "credit": "South Yuba River Citizens League volunteer bacteria monitoring, via RiverDB",
+     "source_url": "https://riverdb.org/org/SYRCL"
+    }
+   ],
+   "fetched_at": "2026-10-04T14:09:43Z"
   }
  },
  "deer": {
@@ -485,6 +560,81 @@
     }
    ],
    "fetched_at": "2026-10-04T04:00:00Z"
+  },
+  "swim_holes": {
+   "stations": [
+    {
+     "station_id": "17592186178137",
+     "name": "Purdon Crossing",
+     "river": "South Yuba River",
+     "lat": 39.32772,
+     "lon": -121.04731,
+     "date": "2026-08-08",
+     "age_days": 57,
+     "ecoli_mpn_100ml": 5.2,
+     "live": false,
+     "stale": false,
+     "credit": "South Yuba River Citizens League volunteer bacteria monitoring, via RiverDB",
+     "source_url": "https://riverdb.org/org/SYRCL"
+    },
+    {
+     "station_id": "17592186178152",
+     "name": "Edwards Crossing",
+     "river": "South Yuba River",
+     "lat": 39.33029,
+     "lon": -120.98347,
+     "date": "2026-08-08",
+     "age_days": 57,
+     "ecoli_mpn_100ml": 5.2,
+     "live": false,
+     "stale": false,
+     "credit": "South Yuba River Citizens League volunteer bacteria monitoring, via RiverDB",
+     "source_url": "https://riverdb.org/org/SYRCL"
+    },
+    {
+     "station_id": "17592186178153",
+     "name": "Hwy 49 bridge (below)",
+     "river": "South Yuba River",
+     "lat": 39.2979,
+     "lon": -121.08923,
+     "date": "2026-08-08",
+     "age_days": 57,
+     "ecoli_mpn_100ml": 11.0,
+     "live": false,
+     "stale": false,
+     "credit": "South Yuba River Citizens League volunteer bacteria monitoring, via RiverDB",
+     "source_url": "https://riverdb.org/org/SYRCL"
+    },
+    {
+     "station_id": "17592186178155",
+     "name": "Bridgeport (South Yuba River State Park)",
+     "river": "South Yuba River",
+     "lat": 39.29267,
+     "lon": -121.19778,
+     "date": "2026-08-08",
+     "age_days": 57,
+     "ecoli_mpn_100ml": 4.1,
+     "live": false,
+     "stale": false,
+     "credit": "South Yuba River Citizens League volunteer bacteria monitoring, via RiverDB",
+     "source_url": "https://riverdb.org/org/SYRCL"
+    },
+    {
+     "station_id": "17592186178191",
+     "name": "Oregon Creek swimming hole",
+     "river": "Middle Yuba River (Oregon Creek)",
+     "lat": 39.404972,
+     "lon": -121.0754,
+     "date": "2026-08-08",
+     "age_days": 57,
+     "ecoli_mpn_100ml": 9.8,
+     "live": false,
+     "stale": false,
+     "credit": "South Yuba River Citizens League volunteer bacteria monitoring, via RiverDB",
+     "source_url": "https://riverdb.org/org/SYRCL"
+    }
+   ],
+   "fetched_at": "2026-10-04T14:09:43Z"
   }
  }
 }
