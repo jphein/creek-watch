@@ -159,13 +159,40 @@ class DataLayer:
         self.ttl = conditions_ttl_s
         self._cache: dict[str, tuple[float, dict]] = {}
         self._lock = threading.Lock()
+        self._inflight: dict[str, threading.Lock] = {}   # single-flight: one upstream fetch per creek
 
-    def conditions(self, creek_id: str) -> dict[str, Any]:
-        now = time.monotonic()
+    def _fresh(self, creek_id: str) -> dict[str, Any] | None:
         with self._lock:
             hit = self._cache.get(creek_id)
-            if hit and now - hit[0] < self.ttl:
+            if hit and time.monotonic() - hit[0] < self.ttl:
                 return hit[1]
+        return None
+
+    def conditions(self, creek_id: str) -> dict[str, Any]:
+        hit = self._fresh(creek_id)
+        if hit is not None:
+            return hit
+        with self._lock:
+            flight = self._inflight.setdefault(creek_id, threading.Lock())
+        # Concurrent callers (e.g. the startup warm-up and the first page load after a redeploy) wait
+        # for the one in-flight fetch instead of each paying the slow upstream (RiverDB: 2 x 5 s).
+        with flight:
+            hit = self._fresh(creek_id)
+            if hit is not None:
+                return hit
+            return self._fetch(creek_id)
+
+    def warm(self, creek_ids: list[str]) -> None:
+        """Prefetch conditions (startup): in-memory caches and back-off state don't survive a
+        container swap, so without this the first visitor after every redeploy waits for upstreams."""
+        for cid in creek_ids:
+            try:
+                self.conditions(cid)
+            except Exception:
+                log.exception("conditions warm-up for %s failed", cid)
+
+    def _fetch(self, creek_id: str) -> dict[str, Any]:
+        now = time.monotonic()
         try:
             result = self._get_conditions(creek_id)
         except Exception as e:  # upstream USGS/NWS hiccups must not 500 the page

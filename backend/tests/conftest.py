@@ -12,6 +12,8 @@ from creekwatch.main import create_app
 def hermetic(monkeypatch):
     # Unit tests use the built-in stubs; the data package is exercised in test_integration_data.py.
     monkeypatch.setenv("CREEKWATCH_USE_DATA_PKG", "0")
+    # no background conditions warm-up in tests unless a test opts in (keeps tests offline/deterministic)
+    monkeypatch.setenv("CREEKWATCH_WARM_CONDITIONS", "0")
 
 
 @pytest.fixture
