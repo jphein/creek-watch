@@ -12,7 +12,7 @@ const CREEKS = JSON.parse(mock('creeks'));
 CREEKS.find((c) => c.id === 'wolf').sites.push({ id: 'wolf-loma-rica-trail', name: 'Loma Rica Trail', lat: 39.2245, lon: -121.0263 });
 
 // Station shapes as prod serves them (2026-10-04), plus edge cases.
-const wq = (o) => ({ agency: 'WCCA', site_id: null, date: '2019-12-19', age_days: 2481, readings: { do_mg_l: 9.5, water_temp_c: 7.5, ph: 7.2, turbidity_ntu: 1.2 },
+const wq = (o) => ({ agency: 'WCCA', site_id: null, source_url: `https://riverdb.org/station/${o.station_id}`, date: '2019-12-19', age_days: 2481, readings: { do_mg_l: 9.5, water_temp_c: 7.5, ph: 7.2, turbidity_ntu: 1.2 },
   visit_count: 25, live: false, stale: false, credit: 'Wolf Creek Community Alliance volunteer monitoring, via RiverDB', ...o });
 const STATIONS = [
   wq({ station_id: '285873023374516', name: 'WCCA Site 2 (Idaho Maryland Rd at Brunswick Rd)', lat: 39.224505, lon: -121.02629, site_id: 'wolf-loma-rica-trail' }),
@@ -67,6 +67,7 @@ for (const scheme of ['light', 'dark']) {
     const card = p.locator('.creek-card').first();
     r.card = await text(card);
     r.cardPrivate = await card.locator('.wq .access-note').count();
+    r.cardStationLinks = await card.locator('.wq a[href*="riverdb.org/station/"]').evaluateAll((as) => as.map((a) => a.getAttribute('href')));
     if (SHOTS) { await card.locator('.wq').scrollIntoViewIfNeeded(); await card.locator('.wq details').evaluate((d) => { d.open = true; }); await p.screenshot({ path: `${SHOTS}/wcca-card-${scheme}.png` }); }
     await p.goto(base + '#about'); await p.waitForSelector('#about-h');
     r.about = await text(p.locator('#page-about'));
@@ -91,6 +92,7 @@ const checks = {
   publicOverrideAndOtherAgency: !L.pub.t.includes('Private land') && !L.syrcl.t.includes('Private land'),
   upstreamEverywhere: [L.s15.t, L.s2.t, L.pin.t, L.card, L.about].every((t) => t.includes(UP)),
   cardScopedAndPrivate: /From anywhere on Wolf Creek; each card names its own spot\./.test(L.card) && L.cardPrivate >= 1,
+  noStationLinkOnPrivate: L.cardStationLinks.map((h) => h.split('/').pop()).sort().join() === 'pub1,syrcl1', // private WCCA sites lose the RiverDB link; public + non-WCCA keep it
   aboutPrivateLand: /private land.*not open to visitors/i.test(L.about),
   escaped: !L.xss && !L.injected,
   noPageErrors: !L.errs.length && !R.dark.errs.length,
