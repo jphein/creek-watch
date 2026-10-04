@@ -195,8 +195,10 @@ function cleanupCountHTML(cs) {
   const n = Number(cs?.cleanups) | 0, bags = Number(cs?.bags) | 0;
   if (!(n > 0)) return '';
   // Honour system (Oracle): always "reported", never presented as verified.
-  return `<p class="cleanup-count" title="Reported by volunteers in Creek Watch reports; not independently verified."><span aria-hidden="true">🧤</span> <span><strong>${n} reported cleanup${n === 1 ? '' : 's'}</strong>${
-    bags > 0 ? ` · <strong>${bags} bag${bags === 1 ? '' : 's'}</strong>` : ''}</span></p>`;
+  // Visible on the card, not only in a tooltip (phones don't show title tooltips).
+  const since = Date.parse(cs?.since || '') ? ` since ${new Date(cs.since).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}` : '';
+  return `<p class="cleanup-count"><span aria-hidden="true">🧤</span> <span><strong>${n} reported cleanup${n === 1 ? '' : 's'}</strong>${
+    bags > 0 ? ` · <strong>${bags} bag${bags === 1 ? '' : 's'}</strong>` : ''}${esc(since)} <span class="cc-note">(self-reported by volunteers)</span></span></p>`;
 }
 
 async function creekCard(c) {
