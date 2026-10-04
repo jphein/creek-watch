@@ -16,6 +16,7 @@ phone ─► Cloudflare edge (proxied CNAME, TLS) ─► cloudflared tunnel on u
 | Deploy now / a branch or sha | `deploy/redeploy.sh` · `deploy/redeploy.sh <ref>` |
 | See what's live | `deploy/redeploy.sh --status` |
 | Undo the last deploy | `deploy/redeploy.sh --rollback` |
+| Emergency rollback, without waiting for a running backup | `CW_SWAP_LOCK_WAIT=0 deploy/redeploy.sh --rollback` skips the backup-lock wait (up to 300 s) and rolls back at once. An in-flight backup may then fail for that hour (exit 1), and the next hourly run backs up normally. |
 | Timer logs | `ssh ubox0 journalctl -u creekwatch-redeploy -n 50` |
 | App logs | `ssh ubox0 docker logs --tail 100 creekwatch` |
 | Back up now / list backups | `deploy/backup.sh` · `deploy/backup.sh --list` (an hourly timer also runs it) |
