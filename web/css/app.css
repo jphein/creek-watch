@@ -625,6 +625,7 @@ details.more summary { cursor: pointer; font-weight: 700; color: var(--brand); p
   border-radius: var(--radius);
   box-shadow: var(--shadow);
   filter: var(--photo-filter);
+  pointer-events: none;
 }
 #page-dashboard::after {
   content: 'South Yuba River, Purdon Crossing' / '';
