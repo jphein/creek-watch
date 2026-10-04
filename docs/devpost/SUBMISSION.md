@@ -48,7 +48,7 @@ Creek health, wildlife health and human health are linked. Storm runoff carries 
 - **Awareness and stewardship:** filing a report teaches people what a healthy creek looks like.
 
 ## How we built it
-All code was written new for this hackathon on October 3–4, 2026, within the extended submission period.
+All code was written new for this hackathon on October 3–4, 2026, during the extended submission window (before the October 4, 9:00 pm PDT deadline).
 
 - **Backend:** Python 3.12, FastAPI and SQLite, run with uv. One process serves the JSON API (`/api/*`) and the static web app. Photo uploads are re-encoded with Pillow (with HEIC support), which strips EXIF and caps the size. Enum validation, per-IP rate limiting and a geofence reject reports far from the creeks.
 - **Frontend:** a no-build progressive web app in plain HTML, CSS and ES modules, with Leaflet and OpenStreetMap tiles. It is mobile-first and installable, with light and dark themes.
@@ -85,7 +85,7 @@ All code was written new for this hackathon on October 3–4, 2026, within the e
 
 ## Team
 - **Jeffrey "JP" Hein:** Sierra College student, full-stack developer, and founder of TechEMPOWER. Design and development.
-- **Alec ⟨fill: surname⟩:** student at ⟨fill: school⟩. Field reports, project description, demo narration, and testing.
+- **Alec:** student. Field reports, project description, demo narration, and testing.
 
 ## Built with
 `python` · `fastapi` · `sqlite` · `uv` · `pillow` · `javascript` · `html5` · `css3` · `leaflet` · `openstreetmap` · `usgs-water-services` · `national-weather-service-api` · `pwa` · `docker` · `caddy` · `cloudflare` · `claude-code`
