@@ -2,7 +2,7 @@
 // a cached fallback for GETs. POSTs (reports) always go to the network; the
 // page keeps its own offline outbox in IndexedDB.
 importScripts('js/idb-schema.js');
-const VERSION = 'cw-v5';
+const VERSION = 'cw-v6';
 const SHELL = [
   './', 'index.html', 'css/app.css', 'manifest.webmanifest',
   'js/app.js', 'js/api.js', 'js/ui.js', 'js/icons.js', 'js/store.js',
@@ -85,15 +85,22 @@ self.addEventListener('push', (e) => {
   const title = String(d.title || 'Creek Watch alert').slice(0, 110);
   let body = String(d.summary || d.body || 'Open Creek Watch for details.').slice(0, 200);
   // Never imply we replace official warnings: use the backend's notice when sent, else our own line (alert level).
-  if (typeof d.notice === 'string' && d.notice) body += ' · ' + d.notice.slice(0, 120);
-  else if (sev === 'alert') body += OFFICIAL_SUFFIX;
+  // Skip it when the body already carries the deferral (e.g. kind "welcome"), so it's never said twice.
+  const welcome = d.kind === 'welcome';
+  const hasDeferral = /Nevada County Alerts/i.test(body);
+  if (!welcome && !hasDeferral) {
+    if (typeof d.notice === 'string' && d.notice) body += ' · ' + d.notice.slice(0, 120);
+    else if (sev === 'alert') body += OFFICIAL_SUFFIX;
+  }
   // Backend sends url "/#alerts?id=<id>" (same-origin enforced below); build it from id if it doesn't. source_url is ignored.
-  const deep = typeof d.url === 'string' && d.url.includes('?id=') ? d.url : id ? `/#alerts?id=${encodeURIComponent(id)}` : d.url;
-  e.waitUntil(self.registration.showNotification(`${SEV_LABEL[sev]}: ${title}`, {
+  // Prefer the backend's url (alerts: "/#alerts?id=…"; welcome: "/#alerts"); build from id only if none was sent.
+  const deep = typeof d.url === 'string' && d.url ? d.url : id ? `/#alerts?id=${encodeURIComponent(id)}` : '/#alerts';
+  // A welcome is a confirmation, not an alert: no severity prefix, never sticky or re-alerting.
+  e.waitUntil(self.registration.showNotification(welcome ? title : `${SEV_LABEL[sev]}: ${title}`, {
     body,
     tag: String(d.tag || id || 'creekwatch'),        // same tag/id → an escalation replaces the earlier notification
-    renotify: sev === 'alert' || d.kind === 'escalated',
-    requireInteraction: sev === 'alert',
+    renotify: !welcome && (sev === 'alert' || d.kind === 'escalated'),
+    requireInteraction: !welcome && sev === 'alert',
     icon: 'icons/icon-192.png',
     badge: 'icons/badge-96.png',
     data: { url: safeTarget(deep), id },
