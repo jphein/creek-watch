@@ -889,3 +889,15 @@ html[data-save-data] .photo-figure { display: none; }
 .sp-river { display: block; font-size: 0.85rem; color: var(--muted); }
 .sp-date { padding: 6px 8px; border-radius: 8px; background: var(--surface-2); border: 1px solid var(--line); }
 .sp-note, .sp-flow { color: var(--ink-2); }
+
+/* ---------- monitoring sites: access + upstream notes (WCCA feedback) ---------- */
+.wq-pop p { margin: 6px 0 0; font-size: 0.92rem; }
+.access-note { display: flex; gap: 6px; align-items: flex-start; margin: 8px 0 0; padding: 6px 8px; border-radius: 8px; background: var(--brand-tint); border-left: 3px solid var(--brand); color: var(--ink); font-size: 0.85rem; font-weight: 600; line-height: 1.35; }
+.wq-vals { color: var(--ink-2); }
+.wq-near-h { font-weight: 800; font-size: 0.85rem !important; margin-top: 10px !important; }
+.wq-near { margin: 4px 0 0; padding-left: 18px; font-size: 0.88rem; }
+.wq-near li { margin: 2px 0; }
+.wq-none { color: var(--muted); font-size: 0.88rem !important; }
+.upstream-note { margin: 8px 0 0; font-size: 0.82rem; font-style: italic; color: var(--muted); }
+.leaflet-popup-content > .upstream-note { margin: 0 12px 10px; }
+.recent-scope { margin: -4px 0 8px; font-size: 0.85rem; color: var(--muted); }

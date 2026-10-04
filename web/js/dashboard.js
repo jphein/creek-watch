@@ -2,6 +2,7 @@
 // gauge + weather, 7-day report sparkline, recent reports.
 import { getCreeks, getHealth, getConditions, getReports, getAlerts, getCleanupStats, reportBand } from './api.js';
 import { esc, BANDS, bandLabel, timeAgo, reportCardHTML, signalLabel, signalValue, safeUrl, httpsUrl, alertHTML } from './ui.js';
+import { privateNoteHTML, upstreamNoteHTML } from './sites.js';
 
 const BAND_GLYPH = { good: '✓', fair: '~', watch: '!', alert: '✕' };
 
@@ -252,6 +253,7 @@ function stationHTML(st, { compact = false } = {}) {
       <span class="${old ? 'wq-old' : ''}">Tested ${esc(fmtDate(st.date))} (${esc(ageText(st.age_days))})${
         old ? ' — the latest published test here, shown as background only' : ''
       }</span></p>
+    ${privateNoteHTML(st)}
     ${compact ? '' : `<ul class="wq-list">${rows}</ul>`}
     <p class="credit">${esc(st.credit || st.agency || 'Volunteer monitoring')}${
       st.source_url ? ` · <a href="${esc(safeUrl(st.source_url))}" target="_blank" rel="noopener">data</a>` : ''
@@ -273,6 +275,7 @@ function wqHTML(cond) {
             .join('')}</details>`
         : ''
     }
+    ${upstreamNoteHTML()}
   </section>`;
 }
 
@@ -347,6 +350,7 @@ async function creekCard(c) {
     ${cleanupCountHTML(cleanups)}
     <div class="spark-wrap"><h4>Reports, last 7 days</h4>${spark.svg}<span class="spark-total">${spark.total}</span></div>
     <h3>Latest reports</h3>
+    <p class="recent-scope">From anywhere on ${esc(c.name)}; each card names its own spot.</p>
     <div class="recent">${
       recent.map((r) => reportCardHTML(r, c.name, siteName(r.site_id), { band: reportBand(r) })).join('') ||
       `<p class="muted">No reports yet this week. <a href="#report">Be the first.</a></p>`
@@ -358,6 +362,7 @@ async function creekCard(c) {
             .join('')}</div></details>`
         : ''
     }
+    ${reports.length ? upstreamNoteHTML() : ''}
     ${historyHTML(cond)}
     ${health?.last_updated ? `<p class="updated">Score updated ${esc(timeAgo(health.last_updated))}.</p>` : ''}
   </article>`;
