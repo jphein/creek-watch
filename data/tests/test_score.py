@@ -178,3 +178,38 @@ def test_temperature_text_matches_threshold():
     res = compute_health("deer", CLEAN, conditions(temp=89.6), now=NOW)
     s = sig(res, "air_temp")
     assert s["value"] == 90 and s["weight"] == -8 and "90°F" in s["explanation"]
+
+
+# --- volunteer lab data ------------------------------------------------------------
+def wq(age_days, **readings):
+    return {"stations": [{"name": "Test station", "date": "2026-09-01", "age_days": age_days,
+                          "readings": readings, "credit": "Test group via RiverDB"}]}
+
+
+def with_wq(w):
+    c = conditions()
+    c["water_quality"] = w
+    return c
+
+
+def test_recent_low_oxygen_sample_costs_points():
+    res = compute_health("deer", CLEAN, with_wq(wq(20, do_mg_l=4.2, ph=7.0)), now=NOW)
+    s = sig(res, "volunteer_lab_data")
+    assert s["weight"] == -15 and "dangerously low" in s["explanation"]
+
+
+def test_ecoli_over_state_threshold():
+    res = compute_health("deer", CLEAN, with_wq(wq(10, ecoli_mpn_100ml=900)), now=NOW)
+    assert sig(res, "volunteer_lab_data")["weight"] == -12
+
+
+def test_lab_sample_ageing():
+    assert sig(compute_health("deer", CLEAN, with_wq(wq(100, do_mg_l=4)), now=NOW), "volunteer_lab_data")["weight"] == -7.5
+    old = sig(compute_health("wolf", CLEAN, with_wq(wq(2400, do_mg_l=4)), now=NOW), "volunteer_lab_data")
+    assert old["weight"] == 0 and "too old" in old["explanation"]
+
+
+def test_healthy_lab_sample_no_penalty():
+    s = sig(compute_health("deer", CLEAN, with_wq(wq(5, do_mg_l=9.1, ph=7.3, turbidity_ntu=1.3, water_temp_c=14)), now=NOW),
+            "volunteer_lab_data")
+    assert s["weight"] == 0 and "healthy" in s["explanation"]

@@ -7,11 +7,12 @@ Creek Watch combines two kinds of information: **what people see at the creek** 
 | What | Source | How fresh | Notes |
 |---|---|---|---|
 | Citizen reports (water color, algae, trash, flow, smell, dead fish, photo) | People using Creek Watch at the creek | Live | Names are optional. The server strips GPS and other EXIF metadata from photos. |
-| Stream flow and water level | [USGS Water Data](https://waterdata.usgs.gov/) gauges (WaterServices, falling back to the new Water Data API) | Every 15 to 60 min (USGS updates hourly); we cache for 15 min | Values are *provisional* until USGS reviews them. |
+| Stream flow and water level | [USGS Water Data](https://waterdata.usgs.gov/) gauges (the new Water Data API, falling back to legacy WaterServices) | Every 15 to 60 min (USGS updates hourly); we cache for 15 min | Values are *provisional* until USGS reviews them. |
 | "Normal" flow for today's date | USGS daily statistics (25th, 50th and 75th percentile of all years on record) | Fixed snapshot (`flow_stats.json`) | 90 years for Deer Creek and 60 for the Bear River, so it changes very little year to year. |
 | Air temperature and current conditions | [National Weather Service](https://www.weather.gov/) station KGOO, Nevada County Air Park | About hourly; cached 15 min | The station sits between the two towns, about 4 to 6 km from each creek. |
 | Short forecast | NWS gridpoint forecast for each creek | A few times a day | |
 | Rain in the last 24 h and the next 24 h | [Open-Meteo](https://open-meteo.com/) hourly precipitation | Hourly; cached 15 min | Open-Meteo is a gridded weather model, not a rain gauge. Thunderstorms can be missed or misplaced. |
+| Volunteer water tests (dissolved oxygen, pH, temperature, turbidity, conductivity, E. coli) | Local monitoring groups via [RiverDB](https://riverdb.org): **South Yuba River Citizens League** (Deer Creek above and below Nevada City, monthly, 2022 to now), **Sierra Streams Institute** (Deer Creek, 2000–2023), **Wolf Creek Community Alliance** (Wolf Creek, 2017–2019) | SYRCL: fetched live, cached 24 h. SSI/WCCA: committed snapshot (`wq_snapshot.json`) | The groups' own data, credited on every reading. Volunteers sample monthly or quarterly, so this is the newest *test*, not a live sensor. |
 | Creek lines and sites | [OpenStreetMap](https://www.openstreetmap.org/copyright) contributors (ODbL) | Built once (`tools/build_sites.py`) | See `SOURCES.md` for the right-creek check and how each site was chosen. |
 
 ### Which gauge belongs to which creek (honestly)
@@ -32,6 +33,13 @@ Start at **100**. Each signal below can subtract points. The score is `100 + the
 | Stream flow compared with the long-term median for today's date | ≥ 300 % / ≥ 150 % / < 50 % / < 25 % | −10 / −3 / −3 / −6 |
 | | A gauge that isn't on the creek (Wolf Creek's case) counts ¼ | |
 | Report coverage | 0 reports this week / 1–2 reports | −10 / −5 |
+| Latest volunteer water test on the creek | DO < 5 mg/L / < 7 mg/L (the cold-water standard) | −15 / −6 |
+| | pH outside 6.5–8.5 (Basin Plan objective) | −5 |
+| | E. coli > 320 per 100 mL (California's swimming threshold) | −12 |
+| | water > 20 °C (stress for trout) / turbidity > 10 NTU / > 25 NTU | −5 / −4 / −8 |
+| | A test 2–6 months old counts half; anything older is shown but not counted | |
+
+**About the volunteer water tests:** these are real measurements of the water, the closest thing to a lab result the app has. But they're taken monthly at best. Today the newest Deer Creek test is SYRCL's from 8 August 2026. The newest *published* Wolf Creek test is from December 2019, so it's shown as background only and doesn't count. The thresholds come from the Central Valley Water Board's Basin Plan (dissolved oxygen of at least 7 mg/L for cold-water habitat, and pH 6.5–8.5) and from California's statewide bacteria objective (E. coli 320 per 100 mL). The temperature and turbidity limits are rules of thumb, labelled as such.
 
 **Why report coverage costs points:** public data can't see trash, algae, dead fish or a sewage smell. A creek nobody has looked at this week shouldn't score a perfect 100, so we hold back 10 points until someone reports.
 
@@ -83,7 +91,7 @@ When a warning forces a band, the score is capped at the top of that band. A cre
 
 ## Limitations: read these before trusting a number
 
-- **This is a screening tool, not a lab test.** Nothing here measures bacteria, nutrients, dissolved oxygen, pH or toxins. A "good" score does **not** mean the water is safe to drink or swim in.
+- **This is a screening tool, not a lab test.** The only measured chemistry comes from volunteer tests taken monthly at best (weeks old on Deer Creek, years old on Wolf Creek). Nothing measures toxins. A "good" score does **not** mean the water is safe to drink or swim in.
 - **The weights are expert-informed judgment calls, not fitted to data.** They are written down above so anyone can argue with them. We would love a local biologist to tune them.
 - **Air temperature stands in for water temperature.** Shaded pools stay much cooler than the air.
 - **The gauges are far from town** (22 km for Deer Creek; none at all on Wolf Creek). A storm pulse in Grass Valley or Nevada City won't show up in the flow signal for hours, if at all.
@@ -92,12 +100,12 @@ When a warning forces a band, the score is capped at the top of that band. A cre
 - **Late summer and fall are naturally low-flow** on these foothill creeks. A low or dry reading in September or October can be normal. The flow signal compares against the median *for that date*, which helps but doesn't fully remove this.
 - **Upstream reservoirs** (Scotts Flat and Lake Wildwood on Deer Creek, Camp Far West on the Bear River) regulate flow, so the gauges partly reflect dam operations rather than nature.
 
-## Other data we found (not live)
+## Other data we found
 
-- **USGS historical water-quality samples** exist on both creeks: Wolf Creek at Grass Valley, near La Barr Meadows and near Wolf; Deer Creek at Nevada City, at Stocking Flat and below Deer Creek Falls. Most of them come from studies of mercury and Gold Rush mining legacy. They aren't real-time, so they aren't in the score.
-- **Wolf Creek Community Alliance (WCCA)**, Grass Valley ([wolfcreekalliance.org/programs](https://wolfcreekalliance.org/programs/)). Its volunteers have monitored Wolf Creek and its tributaries for almost twenty years, at sites from the headwaters to the Bear River confluence, testing pH, dissolved oxygen, turbidity and other measures. WCCA reports that Wolf Creek and its tributary French Ravine are listed as Clean Water Act "impaired waters" for fecal bacteria. Their data isn't published in a machine-readable form we could find. Bringing it in, with credit, is the obvious next step.
-- **Sierra Streams Institute** (founded in 1995 as *Friends of Deer Creek*), Nevada City ([sierrastreamsinstitute.org](https://sierrastreamsinstitute.org/tag/water-quality-monitoring/)). Volunteers sample sites across the Deer Creek watershed, including Little Deer Creek, for nitrate, orthophosphate, dissolved oxygen, turbidity, pH, conductivity, temperature and E. coli. The data lives in [RiverDB](https://riverdb.org/org/SSI), a CEDEN-compatible database. We didn't find a public API in the time available.
-- **CEDEN / California Water Boards** host statewide water-quality data; we have not yet queried it for these creeks.
+- **Wolf Creek Community Alliance (WCCA)** ([wolfcreekalliance.org](https://wolfcreekalliance.org/programs/)) has run volunteer monitoring on Wolf Creek and its tributaries for almost twenty years. WCCA reports that Wolf Creek and its tributary French Ravine are listed as Clean Water Act "impaired waters" for fecal bacteria. Its 2017–2019 results are in RiverDB, and Creek Watch shows them as background. In April 2026 WCCA registered about 40 of its sites on the Stroud Water Research Center's [Monitor My Watershed](https://monitormywatershed.org/browse/), but no readings have been posted there yet. When they are, Wolf Creek gets current water-test data.
+- **Sierra Streams Institute** (founded in 1995 as *Friends of Deer Creek*) sampled 19 Deer Creek sites from 2000 to 2023 for nutrients, E. coli, dissolved oxygen, pH and more. The latest sample per site is in the snapshot.
+- **USGS historical water-quality samples** from studies of mercury and Gold Rush mining legacy exist on both creeks. They are not real-time, so they are not used.
+- **CEDEN / California Water Boards** host statewide data. We haven't queried it yet.
 
 ## Update cadence
 
@@ -106,4 +114,5 @@ When a warning forces a band, the score is capped at the top of that band. A cre
 | Weather, rain and gauge readings | Fetched on demand, cached for 15 minutes |
 | A served stale value | Flagged `"stale": true` (we serve the last good value when a source is down) |
 | The score | Recomputed on every `/api/health` request |
+| Volunteer water tests | SYRCL live (cached 24 h). SSI and WCCA from a snapshot (`python3 -m data.tools.build_wq_snapshot`) |
 | Flow medians and creek lines | Static files, rebuilt by hand with the scripts in `tools/` |
