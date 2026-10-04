@@ -103,6 +103,12 @@ When a warning forces a band, the score is capped at the top of that band. A cre
 - **Late summer and fall are naturally low-flow** on these foothill creeks. A low or dry reading in September or October can be normal. The flow signal compares against the median *for that date*, which helps but doesn't fully remove this.
 - **Upstream reservoirs** (Scotts Flat and Lake Wildwood on Deer Creek, Camp Far West on the Bear River) regulate flow, so the gauges partly reflect dam operations rather than nature.
 
+## Official history: the 2024 Wolf Creek bacteria study
+
+The Central Valley Regional Water Quality Control Board sampled Wolf Creek weekly from May to September 2024 (published through CEDEN). Two of its sites are ours: Glen Jones Park / North Star Museum, and the Wolf Road bridge. Creek Watch shows these results as **dated history**: what the water was like in summer 2024, not today. They never change the health score.
+
+At Wolf Road, the six-week average of E. coli was above the state's recreational objective (a geometric mean of 100) for four weeks in July–August 2024. At the North Star Museum it stayed below the objective. The state objective is from the [2019 Bacteria Provisions](https://www.waterboards.ca.gov/plans_policies/docs/bacteria.pdf). The study measured MPN/100 mL, while the objective is written in cfu/100 mL, and the two are usually treated as comparable.
+
 ## Other data we found
 
 - **Wolf Creek Community Alliance (WCCA)** ([wolfcreekalliance.org](https://wolfcreekalliance.org/programs/)) has run volunteer monitoring on Wolf Creek and its tributaries for almost twenty years. WCCA reports that Wolf Creek and its tributary French Ravine are listed as Clean Water Act "impaired waters" for fecal bacteria. Its 2017–2019 results are in RiverDB, and Creek Watch shows them as background. In April 2026 WCCA registered about 40 of its sites on the Stroud Water Research Center's [Monitor My Watershed](https://monitormywatershed.org/browse/), but no readings have been posted there yet. When they are, Wolf Creek gets current water-test data.

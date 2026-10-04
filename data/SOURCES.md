@@ -47,3 +47,21 @@ Everything here is public and keyless. Retrieved 2026-10-03 unless noted.
 - Wolf Creek Community Alliance: https://wolfcreekalliance.org/programs/
 - Sierra Streams Institute (formerly Friends of Deer Creek): https://sierrastreamsinstitute.org/
 - South Yuba River Citizens League: https://yubariver.org
+
+## Official bacteria history: CEDEN (2024 Regional Board study)
+- **Source:** CEDEN data published on the California open data portal as *Surface Water – Fecal Indicator Bacteria Monitoring Results, 2020 to present*, resource `15a63495-8d9f-4a49-b43a-3092ef3106b9` (https://data.ca.gov/dataset/surface-water-fecal-indicator-bacteria-results). Queried through keyless CKAN `datastore_search_sql`. The dataset was modified 2026-10-02.
+- **Licence:** not specified. The portal lists no licence for this dataset; it's State Water Board public data. **Credit:** "Central Valley Regional Water Quality Control Board via CEDEN".
+- **Study:** project "RWB5 Microbial Source Tracking Wolf Cr Study 2024", sampled 2024-05-22 to 2024-09-04 (13 weekly E. coli samples per site). Method SM 9223 B, results in MPN/100 mL.
+- **Mapped stations** (distance to our site):
+  - `516NEV109` "Wolf Creek at the North Star Mining Museum" (39.207851, −121.06952) → `wolf-glen-jones-park` (13.7 m);
+  - `516NEV101` "Wolf Creek at Wolf Road" (39.05216, −121.10846) → `wolf-wolf-rd` (4.8 m).
+  The study also sampled 7 other Wolf Creek watershed sites, which aren't mapped to our sites.
+- **E. coli only:** the builder keeps rows whose `Analyte` is exactly "E. coli". Total coliform rows (same samples) are dropped.
+- **State objective used for comparison:** State Water Resources Control Board, *2019 ISWEBE Bacteria Provisions* (https://www.waterboards.ca.gov/plans_policies/docs/bacteria.pdf). For fresh water: "a six-week rolling geometric mean of E. coli not to exceed 100 cfu/100 mL, calculated weekly, and a statistical threshold value (STV) of 320 cfu/100 mL not to be exceeded by more than 10 percent of the samples collected in a calendar month".
+  - The study reports MPN/100 mL while the objective is written in cfu/100 mL. These are commonly treated as comparable, not identical.
+  - CEDEN's own `6WeekGeoMean`/`6WeekCount` columns are used, and a 6-week mean is only called "above the objective" when it rests on **at least 5 samples**.
+- **Result:**
+  - **Wolf Road:** the 6-week geometric mean was above 100 in 4 weekly calculations (2024-07-17 to 2024-08-07; highest qualified 119.3). One sample exceeded 320 (648.8 on 2024-05-22).
+  - **North Star Museum:** the qualified 6-week geometric mean stayed ≤ 41. One sample exceeded 320 (770.1 on 2024-07-31).
+- **Presentation rule:** this is dated history ("2024 Regional Board study", `is_current: false`). It is **never** shown as current conditions and **never** feeds the health score.
+- **Rebuild:** `python3 -m data.tools.build_ceden_history`.
