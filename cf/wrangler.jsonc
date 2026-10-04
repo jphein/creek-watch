@@ -1,0 +1,21 @@
+// Creek Watch "next" (Cloudflare) build. ISOLATED: workers.dev only until the 12:00 go/no-go;
+// creekwatch.realm.watch is NOT routed here (cutover = add that route; rollback = delete it).
+{
+  "name": "creekwatch-next",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-09-01",
+  "workers_dev": true,
+  "containers": [
+    { "class_name": "CreekWatch", "image": "../Dockerfile", "max_instances": 1 }
+  ],
+  "durable_objects": { "bindings": [{ "name": "CW", "class_name": "CreekWatch" }] },
+  "exports": { "CreekWatch": { "type": "durable-object", "storage": "sqlite" } },
+  "r2_buckets": [{ "binding": "PHOTOS", "bucket_name": "creekwatch-photos" }],
+  "triggers": { "crons": ["*/5 * * * *"] },
+  "vars": {
+    "PUBLIC_URL": "https://creekwatch-next.jp5.workers.dev",
+    "R2_BUCKET": "creekwatch-photos",
+    "R2_ENDPOINT": "https://ACCOUNT_ID.r2.cloudflarestorage.com"
+  },
+  "observability": { "enabled": true }
+}

@@ -1,0 +1,8 @@
+{
+  "name": "creekwatch-next",
+  "private": true,
+  "type": "module",
+  "scripts": { "deploy": "wrangler deploy", "check": "tsc --noEmit", "dry": "wrangler deploy --dry-run --outdir dist" },
+  "dependencies": { "@cloudflare/containers": "latest" },
+  "devDependencies": { "wrangler": "latest", "typescript": "^5.6.0", "@cloudflare/workers-types": "latest" }
+}

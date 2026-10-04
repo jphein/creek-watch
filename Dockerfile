@@ -7,7 +7,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends git && rm -rf /
 
 WORKDIR /app
 COPY pyproject.toml ./
-RUN uv pip install --system --no-cache -r pyproject.toml
+RUN uv pip install --system --no-cache -r pyproject.toml --extra cf   # cf: boto3 for R2 photos (unused on the homelab)
 
 COPY . .
 

@@ -9,3 +9,6 @@ uploads/
 *.sqlite
 .env
 data/uploads/
+cf/node_modules
+cf/dist
+cf/.wrangler
