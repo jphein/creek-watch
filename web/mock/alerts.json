@@ -150,7 +150,7 @@
   "category": "bacteria",
   "severity": "advisory",
   "title": "High E. coli at Pioneer Park",
-  "summary": "A volunteer test found E. coli at 410 per 100 mL, above the 320 swim limit. Avoid swallowing the water.",
+  "summary": "A volunteer test found E. coli at 410 per 100 mL, above 320 (the state's statistical threshold; one sample isn't a violation). Avoid swallowing the water.",
   "area": {
    "creek_ids": [
     "deer"
