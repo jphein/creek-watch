@@ -3,3 +3,7 @@
     service: https://localhost:443
     originRequest:
       originServerName: creekwatch.realm.watch
+  - hostname: creek.realm.watch          # short alias: Caddy answers with a 301 to creekwatch.realm.watch
+    service: https://localhost:443
+    originRequest:
+      originServerName: creek.realm.watch
