@@ -40,12 +40,28 @@ STUDY = {
     "licence": "not specified (California open data portal lists no licence for this dataset)",
     "method_note": ("Measured as MPN/100 mL (method SM 9223 B); the state objective is written in "
                     "cfu/100 mL. The two are commonly treated as comparable, not identical."),
+    # The Board's own web map of this study, for context: LINK ONLY. Its CSV is licensed "no reproduction without
+    # written permission", so the numbers here come from CEDEN, never from that map (scratch/api/waterboards-bacteria.md).
+    "context_url": "https://experience.arcgis.com/experience/1ea90c2492c94d1f999f200c6578af5a",
+    "context_label": "Regional Board's map of this study",
 }
 # CEDEN station code -> our site id (both within 15 m; see data/SOURCES.md)
 STATIONS = {
-    "516NEV109": {"creek_id": "wolf", "site_id": "wolf-glen-jones-park"},
-    "516NEV101": {"creek_id": "wolf", "site_id": "wolf-wolf-rd"},
+    "516NEV109": {"creek_id": "wolf", "site_id": "wolf-glen-jones-park", "waterbody": "Wolf Creek"},
+    "516NEV101": {"creek_id": "wolf", "site_id": "wolf-wolf-rd", "waterbody": "Wolf Creek"},
 }
+# The study's other 7 stations in the Wolf Creek watershed. No Creek Watch site there (site_id None): shown in the
+# same dated past-study panel, never as a site's current conditions. Upstream -> downstream.
+STUDY_ONLY_STATIONS = {
+    "516NEV114": {"creek_id": "wolf", "site_id": None, "waterbody": "French Ravine (tributary)"},
+    "516NEV107": {"creek_id": "wolf", "site_id": None, "waterbody": "Wolf Creek"},
+    "516NEV115": {"creek_id": "wolf", "site_id": None, "waterbody": "Rattlesnake Creek (tributary)"},
+    "516NEV104": {"creek_id": "wolf", "site_id": None, "waterbody": "Wolf Creek"},
+    "516NEV113": {"creek_id": "wolf", "site_id": None, "waterbody": "Cherry Creek (tributary)"},
+    "516NEV103": {"creek_id": "wolf", "site_id": None, "waterbody": "Wolf Creek"},
+    "516NEV102": {"creek_id": "wolf", "site_id": None, "waterbody": "South Wolf Creek (tributary)"},
+}
+ALL_STATIONS = {**STATIONS, **STUDY_ONLY_STATIONS}
 
 
 @lru_cache(maxsize=1)
@@ -66,11 +82,15 @@ def summarise(samples: list[dict]) -> dict:
     ec = [s for s in samples if s.get("ecoli") is not None]
     qualified = [s for s in ec if (s.get("gm6w_n") or 0) >= GM_MIN_SAMPLES and s.get("gm6w") is not None]
     over = [s for s in qualified if s["gm6w"] > OBJECTIVE["gm_six_week"]]
+    # Censored results: CEDEN qual ">" = above the test's upper limit (true value higher), "<" = below its lower limit.
+    # On a tie for the highest value prefer ">", so a censored maximum is never presented as exact.
+    top = max(ec, key=lambda s: (s["ecoli"], s.get("qual") == ">"), default=None)
     return {
         "n_samples": len(ec),
         "first_date": ec[0]["date"] if ec else None,
         "last_date": ec[-1]["date"] if ec else None,
-        "max_ecoli": max((s["ecoli"] for s in ec), default=None),
+        "max_ecoli": top["ecoli"] if top else None,
+        "max_qual": (top.get("qual") if top and top.get("qual") in (">", "<") else None),
         "n_over_stv": sum(1 for s in ec if s["ecoli"] > OBJECTIVE["stv"]),
         "season_gmean": round(_gmean([s["ecoli"] for s in ec]), 1) if ec else None,
         "gm6w_max_qualified": round(max((s["gm6w"] for s in qualified), default=0), 1) if qualified else None,
@@ -83,8 +103,10 @@ def summarise(samples: list[dict]) -> dict:
 def _sentence(name: str, sm: dict) -> str:
     if not sm["n_samples"]:
         return f"No E. coli results for {name}."
-    parts = [f"{sm['n_samples']} E. coli samples at {name} ({sm['first_date']} to {sm['last_date']}), "
-             f"highest {sm['max_ecoli']:g} MPN/100 mL"]
+    highest = {">": f"highest above {sm['max_ecoli']:g} MPN/100 mL (the test's upper limit)",
+               "<": f"highest below {sm['max_ecoli']:g} MPN/100 mL (the test's lower limit)"}.get(
+        sm.get("max_qual"), f"highest {sm['max_ecoli']:g} MPN/100 mL")
+    parts = [f"{sm['n_samples']} E. coli samples at {name} ({sm['first_date']} to {sm['last_date']}), {highest}"]
     if sm["weeks_gm_over_objective"]:
         parts.append(f"the 6-week geometric mean was above the state objective of {OBJECTIVE['gm_six_week']} "
                      f"in {sm['weeks_gm_over_objective']} weekly calculations with at least {GM_MIN_SAMPLES} "
@@ -98,14 +120,14 @@ def _sentence(name: str, sm: dict) -> str:
 def get_bacteria_history(creek_id: str) -> dict:
     snap = _snapshot().get("stations") or {}
     stations = []
-    for code, m in STATIONS.items():
+    for code, m in ALL_STATIONS.items():   # mapped stations first, then the study's others upstream -> downstream
         if m["creek_id"] != creek_id or code not in snap:
             continue
         st = snap[code]
         sm = summarise(st["samples"])
         stations.append({
             "station_code": code, "name": st["name"], "lat": st["lat"], "lon": st["lon"],
-            "site_id": m["site_id"], "samples": st["samples"], "summary": sm,
+            "site_id": m["site_id"], "waterbody": m["waterbody"], "samples": st["samples"], "summary": sm,
             "text": _sentence(st["name"], sm),
         })
     if not stations:

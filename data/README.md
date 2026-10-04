@@ -109,7 +109,7 @@ When a warning forces a band, the score is capped at the top of that band. A cre
 
 ## Official history: the 2024 Wolf Creek bacteria study
 
-The Central Valley Regional Water Quality Control Board sampled Wolf Creek weekly from May to September 2024 (published through CEDEN). Two of its sites are ours: Glen Jones Park / North Star Museum, and the Wolf Road bridge. Creek Watch shows these results as **dated history**: what the water was like in summer 2024, not today. They never change the health score.
+The Central Valley Regional Water Quality Control Board sampled Wolf Creek weekly from May to September 2024 (published through CEDEN). Two of its nine sites are ours: Glen Jones Park / North Star Museum, and the Wolf Road bridge. The other seven (more of Wolf Creek, plus French Ravine, Rattlesnake, Cherry and South Wolf Creeks) appear in the same panel, upstream to downstream. Creek Watch shows these results as **dated history**: what the water was like in summer 2024, not today. They never change the health score.
 
 At Wolf Road, the six-week average of E. coli was above the state's recreational objective (a geometric mean of 100) for four weeks in July–August 2024. At the North Star Museum it stayed below the objective. The state objective is from the [2019 Bacteria Provisions](https://www.waterboards.ca.gov/plans_policies/docs/bacteria.pdf). The study measured MPN/100 mL, while the objective is written in cfu/100 mL, and the two are usually treated as comparable.
 

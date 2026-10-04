@@ -55,7 +55,17 @@ Everything here is public and keyless. Retrieved 2026-10-03 unless noted.
 - **Mapped stations** (distance to our site):
   - `516NEV109` "Wolf Creek at the North Star Mining Museum" (39.207851, −121.06952) → `wolf-glen-jones-park` (13.7 m);
   - `516NEV101` "Wolf Creek at Wolf Road" (39.05216, −121.10846) → `wolf-wolf-rd` (4.8 m).
-  The study also sampled 7 other Wolf Creek watershed sites, which aren't mapped to our sites.
+  - **Study-only stations** (no Creek Watch site; shown in the same dated past-study panel, upstream → downstream,
+    `site_id: null`): `516NEV114` French Ravine at Hidden Valley Road, `516NEV107` Wolf Creek at Auburn Road,
+    `516NEV115` Rattlesnake Creek at Auburn Road, `516NEV104` Wolf Creek at Lime Kiln Road, `516NEV113` Cherry Creek at
+    Sharmiden Way, `516NEV103` Wolf Creek at Cottage Hill Drive, `516NEV102` South Wolf Creek above confluence with Wolf Creek.
+    Added after WCCA feedback (swimming, wading, kids and dogs). All 9 stations: 13 weekly E. coli samples each.
+  - **Not used: the Board's ArcGIS web map** of the same study (`experience.arcgis.com/experience/1ea90c2492c94d1f999f200c6578af5a`,
+    its CSV item `fda21b0e…`). It is public to view but licensed "No part of this dataset may be reproduced … without the
+    express written permission of the Central Valley Regional Water Quality Control Board SWAMP". Creek Watch only **links**
+    to it (`context_url`) and takes every number from CEDEN. The two agree (e.g. North Star 770.1 on 2024-07-31; French
+    Ravine max 2419.6). The ArcGIS copy starts 2024-06-19, so it lacks the 2024-05-22 sample.
+- **Censored results:** CEDEN `ResultQualCode` ">" means above the test's upper limit (the true value is higher), "<" below its lower limit. One such result: French Ravine `516NEV114` on 2024-07-10, ">2419.6". The text never presents a censored maximum as exact ("highest above 2419.6 MPN/100 mL (the test's upper limit)"); each sample keeps its `qual` for the chart.
 - **E. coli only:** the builder keeps rows whose `Analyte` is exactly "E. coli". Total coliform rows (same samples) are dropped.
 - **State objective used for comparison:** State Water Resources Control Board, *2019 ISWEBE Bacteria Provisions* (https://www.waterboards.ca.gov/plans_policies/docs/bacteria.pdf). For fresh water (verbatim; the original prints its defined terms in small capitals): "a six-week rolling geometric mean of Escherichia coli (E. coli) not to exceed 100 colony forming units (cfu) per 100 milliliters (mL), calculated weekly, and a statistical threshold value (STV) of 320 cfu/100 mL not to be exceeded by more than 10 percent of the samples collected in a calendar month, calculated in a static manner".
   - The study reports MPN/100 mL while the objective is written in cfu/100 mL. These are commonly treated as comparable, not identical.
