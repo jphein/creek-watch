@@ -121,12 +121,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     creeks = load_creeks(s.sites_json)
     creek_by_id = {c["id"]: c for c in creeks}
     data = DataLayer(s.conditions_ttl_s)
-    limiter = RateLimiter(s.rate_limit_count, s.rate_limit_window_s)
+    limiter = RateLimiter(s.rate_limit_count, s.rate_limit_window_s, s.rate_limit_global)
     app.state.settings, app.state.data, app.state.limiter = s, data, limiter
 
     def row_to_report(row: Any) -> dict[str, Any]:
         r = dict(zip(REPORT_COLUMNS, row))
         r["dead_fish"] = bool(r["dead_fish"])
+        # Privacy: never publish the reporter's exact GPS fix (could be their doorstep).
+        r["lat"], r["lon"] = round(r["lat"], s.public_coord_decimals), round(r["lon"], s.public_coord_decimals)
         r["flags"] = json.loads(r["flags"] or "[]")
         pf = r.pop("photo_file")
         r["photo_url"] = f"/uploads/{pf}" if pf else None

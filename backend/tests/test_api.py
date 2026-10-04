@@ -133,3 +133,19 @@ def test_process_photo_strips_exif_unit():
     out = process_photo(gps_jpeg((800, 600)))
     img = Image.open(io.BytesIO(out))
     assert not img.getexif() and img.size == (600, 800)
+
+
+def test_public_coords_are_coarsened(client):
+    r = client.post("/api/reports", data=dict(REPORT, lat="39.263123456", lon="-121.022987654")).json()
+    assert (r["lat"], r["lon"]) == (39.263, -121.023)
+    assert client.get(f"/api/reports/{r['id']}").json()["lat"] == 39.263
+
+
+def test_rate_limiter_global_cap_and_bounded_keys(monkeypatch):
+    from creekwatch import ratelimit
+
+    monkeypatch.setattr(ratelimit, "MAX_KEYS", 50)
+    rl = ratelimit.RateLimiter(count=5, window_s=600, global_count=100)
+    allowed = [rl.check(f"10.0.{i // 256}.{i % 256}") is None for i in range(150)]  # rotating IPs
+    assert sum(allowed) == 100 and not any(allowed[100:])
+    assert len(rl._hits) <= 50
