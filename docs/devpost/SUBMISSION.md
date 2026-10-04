@@ -68,6 +68,7 @@ All code was written new for this hackathon on October 3–4, 2026, during the e
 | **USGS Water Services** ([waterservices.usgs.gov](https://waterservices.usgs.gov/)) | Discharge (cfs) and gage height (ft), provisional. Deer Creek: [11418500](https://waterdata.usgs.gov/monitoring-location/11418500/) near Smartsville, about 22 km downstream and regulated by Lake Wildwood. Wolf Creek: no live gauge; Bear River near Wheatland [11424000](https://waterdata.usgs.gov/monitoring-location/11424000/) as low-weight regional context only | U.S. public domain ([USGS policy](https://www.usgs.gov/information-policies-and-instructions/copyrights-and-credits)) |
 | **National Weather Service API** ([api.weather.gov](https://www.weather.gov/documentation/services-web-api)) | Temperature, short forecast, chance of precipitation | Public domain ([NWS disclaimer](https://www.weather.gov/disclaimer)) |
 | **Open-Meteo** ([open-meteo.com](https://open-meteo.com/)) | Rain in the past and next 24 h: gridded model estimates, not a rain gauge | [CC BY 4.0](https://open-meteo.com/en/terms); free API for non-commercial use, and this project is non-commercial |
+| **Volunteer water tests via [RiverDB](https://riverdb.org)** | Latest dissolved oxygen, pH, temperature, turbidity, conductivity and *E. coli* from local monitoring groups: **South Yuba River Citizens League** (Deer Creek above and below Nevada City, monthly, 2022 to 2026-08-08; fetched live, cached 24 h), **Sierra Streams Institute** (19 Deer Creek sites, 2000–2023), **Wolf Creek Community Alliance** (Wolf Creek, 2017–2019, background only) | The groups' own publicly published data, credited by name on every reading. These are periodic samples, not live sensors |
 | **OpenStreetMap** ([openstreetmap.org](https://www.openstreetmap.org/copyright)) | Base map tiles; creek lines and access sites (via Overpass API) | © OpenStreetMap contributors, ODbL. Attribution shown on the map |
 
 Details and retrieval URLs: [`data/SOURCES.md`](https://github.com/jphein/creek-watch/blob/main/data/SOURCES.md).
@@ -84,7 +85,7 @@ Details and retrieval URLs: [`data/SOURCES.md`](https://github.com/jphein/creek-
 - ⟨fill: Alec, one or two lines in your own words; JP, one or two lines.⟩
 
 ## What's next for Creek Watch
-- Partner with local creek volunteer groups to calibrate the score against their monitoring.
+- Partner with local creek volunteer groups to calibrate the score against their monitoring. Their published tests already appear on each creek card, via RiverDB.
 - Add more creeks, offline report queueing for spots with no signal, and SMS or email alerts.
 - Spanish and other languages.
 - Export reports in open, standard formats so other platforms (such as the OneAquaHealth hub tools) can use them, and publish observations to Stroud's open-source [Monitor My Watershed](https://monitormywatershed.org/) portal.

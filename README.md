@@ -77,6 +77,7 @@ docs/      spec, submission text, demo script, field guide
 | [USGS Water Services](https://waterservices.usgs.gov/) | Discharge and gage height. Deer Creek: gauge 11418500 near Smartsville (about 22 km downstream, regulated by Lake Wildwood). Wolf Creek: **no live gauge**; Bear River near Wheatland (11424000) is shown as low-weight regional context only | [U.S. public domain](https://www.usgs.gov/information-policies-and-instructions/copyrights-and-credits) |
 | [National Weather Service API](https://www.weather.gov/documentation/services-web-api) | Temperature, short forecast | [Public domain](https://www.weather.gov/disclaimer); no endorsement implied |
 | [Open-Meteo](https://open-meteo.com/) | Rain in the past and next 24 h (model estimates, not a gauge) | [CC BY 4.0](https://open-meteo.com/en/terms); free API for non-commercial use |
+| [RiverDB](https://riverdb.org) | Volunteer water tests: South Yuba River Citizens League (Deer Creek, monthly, 2022 to now), Sierra Streams Institute (Deer Creek, 2000–2023), Wolf Creek Community Alliance (Wolf Creek, 2017–2019) | The groups' public data, credited on every reading; periodic samples, not live |
 | [OpenStreetMap](https://www.openstreetmap.org/copyright) | Base map; creek lines and the 12 access sites (via Overpass) | © OpenStreetMap contributors, [ODbL](https://opendatacommons.org/licenses/odbl/) |
 
 Details, retrieval URLs and the right-creek checks: [data/SOURCES.md](data/SOURCES.md).
