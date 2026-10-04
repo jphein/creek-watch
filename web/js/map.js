@@ -1,5 +1,5 @@
 // Map — creek lines, site markers, recent-report pins coloured by band.
-import { getCreeks, getReports, reportBand } from './api.js';
+import { getCreeks, getReports, getConditions, reportBand } from './api.js';
 import { esc, bandLabel, reportCardHTML } from './ui.js';
 
 const LEAFLET_CSS = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css';
@@ -40,7 +40,7 @@ export async function mountMap(el, qs) {
     <div class="map-wrap"><div id="map-canvas" role="region" aria-label="Map of Wolf Creek and Deer Creek with recent reports"></div>
     <div class="map-legend" aria-label="Legend">${['good', 'fair', 'watch', 'alert']
       .map((b) => `<span><span class="band-dot band-${b}"></span>${BAND_GLYPH[b]} ${bandLabel(b)}</span>`)
-      .join('')}</div></div>`;
+      .join('')}<span><span class="flask-marker sm" aria-hidden="true">⚗</span> Water test</span></div></div>`;
   try {
     L = await loadLeaflet();
   } catch (e) {
@@ -83,6 +83,26 @@ export async function mountMap(el, qs) {
       bounds.push(L.latLngBounds([[s.lat, s.lon], [s.lat, s.lon]]));
     }
   }
+
+  // Volunteer water-test stations (RiverDB) as small flask markers.
+  const conds = await Promise.all(creeks.map((c) => getConditions(c.id).catch(() => null)));
+  conds.forEach((cond, i) => {
+    for (const st of cond?.water_quality?.stations || []) {
+      if (st.lat == null || st.lon == null) continue;
+      L.marker([st.lat, st.lon], {
+        icon: L.divIcon({ className: '', html: '<div class="flask-marker" aria-hidden="true">⚗</div>', iconSize: [22, 22], iconAnchor: [11, 11] }),
+        title: `Volunteer water test: ${st.name}`,
+        alt: `Volunteer water test site ${st.name}`,
+        keyboard: true,
+      })
+        .bindPopup(
+          `<strong>${esc(st.name)}</strong><br>${esc(creeks[i].name)} · volunteer water test<br>Tested ${esc(st.date)}${
+            st.age_days != null ? ` (${esc(st.age_days)} days ago)` : ''
+          }<br><span class="credit">${esc(st.credit || '')}</span><br><a href="#dashboard">See results</a>`
+        )
+        .addTo(map);
+    }
+  });
 
   for (const r of reports) {
     if (r.lat == null || r.lon == null) continue;

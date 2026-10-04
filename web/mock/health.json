@@ -33,7 +33,9 @@
    }
   ],
   "recent_report_count": 9,
-  "last_updated": "2026-10-03T22:50:00Z"
+  "last_updated": "2026-10-03T22:50:00Z",
+  "warnings": [],
+  "confidence": "high"
  },
  "deer": {
   "score": 41,
@@ -69,6 +71,15 @@
    }
   ],
   "recent_report_count": 9,
-  "last_updated": "2026-10-03T22:50:00Z"
+  "last_updated": "2026-10-03T22:50:00Z",
+  "warnings": [
+   {
+    "id": "algal_bloom_watch",
+    "level": "watch",
+    "title": "Algal bloom watch",
+    "explanation": "Lots of algae was reported this week and air temperature is 80 \u00b0F or more. Keep dogs out of the water."
+   }
+  ],
+  "confidence": "medium"
  }
 }
