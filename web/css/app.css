@@ -559,3 +559,158 @@ details.more summary { cursor: pointer; font-weight: 700; color: var(--brand); p
 .flask-marker.sm { width: 16px; height: 16px; font-size: 10px; border-width: 1.5px; display: inline-grid; }
 .wq-say.neutral { color: var(--muted); }
 .flag-list li.alert { background: var(--alert-tint); border-left-color: var(--alert); }
+
+/* ---------- photo accents (brand) ----------
+   Real South Yuba River photos (credits: assets/photos/CREDITS.md and the About page).
+   Accents, not wallpaper: a band on Creeks, a hero on About, a faded strip on Report
+   step 1. Text never sits on a raw photo, only on --photo-scrim. Pages that are
+   [hidden] are display:none, so their photos are never fetched (lazy for free).
+   Save-Data / prefers-reduced-data: gradients only, no photo bytes. */
+:root {
+  --photo-scrim: linear-gradient(180deg, rgb(4 22 28 / 0.10) 0%, rgb(4 22 28 / 0.26) 40%, rgb(4 22 28 / 0.86) 100%);
+  --photo-filter: none;
+  --photo-fallback: linear-gradient(155deg, #2b7d8c 0%, #11505d 55%, #2c4a32 100%);
+  --photo-ink: #ffffff;
+  --photo-ink-2: #e4f1ef;
+  --photo-strip-opacity: 0.55;
+  --hero-scrim: linear-gradient(180deg, rgb(4 22 28 / 0.05) 0, rgb(4 22 28 / 0.18) 90px, rgb(4 22 28 / 0.80) 150px, rgb(4 22 28 / 0.86) 100%);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --photo-scrim: linear-gradient(180deg, rgb(2 12 16 / 0.25) 0%, rgb(2 12 16 / 0.35) 40%, rgb(2 12 16 / 0.88) 100%);
+    --photo-filter: brightness(0.82) saturate(0.9);
+    --photo-fallback: linear-gradient(155deg, #164652 0%, #0b2a31 55%, #18291c 100%);
+    --photo-strip-opacity: 0.4;
+    --hero-scrim: linear-gradient(180deg, rgb(2 12 16 / 0.2) 0, rgb(2 12 16 / 0.3) 90px, rgb(2 12 16 / 0.84) 150px, rgb(2 12 16 / 0.9) 100%);
+  }
+}
+#page-dashboard {
+  --photo: url('../assets/photos/canyon-purdon-800.jpg');
+  --photo-set: image-set(url('../assets/photos/canyon-purdon-800.avif') type('image/avif'), url('../assets/photos/canyon-purdon-800.webp') type('image/webp'), url('../assets/photos/canyon-purdon-800.jpg') type('image/jpeg'));
+}
+.hero-about {
+  --photo: url('../assets/photos/bridgeport-800.jpg');
+  --photo-set: image-set(url('../assets/photos/bridgeport-800.avif') type('image/avif'), url('../assets/photos/bridgeport-800.webp') type('image/webp'), url('../assets/photos/bridgeport-800.jpg') type('image/jpeg'));
+}
+#page-report {
+  --photo: url('../assets/photos/canyon-gold-800.jpg');
+  --photo-set: image-set(url('../assets/photos/canyon-gold-800.avif') type('image/avif'), url('../assets/photos/canyon-gold-800.webp') type('image/webp'), url('../assets/photos/canyon-gold-800.jpg') type('image/jpeg'));
+}
+/* Wider screens (tablet/desktop): the 1600 px cut. Phones keep the ~25 KB 800 px AVIF. */
+@media (min-width: 640px) {
+  #page-dashboard { --photo-set: image-set(url('../assets/photos/canyon-purdon-1600.avif') type('image/avif'), url('../assets/photos/canyon-purdon-1600.webp') type('image/webp'), url('../assets/photos/canyon-purdon-800.jpg') type('image/jpeg')); }
+  .hero-about { --photo-set: image-set(url('../assets/photos/bridgeport-1600.avif') type('image/avif'), url('../assets/photos/bridgeport-1600.webp') type('image/webp'), url('../assets/photos/bridgeport-800.jpg') type('image/jpeg')); }
+  #page-report { --photo-set: image-set(url('../assets/photos/canyon-gold-1600.avif') type('image/avif'), url('../assets/photos/canyon-gold-1600.webp') type('image/webp'), url('../assets/photos/canyon-gold-800.jpg') type('image/jpeg')); }
+}
+
+/* Shared photo surface: scrim over photo over a gradient that shows while loading
+   (and stays when Save-Data is on). */
+.hero,
+#page-dashboard::before {
+  background-color: #11505d;
+  background-image: var(--photo-scrim), var(--photo), var(--photo-fallback);
+  background-image: var(--photo-scrim), var(--photo-set), var(--photo-fallback);
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+/* Creeks: a calm band above the cards, with a quiet location caption. */
+#page-dashboard { position: relative; }
+#page-dashboard::before {
+  content: '';
+  display: block;
+  height: clamp(120px, 34vw, 210px);
+  margin: 0 0 14px;
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  filter: var(--photo-filter);
+  pointer-events: none;
+}
+#page-dashboard::after {
+  content: 'South Yuba River, Purdon Crossing' / '';
+  position: absolute;
+  top: calc(16px + clamp(120px, 34vw, 210px) - 30px);
+  left: 30px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--photo-ink-2);
+  text-shadow: 0 1px 2px rgb(0 0 0 / 0.6);
+  pointer-events: none;
+}
+
+/* About: a real hero, heading and lead set on the scrim. */
+.hero {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  margin: 0 0 18px;
+  padding: 140px 18px 16px;
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  color: var(--photo-ink);
+  overflow: hidden;
+}
+.hero > * { position: relative; }
+.hero.hero-about { background-image: var(--hero-scrim), var(--photo), var(--photo-fallback); background-image: var(--hero-scrim), var(--photo-set), var(--photo-fallback); background-position: center 0, 50% 0, center; background-size: cover, auto 250px, cover; }
+@media (min-width: 640px) { .hero.hero-about { background-size: cover, cover, cover; background-position: center, 50% 30%, center; } }
+.hero h2 { color: var(--photo-ink); text-shadow: 0 1px 3px rgb(0 0 0 / 0.45); }
+.hero .lead { color: var(--photo-ink-2); margin: 0; text-shadow: 0 1px 2px rgb(0 0 0 / 0.5); }
+.hero .photo-credit { margin: 10px 0 0; font-size: 0.75rem; color: var(--photo-ink-2); opacity: 0.95; }
+.hero .photo-credit a { color: inherit; }
+
+/* Report, step 1 only: a soft strip of river that has fully faded out (64px) before
+   the step count starts (~68px), so every word sits on the plain page colour. */
+#page-report { position: relative; isolation: isolate; }
+#page-report:has([data-photo])::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 66px;
+  z-index: -1;
+  background-color: transparent;
+  background-image: var(--photo);
+  background-image: var(--photo-set);
+  background-size: cover;
+  background-position: center 40%;
+  opacity: var(--photo-strip-opacity);
+  filter: var(--photo-filter);
+  -webkit-mask-image: linear-gradient(180deg, #000 0, rgb(0 0 0 / 0.6) 34px, transparent 64px);
+  mask-image: linear-gradient(180deg, #000 0, rgb(0 0 0 / 0.6) 34px, transparent 64px);
+  pointer-events: none;
+}
+#page-report:has([data-photo]) .report { padding-top: 32px; }
+
+/* Inline accent photos (About). Real <img loading="lazy"> with alt text. */
+.photo-figure { margin: 18px 0 8px; }
+.photo-figure picture, .photo-figure img {
+  display: block; width: 100%; height: auto; border-radius: 14px; background: var(--photo-fallback);
+}
+.photo-figure img { aspect-ratio: var(--ar, 3 / 2); object-fit: cover; box-shadow: var(--shadow); }
+.photo-figure figcaption { margin-top: 6px; font-size: 0.85rem; color: var(--muted); }
+.photo-figure figcaption a { color: inherit; }
+@media (min-width: 560px) {
+  .photo-figure.side { float: right; width: 44%; margin: 4px 0 12px 18px; }
+}
+.credits-list { font-size: 0.9rem; color: var(--ink-2); padding-left: 1.1em; }
+.credits-list li { margin-bottom: 6px; }
+
+/* Save-Data or reduced-data: keep the gradients, skip every photo byte. */
+html[data-save-data] .hero.hero-about { background-image: var(--hero-scrim), var(--photo-fallback); }
+html[data-save-data] .hero,
+html[data-save-data] #page-dashboard::before { background-image: var(--photo-scrim), var(--photo-fallback); }
+html[data-save-data] #page-report::before { display: none; }
+html[data-save-data] #page-report .report { padding-top: 0; }
+html[data-save-data] .photo-figure { display: none; }
+@media (prefers-reduced-data: reduce) {
+  .hero, #page-dashboard::before { background-image: var(--photo-scrim), var(--photo-fallback); }
+  .hero.hero-about { background-image: var(--hero-scrim), var(--photo-fallback); }
+  #page-report::before { display: none; }
+  #page-report .report { padding-top: 0; }
+  .photo-figure { display: none; }
+}
+@media print {
+  #page-dashboard::before, #page-dashboard::after, #page-report::before { display: none; }
+}

@@ -1,0 +1,1204 @@
+{
+  "gauges": [
+    {
+      "lid": "BCVC1",
+      "name": "Boca Reservoir",
+      "rfc": {
+        "abbreviation": "CNRFC",
+        "name": "California Nevada River Forecast Center"
+      },
+      "wfo": {
+        "abbreviation": "REV",
+        "name": "Reno"
+      },
+      "state": {
+        "abbreviation": "CA",
+        "name": "California"
+      },
+      "latitude": 39.3887962,
+      "longitude": -120.096309,
+      "pedts": {
+        "observed": "HPIRG",
+        "forecast": "HPIFZ"
+      },
+      "status": {
+        "observed": {
+          "primary": 5575.05,
+          "primaryUnit": "ft",
+          "secondary": 16.7,
+          "secondaryUnit": "kcfs",
+          "floodCategory": "no_flooding",
+          "validTime": "2026-10-04T00:30:00Z"
+        },
+        "forecast": {
+          "primary": -999,
+          "primaryUnit": "",
+          "secondary": -999,
+          "secondaryUnit": "",
+          "floodCategory": "fcst_not_current",
+          "validTime": "0001-01-01T00:00:00Z"
+        }
+      }
+    },
+    {
+      "lid": "BKDC1",
+      "name": "Blackwood Creek near Tahoe City",
+      "rfc": {
+        "abbreviation": "CNRFC",
+        "name": "California Nevada River Forecast Center"
+      },
+      "wfo": {
+        "abbreviation": "REV",
+        "name": "Reno"
+      },
+      "state": {
+        "abbreviation": "CA",
+        "name": "California"
+      },
+      "latitude": 39.10740708,
+      "longitude": -120.1621352,
+      "pedts": {
+        "observed": "HGIRG",
+        "forecast": "HGIFZ"
+      },
+      "status": {
+        "observed": {
+          "primary": 7.6,
+          "primaryUnit": "ft",
+          "secondary": 0.001,
+          "secondaryUnit": "kcfs",
+          "floodCategory": "no_flooding",
+          "validTime": "2026-10-04T01:20:00Z"
+        },
+        "forecast": {
+          "primary": -999,
+          "primaryUnit": "",
+          "secondary": -999,
+          "secondaryUnit": "",
+          "floodCategory": "fcst_not_current",
+          "validTime": "0001-01-01T00:00:00Z"
+        }
+      }
+    },
+    {
+      "lid": "BRWC1",
+      "name": "Bear River near Wheatland",
+      "rfc": {
+        "abbreviation": "CNRFC",
+        "name": "California Nevada River Forecast Center"
+      },
+      "wfo": {
+        "abbreviation": "STO",
+        "name": "Sacramento"
+      },
+      "state": {
+        "abbreviation": "CA",
+        "name": "California"
+      },
+      "latitude": 39.0001727,
+      "longitude": -121.4066238,
+      "pedts": {
+        "observed": "HGIRG",
+        "forecast": "HGIFE"
+      },
+      "status": {
+        "observed": {
+          "primary": -0.28,
+          "primaryUnit": "ft",
+          "secondary": -999,
+          "secondaryUnit": "kcfs",
+          "floodCategory": "no_flooding",
+          "validTime": "2026-10-04T00:45:00Z"
+        },
+        "forecast": {
+          "primary": -0.27,
+          "primaryUnit": "ft",
+          "secondary": -999,
+          "secondaryUnit": "kcfs",
+          "floodCategory": "no_flooding",
+          "validTime": "2026-10-04T02:00:00Z"
+        }
+      }
+    },
+    {
+      "lid": "DCHC1",
+      "name": "Donner Creek near Truckee",
+      "rfc": {
+        "abbreviation": "CNRFC",
+        "name": "California Nevada River Forecast Center"
+      },
+      "wfo": {
+        "abbreviation": "REV",
+        "name": "Reno"
+      },
+      "state": {
+        "abbreviation": "CA",
+        "name": "California"
+      },
+      "latitude": 39.32101739,
+      "longitude": -120.2079759,
+      "pedts": {
+        "observed": "HGIRG",
+        "forecast": "HGIFZ"
+      },
+      "status": {
+        "observed": {
+          "primary": 2.22,
+          "primaryUnit": "ft",
+          "secondary": 0.006,
+          "secondaryUnit": "kcfs",
+          "floodCategory": "no_flooding",
+          "validTime": "2026-10-04T01:15:00Z"
+        },
+        "forecast": {
+          "primary": -999,
+          "primaryUnit": "",
+          "secondary": -999,
+          "secondaryUnit": "",
+          "floodCategory": "fcst_not_current",
+          "validTime": "0001-01-01T00:00:00Z"
+        }
+      }
+    },
+    {
+      "lid": "DCKC1",
+      "name": "Donner Creek at Donner Lk Nr Truckee",
+      "rfc": {
+        "abbreviation": "CNRFC",
+        "name": "California Nevada River Forecast Center"
+      },
+      "wfo": {
+        "abbreviation": "REV",
+        "name": "Reno"
+      },
+      "state": {
+        "abbreviation": "CA",
+        "name": "California"
+      },
+      "latitude": 39.3235172,
+      "longitude": -120.2343654,
+      "pedts": {
+        "observed": "HGIRG",
+        "forecast": "HGIFZ"
+      },
+      "status": {
+        "observed": {
+          "primary": 3,
+          "primaryUnit": "ft",
+          "secondary": 0.005,
+          "secondaryUnit": "kcfs",
+          "floodCategory": "no_flooding",
+          "validTime": "2026-10-04T01:15:00Z"
+        },
+        "forecast": {
+          "primary": -999,
+          "primaryUnit": "",
+          "secondary": -999,
+          "secondaryUnit": "",
+          "floodCategory": "fcst_not_current",
+          "validTime": "0001-01-01T00:00:00Z"
+        }
+      }
+    },
+    {
+      "lid": "DCSC1",
+      "name": "Deer Creek near Smartville",
+      "rfc": {
+        "abbreviation": "CNRFC",
+        "name": "California Nevada River Forecast Center"
+      },
+      "wfo": {
+        "abbreviation": "STO",
+        "name": "Sacramento"
+      },
+      "state": {
+        "abbreviation": "CA",
+        "name": "California"
+      },
+      "latitude": 39.22444444444444,
+      "longitude": -121.2675,
+      "pedts": {
+        "observed": "HGIRG",
+        "forecast": "HGIFZ"
+      },
+      "status": {
+        "observed": {
+          "primary": 2.5,
+          "primaryUnit": "ft",
+          "secondary": 0.005,
+          "secondaryUnit": "kcfs",
+          "floodCategory": "not_defined",
+          "validTime": "2026-10-04T01:00:00Z"
+        },
+        "forecast": {
+          "primary": 2.75,
+          "primaryUnit": "ft",
+          "secondary": 0.011,
+          "secondaryUnit": "kcfs",
+          "floodCategory": "not_defined",
+          "validTime": "2026-10-08T01:00:00Z"
+        }
+      }
+    },
+    {
+      "lid": "DCWC1",
+      "name": "Dry Creek near Wheatland",
+      "rfc": {
+        "abbreviation": "CNRFC",
+        "name": "California Nevada River Forecast Center"
+      },
+      "wfo": {
+        "abbreviation": "STO",
+        "name": "Sacramento"
+      },
+      "state": {
+        "abbreviation": "CA",
+        "name": "California"
+      },
+      "latitude": 39.02628325,
+      "longitude": -121.4371809,
+      "pedts": {
+        "observed": "HGIRG",
+        "forecast": "HGIFZ"
+      },
+      "status": {
+        "observed": {
+          "primary": 8.62,
+          "primaryUnit": "ft",
+          "secondary": 0.025,
+          "secondaryUnit": "kcfs",
+          "floodCategory": "not_defined",
+          "validTime": "2026-10-04T01:15:00Z"
+        },
+        "forecast": {
+          "primary": 8.61,
+          "primaryUnit": "ft",
+          "secondary": 0.0246,
+          "secondaryUnit": "kcfs",
+          "floodCategory": "not_defined",
+          "validTime": "2026-10-04T02:00:00Z"
+        }
+      }
+    },
+    {
+      "lid": "FARC1",
+      "name": "Truckee River at Farad",
+      "rfc": {
+        "abbreviation": "CNRFC",
+        "name": "California Nevada River Forecast Center"
+      },
+      "wfo": {
+        "abbreviation": "REV",
+        "name": "Reno"
+      },
+      "state": {
+        "abbreviation": "CA",
+        "name": "California"
+      },
+      "latitude": 39.42796385,
+      "longitude": -120.0340873,
+      "pedts": {
+        "observed": "HGIRG",
+        "forecast": "HGIFE"
+      },
+      "status": {
+        "observed": {
+          "primary": 3.97,
+          "primaryUnit": "ft",
+          "secondary": 0.406,
+          "secondaryUnit": "kcfs",
+          "floodCategory": "no_flooding",
+          "validTime": "2026-10-04T01:30:00Z"
+        },
+        "forecast": {
+          "primary": 3.97,
+          "primaryUnit": "ft",
+          "secondary": 0.406,
+          "secondaryUnit": "kcfs",
+          "floodCategory": "no_flooding",
+          "validTime": "2026-10-04T02:00:00Z"
+        }
+      }
+    },
+    {
+      "lid": "GNRC1",
+      "name": "General Creek near Meeks Bay",
+      "rfc": {
+        "abbreviation": "CNRFC",
+        "name": "California Nevada River Forecast Center"
+      },
+      "wfo": {
+        "abbreviation": "REV",
+        "name": "Reno"
+      },
+      "state": {
+        "abbreviation": "CA",
+        "name": "California"
+      },
+      "latitude": 39.05185197,
+      "longitude": -120.1185209,
+      "pedts": {
+        "observed": "HGIRG",
+        "forecast": "HGIFZ"
+      },
+      "status": {
+        "observed": {
+          "primary": 0.89,
+          "primaryUnit": "ft",
+          "secondary": 0.001,
+          "secondaryUnit": "kcfs",
+          "floodCategory": "no_flooding",
+          "validTime": "2026-10-04T01:20:00Z"
+        },
+        "forecast": {
+          "primary": -999,
+          "primaryUnit": "",
+          "secondary": -999,
+          "secondaryUnit": "",
+          "floodCategory": "fcst_not_current",
+          "validTime": "0001-01-01T00:00:00Z"
+        }
+      }
+    },
+    {
+      "lid": "GYRC1",
+      "name": "North Fork Yuba River below Goodyears Bar",
+      "rfc": {
+        "abbreviation": "CNRFC",
+        "name": "California Nevada River Forecast Center"
+      },
+      "wfo": {
+        "abbreviation": "STO",
+        "name": "Sacramento"
+      },
+      "state": {
+        "abbreviation": "CA",
+        "name": "California"
+      },
+      "latitude": 39.5248937,
+      "longitude": -120.9380068,
+      "pedts": {
+        "observed": "HGIRG",
+        "forecast": "HGIFZ"
+      },
+      "status": {
+        "observed": {
+          "primary": 1.65,
+          "primaryUnit": "ft",
+          "secondary": 0.119,
+          "secondaryUnit": "kcfs",
+          "floodCategory": "not_defined",
+          "validTime": "2026-10-04T00:45:00Z"
+        },
+        "forecast": {
+          "primary": 1.71,
+          "primaryUnit": "ft",
+          "secondary": 0.127,
+          "secondaryUnit": "kcfs",
+          "floodCategory": "not_defined",
+          "validTime": "2026-10-05T12:00:00Z"
+        }
+      }
+    },
+    {
+      "lid": "HCTC1",
+      "name": "South Fork Honcut Creek near Bangor",
+      "rfc": {
+        "abbreviation": "CNRFC",
+        "name": "California Nevada River Forecast Center"
+      },
+      "wfo": {
+        "abbreviation": "STO",
+        "name": "Sacramento"
+      },
+      "state": {
+        "abbreviation": "CA",
+        "name": "California"
+      },
+      "latitude": 39.368333333333,
+      "longitude": -121.37166666667,
+      "pedts": {
+        "observed": "HGIRG",
+        "forecast": "HGIFZ"
+      },
+      "status": {
+        "observed": {
+          "primary": 616.86,
+          "primaryUnit": "ft",
+          "secondary": -999,
+          "secondaryUnit": "kcfs",
+          "floodCategory": "not_defined",
+          "validTime": "2026-10-04T01:15:00Z"
+        },
+        "forecast": {
+          "primary": 617,
+          "primaryUnit": "ft",
+          "secondary": 0,
+          "secondaryUnit": "kcfs",
+          "floodCategory": "not_defined",
+          "validTime": "2026-10-04T02:00:00Z"
+        }
+      }
+    },
+    {
+      "lid": "ICRC1",
+      "name": "Independence Creek below Independence Lake ",
+      "rfc": {
+        "abbreviation": "CNRFC",
+        "name": "California Nevada River Forecast Center"
+      },
+      "wfo": {
+        "abbreviation": "REV",
+        "name": "Reno"
+      },
+      "state": {
+        "abbreviation": "CA",
+        "name": "California"
+      },
+      "latitude": 39.456666666667,
+      "longitude": -120.28611111111,
+      "pedts": {
+        "observed": "HGIRG",
+        "forecast": "HGIFZ"
+      },
+      "status": {
+        "observed": {
+          "primary": 2.38,
+          "primaryUnit": "ft",
+          "secondary": 0.005,
+          "secondaryUnit": "kcfs",
+          "floodCategory": "no_flooding",
+          "validTime": "2026-10-04T01:30:00Z"
+        },
+        "forecast": {
+          "primary": -999,
+          "primaryUnit": "",
+          "secondary": -999,
+          "secondaryUnit": "",
+          "floodCategory": "fcst_not_current",
+          "validTime": "0001-01-01T00:00:00Z"
+        }
+      }
+    },
+    {
+      "lid": "ILAC1",
+      "name": "Independence Lake near Truckee",
+      "rfc": {
+        "abbreviation": "CNRFC",
+        "name": "California Nevada River Forecast Center"
+      },
+      "wfo": {
+        "abbreviation": "REV",
+        "name": "Reno"
+      },
+      "state": {
+        "abbreviation": "CA",
+        "name": "California"
+      },
+      "latitude": 39.45184949,
+      "longitude": -120.2907588,
+      "pedts": {
+        "observed": "HPIRG",
+        "forecast": "HPIFZ"
+      },
+      "status": {
+        "observed": {
+          "primary": 6946.09,
+          "primaryUnit": "ft",
+          "secondary": 15.3,
+          "secondaryUnit": "kcfs",
+          "floodCategory": "not_defined",
+          "validTime": "2026-10-04T01:00:00Z"
+        },
+        "forecast": {
+          "primary": -999,
+          "primaryUnit": "",
+          "secondary": -999,
+          "secondaryUnit": "",
+          "floodCategory": "fcst_not_current",
+          "validTime": "0001-01-01T00:00:00Z"
+        }
+      }
+    },
+    {
+      "lid": "JNSC1",
+      "name": "South Fork Yuba River at Jones Bar",
+      "rfc": {
+        "abbreviation": "CNRFC",
+        "name": "California Nevada River Forecast Center"
+      },
+      "wfo": {
+        "abbreviation": "STO",
+        "name": "Sacramento"
+      },
+      "state": {
+        "abbreviation": "CA",
+        "name": "California"
+      },
+      "latitude": 39.29222222222222,
+      "longitude": -121.1036111111111,
+      "pedts": {
+        "observed": "HGIRG",
+        "forecast": "HGIFZ"
+      },
+      "status": {
+        "observed": {
+          "primary": 1.75,
+          "primaryUnit": "ft",
+          "secondary": 0.0334,
+          "secondaryUnit": "kcfs",
+          "floodCategory": "not_defined",
+          "validTime": "2026-10-04T01:00:00Z"
+        },
+        "forecast": {
+          "primary": 1.81,
+          "primaryUnit": "ft",
+          "secondary": 0.0365,
+          "secondaryUnit": "kcfs",
+          "floodCategory": "not_defined",
+          "validTime": "2026-10-05T12:00:00Z"
+        }
+      }
+    },
+    {
+      "lid": "LOCC1",
+      "name": "Oregon Creek Below Log Cabin Dam",
+      "rfc": {
+        "abbreviation": "CNRFC",
+        "name": "California Nevada River Forecast Center"
+      },
+      "wfo": {
+        "abbreviation": "STO",
+        "name": "Sacramento"
+      },
+      "state": {
+        "abbreviation": "CA",
+        "name": "California"
+      },
+      "latitude": 39.43944444444445,
+      "longitude": -121.0580555555556,
+      "pedts": {
+        "observed": "HGIRG",
+        "forecast": "HGIFZ"
+      },
+      "status": {
+        "observed": {
+          "primary": 6.59,
+          "primaryUnit": "ft",
+          "secondary": 0.0029,
+          "secondaryUnit": "kcfs",
+          "floodCategory": "not_defined",
+          "validTime": "2026-10-04T01:00:00Z"
+        },
+        "forecast": {
+          "primary": 6.6,
+          "primaryUnit": "ft",
+          "secondary": 0.003,
+          "secondaryUnit": "kcfs",
+          "floodCategory": "not_defined",
+          "validTime": "2026-10-04T02:00:00Z"
+        }
+      }
+    },
+    {
+      "lid": "MFAC1",
+      "name": "Middle Fork American River near Foresthill",
+      "rfc": {
+        "abbreviation": "CNRFC",
+        "name": "California Nevada River Forecast Center"
+      },
+      "wfo": {
+        "abbreviation": "STO",
+        "name": "Sacramento"
+      },
+      "state": {
+        "abbreviation": "CA",
+        "name": "California"
+      },
+      "latitude": 39.00611111111111,
+      "longitude": -120.7597222222222,
+      "pedts": {
+        "observed": "HGIRG",
+        "forecast": "HGIFZ"
+      },
+      "status": {
+        "observed": {
+          "primary": 8.32,
+          "primaryUnit": "ft",
+          "secondary": 0.306,
+          "secondaryUnit": "kcfs",
+          "floodCategory": "not_defined",
+          "validTime": "2026-10-04T01:00:00Z"
+        },
+        "forecast": {
+          "primary": 8.13,
+          "primaryUnit": "ft",
+          "secondary": 0.241,
+          "secondaryUnit": "kcfs",
+          "floodCategory": "not_defined",
+          "validTime": "2026-10-05T11:00:00Z"
+        }
+      }
+    },
+    {
+      "lid": "MFPC1",
+      "name": "Middle Fork American River Above Middle Fork Power Plant",
+      "rfc": {
+        "abbreviation": "CNRFC",
+        "name": "California Nevada River Forecast Center"
+      },
+      "wfo": {
+        "abbreviation": "STO",
+        "name": "Sacramento"
+      },
+      "state": {
+        "abbreviation": "CA",
+        "name": "California"
+      },
+      "latitude": 39.0252762,
+      "longitude": -120.594444,
+      "pedts": {
+        "observed": "QRIRG",
+        "forecast": "QRIFZ"
+      },
+      "status": {
+        "observed": {
+          "primary": 0.076,
+          "primaryUnit": "kcfs",
+          "secondary": -999,
+          "secondaryUnit": "ft",
+          "floodCategory": "not_defined",
+          "validTime": "2026-10-04T00:45:00Z"
+        },
+        "forecast": {
+          "primary": 0.08,
+          "primaryUnit": "kcfs",
+          "secondary": -999,
+          "secondaryUnit": "ft",
+          "floodCategory": "not_defined",
+          "validTime": "2026-10-04T02:00:00Z"
+        }
+      }
+    },
+    {
+      "lid": "MRYC1",
+      "name": "Yuba River above Marysville",
+      "rfc": {
+        "abbreviation": "CNRFC",
+        "name": "California Nevada River Forecast Center"
+      },
+      "wfo": {
+        "abbreviation": "STO",
+        "name": "Sacramento"
+      },
+      "state": {
+        "abbreviation": "CA",
+        "name": "California"
+      },
+      "latitude": 39.1757251,
+      "longitude": -121.5249647,
+      "pedts": {
+        "observed": "HGIRG",
+        "forecast": "HGIFE"
+      },
+      "status": {
+        "observed": {
+          "primary": 61.42,
+          "primaryUnit": "ft",
+          "secondary": 0.75,
+          "secondaryUnit": "kcfs",
+          "floodCategory": "no_flooding",
+          "validTime": "2026-10-04T00:30:00Z"
+        },
+        "forecast": {
+          "primary": 61.46,
+          "primaryUnit": "ft",
+          "secondary": 0.778,
+          "secondaryUnit": "kcfs",
+          "floodCategory": "no_flooding",
+          "validTime": "2026-10-08T01:00:00Z"
+        }
+      }
+    },
+    {
+      "lid": "NFDC1",
+      "name": "North Fork American River at North Fork Dam",
+      "rfc": {
+        "abbreviation": "CNRFC",
+        "name": "California Nevada River Forecast Center"
+      },
+      "wfo": {
+        "abbreviation": "STO",
+        "name": "Sacramento"
+      },
+      "state": {
+        "abbreviation": "CA",
+        "name": "California"
+      },
+      "latitude": 38.93600919,
+      "longitude": -121.023833,
+      "pedts": {
+        "observed": "HGIRG",
+        "forecast": "HGIFZ"
+      },
+      "status": {
+        "observed": {
+          "primary": 0.47,
+          "primaryUnit": "ft",
+          "secondary": 0.092,
+          "secondaryUnit": "kcfs",
+          "floodCategory": "not_defined",
+          "validTime": "2026-10-04T01:15:00Z"
+        },
+        "forecast": {
+          "primary": 0.48,
+          "primaryUnit": "ft",
+          "secondary": 0.097,
+          "secondaryUnit": "kcfs",
+          "floodCategory": "not_defined",
+          "validTime": "2026-10-05T16:00:00Z"
+        }
+      }
+    },
+    {
+      "lid": "NMFC1",
+      "name": "North Fork of Middle Fork American River - Foresthill",
+      "rfc": {
+        "abbreviation": "CNRFC",
+        "name": "California Nevada River Forecast Center"
+      },
+      "wfo": {
+        "abbreviation": "STO",
+        "name": "Sacramento"
+      },
+      "state": {
+        "abbreviation": "CA",
+        "name": "California"
+      },
+      "latitude": 39.0237732,
+      "longitude": -120.720604,
+      "pedts": {
+        "observed": "QRIRG",
+        "forecast": "QRIFZ"
+      },
+      "status": {
+        "observed": {
+          "primary": -999,
+          "primaryUnit": "",
+          "secondary": -999,
+          "secondaryUnit": "",
+          "floodCategory": "obs_not_current",
+          "validTime": "0001-01-01T00:00:00Z"
+        },
+        "forecast": {
+          "primary": 0.01,
+          "primaryUnit": "kcfs",
+          "secondary": -999,
+          "secondaryUnit": "ft",
+          "floodCategory": "not_defined",
+          "validTime": "2026-10-04T02:00:00Z"
+        }
+      }
+    },
+    {
+      "lid": "OURC1",
+      "name": "Middle Fork Yuba River at Our House",
+      "rfc": {
+        "abbreviation": "CNRFC",
+        "name": "California Nevada River Forecast Center"
+      },
+      "wfo": {
+        "abbreviation": "STO",
+        "name": "Sacramento"
+      },
+      "state": {
+        "abbreviation": "CA",
+        "name": "California"
+      },
+      "latitude": 39.41166666666667,
+      "longitude": -120.9969444444444,
+      "pedts": {
+        "observed": "HGIRG",
+        "forecast": "HGIFZ"
+      },
+      "status": {
+        "observed": {
+          "primary": 17.07,
+          "primaryUnit": "ft",
+          "secondary": 0.0249,
+          "secondaryUnit": "kcfs",
+          "floodCategory": "not_defined",
+          "validTime": "2026-10-04T01:00:00Z"
+        },
+        "forecast": {
+          "primary": 17.09,
+          "primaryUnit": "ft",
+          "secondary": 0.0258,
+          "secondaryUnit": "kcfs",
+          "floodCategory": "not_defined",
+          "validTime": "2026-10-04T02:00:00Z"
+        }
+      }
+    },
+    {
+      "lid": "PSRC1",
+      "name": "Prosser Creek Reservoir near Truckee",
+      "rfc": {
+        "abbreviation": "CNRFC",
+        "name": "California Nevada River Forecast Center"
+      },
+      "wfo": {
+        "abbreviation": "REV",
+        "name": "Reno"
+      },
+      "state": {
+        "abbreviation": "CA",
+        "name": "California"
+      },
+      "latitude": 39.3793513,
+      "longitude": -120.1376984,
+      "pedts": {
+        "observed": "HPIRG",
+        "forecast": "HPIFZ"
+      },
+      "status": {
+        "observed": {
+          "primary": 5720.08,
+          "primaryUnit": "ft",
+          "secondary": 16.7,
+          "secondaryUnit": "kcfs",
+          "floodCategory": "no_flooding",
+          "validTime": "2026-10-04T01:00:00Z"
+        },
+        "forecast": {
+          "primary": -999,
+          "primaryUnit": "",
+          "secondary": -999,
+          "secondaryUnit": "",
+          "floodCategory": "fcst_not_current",
+          "validTime": "0001-01-01T00:00:00Z"
+        }
+      }
+    },
+    {
+      "lid": "RUFC1",
+      "name": "Rubicon River - Foresthill",
+      "rfc": {
+        "abbreviation": "CNRFC",
+        "name": "California Nevada River Forecast Center"
+      },
+      "wfo": {
+        "abbreviation": "STO",
+        "name": "Sacramento"
+      },
+      "state": {
+        "abbreviation": "CA",
+        "name": "California"
+      },
+      "latitude": 39.00028,
+      "longitude": -120.723053,
+      "pedts": {
+        "observed": "QRIRG",
+        "forecast": "QRIFZ"
+      },
+      "status": {
+        "observed": {
+          "primary": 0.138,
+          "primaryUnit": "kcfs",
+          "secondary": -999,
+          "secondaryUnit": "ft",
+          "floodCategory": "not_defined",
+          "validTime": "2026-10-04T00:45:00Z"
+        },
+        "forecast": {
+          "primary": 0.14,
+          "primaryUnit": "kcfs",
+          "secondary": -999,
+          "secondaryUnit": "ft",
+          "floodCategory": "not_defined",
+          "validTime": "2026-10-04T02:00:00Z"
+        }
+      }
+    },
+    {
+      "lid": "SGNC1",
+      "name": "Sagehen Creek nr Truckee",
+      "rfc": {
+        "abbreviation": "CNRFC",
+        "name": "California Nevada River Forecast Center"
+      },
+      "wfo": {
+        "abbreviation": "REV",
+        "name": "Reno"
+      },
+      "state": {
+        "abbreviation": "CA",
+        "name": "California"
+      },
+      "latitude": 39.431666666667,
+      "longitude": -120.23694444444,
+      "pedts": {
+        "observed": "HGIRG",
+        "forecast": "HGIFZ"
+      },
+      "status": {
+        "observed": {
+          "primary": 1.5,
+          "primaryUnit": "ft",
+          "secondary": 0.002,
+          "secondaryUnit": "kcfs",
+          "floodCategory": "no_flooding",
+          "validTime": "2026-10-04T00:45:00Z"
+        },
+        "forecast": {
+          "primary": 1.5,
+          "primaryUnit": "ft",
+          "secondary": 0.002,
+          "secondaryUnit": "kcfs",
+          "floodCategory": "no_flooding",
+          "validTime": "2026-10-04T02:00:00Z"
+        }
+      }
+    },
+    {
+      "lid": "SPYC1",
+      "name": "Pilot Creek above Stumpy Meadows Reservoir",
+      "rfc": {
+        "abbreviation": "CNRFC",
+        "name": "California Nevada River Forecast Center"
+      },
+      "wfo": {
+        "abbreviation": "STO",
+        "name": "Sacramento"
+      },
+      "state": {
+        "abbreviation": "CA",
+        "name": "California"
+      },
+      "latitude": 38.903055,
+      "longitude": -120.60305,
+      "pedts": {
+        "observed": "QRIRG",
+        "forecast": "QRIFZ"
+      },
+      "status": {
+        "observed": {
+          "primary": 0.003,
+          "primaryUnit": "kcfs",
+          "secondary": 4.1,
+          "secondaryUnit": "ft",
+          "floodCategory": "not_defined",
+          "validTime": "2026-10-04T00:47:00Z"
+        },
+        "forecast": {
+          "primary": 0,
+          "primaryUnit": "kcfs",
+          "secondary": -999,
+          "secondaryUnit": "ft",
+          "floodCategory": "not_defined",
+          "validTime": "2026-10-04T02:00:00Z"
+        }
+      }
+    },
+    {
+      "lid": "STPC1",
+      "name": "Stampede Reservoir",
+      "rfc": {
+        "abbreviation": "CNRFC",
+        "name": "California Nevada River Forecast Center"
+      },
+      "wfo": {
+        "abbreviation": "REV",
+        "name": "Reno"
+      },
+      "state": {
+        "abbreviation": "CA",
+        "name": "California"
+      },
+      "latitude": 39.47046319,
+      "longitude": -120.1040897,
+      "pedts": {
+        "observed": "HPIRG",
+        "forecast": "HPIFZ"
+      },
+      "status": {
+        "observed": {
+          "primary": 5921.22,
+          "primaryUnit": "ft",
+          "secondary": 143,
+          "secondaryUnit": "kcfs",
+          "floodCategory": "not_defined",
+          "validTime": "2026-10-04T01:00:00Z"
+        },
+        "forecast": {
+          "primary": -999,
+          "primaryUnit": "",
+          "secondary": -999,
+          "secondaryUnit": "",
+          "floodCategory": "fcst_not_current",
+          "validTime": "0001-01-01T00:00:00Z"
+        }
+      }
+    },
+    {
+      "lid": "THLC1",
+      "name": "Lake Tahoe at Tahoe City",
+      "rfc": {
+        "abbreviation": "CNRFC",
+        "name": "California Nevada River Forecast Center"
+      },
+      "wfo": {
+        "abbreviation": "REV",
+        "name": "Reno"
+      },
+      "state": {
+        "abbreviation": "CA",
+        "name": "California"
+      },
+      "latitude": 39.1807402,
+      "longitude": -120.1193583,
+      "pedts": {
+        "observed": "HPIRG",
+        "forecast": "HPIFZ"
+      },
+      "status": {
+        "observed": {
+          "primary": 6226.87,
+          "primaryUnit": "ft",
+          "secondary": 471,
+          "secondaryUnit": "kcfs",
+          "floodCategory": "no_flooding",
+          "validTime": "2026-10-04T01:00:00Z"
+        },
+        "forecast": {
+          "primary": 6226.86,
+          "primaryUnit": "ft",
+          "secondary": 470,
+          "secondaryUnit": "kcfs",
+          "floodCategory": "no_flooding",
+          "validTime": "2026-10-04T02:00:00Z"
+        }
+      }
+    },
+    {
+      "lid": "TRCC1",
+      "name": "Truckee River near Truckee",
+      "rfc": {
+        "abbreviation": "CNRFC",
+        "name": "California Nevada River Forecast Center"
+      },
+      "wfo": {
+        "abbreviation": "REV",
+        "name": "Reno"
+      },
+      "state": {
+        "abbreviation": "CA",
+        "name": "California"
+      },
+      "latitude": 39.2962952,
+      "longitude": -120.2054752,
+      "pedts": {
+        "observed": "HGIRG",
+        "forecast": "HGIFE"
+      },
+      "status": {
+        "observed": {
+          "primary": 1.63,
+          "primaryUnit": "ft",
+          "secondary": 0.07,
+          "secondaryUnit": "kcfs",
+          "floodCategory": "no_flooding",
+          "validTime": "2026-10-04T01:15:00Z"
+        },
+        "forecast": {
+          "primary": 1.64,
+          "primaryUnit": "ft",
+          "secondary": 0.072,
+          "secondaryUnit": "kcfs",
+          "floodCategory": "no_flooding",
+          "validTime": "2026-10-04T02:00:00Z"
+        }
+      }
+    },
+    {
+      "lid": "TRTC1",
+      "name": "Truckee River at Tahoe City",
+      "rfc": {
+        "abbreviation": "CNRFC",
+        "name": "California Nevada River Forecast Center"
+      },
+      "wfo": {
+        "abbreviation": "REV",
+        "name": "Reno"
+      },
+      "state": {
+        "abbreviation": "CA",
+        "name": "California"
+      },
+      "latitude": 39.16629577,
+      "longitude": -120.1443586,
+      "pedts": {
+        "observed": "HGIRG",
+        "forecast": "HGIFZ"
+      },
+      "status": {
+        "observed": {
+          "primary": 2.54,
+          "primaryUnit": "ft",
+          "secondary": 0.075,
+          "secondaryUnit": "kcfs",
+          "floodCategory": "no_flooding",
+          "validTime": "2026-10-04T01:30:00Z"
+        },
+        "forecast": {
+          "primary": -999,
+          "primaryUnit": "",
+          "secondary": -999,
+          "secondaryUnit": "",
+          "floodCategory": "fcst_not_current",
+          "validTime": "0001-01-01T00:00:00Z"
+        }
+      }
+    },
+    {
+      "lid": "WDKC1",
+      "name": "Ward Creek above Sunnyside",
+      "rfc": {
+        "abbreviation": "CNRFC",
+        "name": "California Nevada River Forecast Center"
+      },
+      "wfo": {
+        "abbreviation": "REV",
+        "name": "Reno"
+      },
+      "state": {
+        "abbreviation": "CA",
+        "name": "California"
+      },
+      "latitude": 39.1321292,
+      "longitude": -120.1576913,
+      "pedts": {
+        "observed": "HGIRG",
+        "forecast": "HGIFZ"
+      },
+      "status": {
+        "observed": {
+          "primary": 5.05,
+          "primaryUnit": "ft",
+          "secondary": 0,
+          "secondaryUnit": "kcfs",
+          "floodCategory": "no_flooding",
+          "validTime": "2026-10-04T01:20:00Z"
+        },
+        "forecast": {
+          "primary": -999,
+          "primaryUnit": "",
+          "secondary": -999,
+          "secondaryUnit": "",
+          "floodCategory": "fcst_not_current",
+          "validTime": "0001-01-01T00:00:00Z"
+        }
+      }
+    }
+  ]
+}

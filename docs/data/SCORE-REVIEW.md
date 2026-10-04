@@ -41,7 +41,7 @@ We use the most recent test on each creek. A test up to 60 days old counts fully
 |---|---|---|---|---|
 | Dissolved oxygen | < 5 / < 7 mg/L | −15 / −6 | Basin Plan, cold-water habitat (7 mg/L) | Are these the right cut-offs for these reaches? |
 | pH | outside 6.5–8.5 | −5 | Basin Plan objective | |
-| E. coli | > 320 per 100 mL | −12 | State bacteria objective (swimming) | WCCA reports bacteria impairment on Wolf Creek. Should this weigh more? |
+| E. coli | > 320 per 100 mL | −12 | California's recreational (REC-1) E. coli **statistical threshold value** of 320 per 100 mL. That's a statistical threshold (no more than 10% of a month's samples above it, alongside a 6-week geometric mean of 100), not a single-sample limit ([State Water Board bacteria provisions](https://waterboards.ca.gov/plans_policies/docs/bacteria.pdf)). One sample above it is a flag, not proof the water is unsafe | WCCA reports bacteria impairment on Wolf Creek. Should this weigh more? |
 | Water temperature | > 20 °C | −5 | Our rule of thumb for trout stress | A better number for these creeks? |
 | Turbidity | > 10 / > 25 NTU | −4 / −8 | Our rule of thumb | A better local baseline? |
 

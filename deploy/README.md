@@ -33,6 +33,26 @@ The container runs with `--memory 1536m --memory-swap 1536m --pids-limit 256 --s
 
 A sha that fails is written to `~/creekwatch/failed.shas`, and the timer won't retry it. A new merge, or a manual run, will. Measured swap gap: one probe miss at a 0.5 s interval, so about 1 s.
 
+## Secrets (VAPID for Web Push)
+
+Vaultwarden is the source of truth: the secure note **"creekwatch VAPID"** holds the fields `CREEKWATCH_VAPID_PRIVATE`, `CREEKWATCH_VAPID_PUBLIC` and `CREEKWATCH_VAPID_SUBJECT`. ubox0 gets them in `~/creekwatch/app.env`, which is outside the repo and the image, mode 0600 and owned by the deploy user. `redeploy.sh` passes that file with `--env-file` to both the staging and the live container.
+
+| Do | Command (on a host where `bw` is unlocked) |
+|---|---|
+| Create the keypair (once) | `deploy/secrets.sh init`: generated inside a pipe straight into a new vault item; refuses if one exists |
+| Install/refresh on ubox0 and apply | `deploy/secrets.sh install`: vault → ssh **stdin** → app.env (0600), then a redeploy |
+| Check names (never values) | `deploy/secrets.sh status` |
+
+Values travel only through pipes: never through argv, logs, the repo or the image. Rotating the keypair invalidates every push subscription, so `init` won't overwrite. `deploy/tests/secrets-plumbing.sh` exercises the transport with a **throwaway** key: 0600, merge, refusal of malformed lines, the value intact in a hardened container, and no trace in the journal or container logs. A planted-leak probe confirms the leak check can see.
+
+## Alert poller
+
+**Decision (2026-10-03, jp-main): the in-app poller**, with `CREEKWATCH_POLLER=1` in `~/creekwatch/app.env`, set via `deploy/secrets.sh install-lines`. The env file is non-secret but takes the same 0600 path. **This holds only on one condition:** the Oracle must pass #39's atomic push claim. That claim is a single `UPDATE alerts SET last_pushed_severity=? WHERE id=? AND <rank(last) < rank(new)>`, with the rank comparison inside the `WHERE` and a push sent only when `rowcount == 1`. That claim is what stops the redeploy's staging container, which briefly runs a second poller on the same DB, from double-sending. If the claim ever changes, re-check this decision.
+
+Why in-app: it keeps per-source intervals and backoff, which `--once` doesn't. Without them, every source would be refetched every pass, including a 10 MB file every 10 min. During the redeploy overlap, both containers may *fetch*, which is harmless because the upserts are idempotent.
+
+**Fallback (installed, DISABLED):** `creekwatch-poll.timer` runs `deploy/poll.sh`, which does `docker exec … timeout -k 10 300 python -m creekwatch.alerts.poller --once` every 10 min. It's hardened, takes a lock (a skipped pass exits 75), fails loudly if it can't reach the container, and no-ops on builds without the poller. **Never run both:** to switch, remove `CREEKWATCH_POLLER` from app.env, redeploy, then run `sudo systemctl enable --now creekwatch-poll.timer`. Logs: `docker logs creekwatch | grep -i poller` (in-app) or `journalctl -u creekwatch-poll` (timer). Health of the sources: `GET /api/alerts/sources`.
+
 ## Backups
 
 `creekwatch-backup.timer` runs **hourly** and copies to **disks** at `/mnt/raid/backups/ubox0/creekwatch/`, which borg snapshots nightly at 03:00:
