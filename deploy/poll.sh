@@ -25,7 +25,11 @@ if ! docker exec "$NAME" python -c 'import creekwatch.alerts.poller' 2>/dev/null
   log "this build has no creekwatch.alerts.poller; nothing to do"; exit 0
 fi
 log "pass start"
-timeout "${CW_POLL_TIMEOUT:-300}" docker exec "$NAME" python -m creekwatch.alerts.poller --once
+# The deadline must act INSIDE the container: an outer `timeout docker exec` kills only the CLI,
+# leaving the in-container poller running past the flock (and piling up). GNU timeout is in the image.
+# The outer timeout (+30 s) is only a backstop for a wedged docker CLI.
+T="${CW_POLL_TIMEOUT:-300}"
+timeout "$((T + 30))" docker exec "$NAME" timeout -k 10 "$T" python -m creekwatch.alerts.poller --once
 log "pass done"
 }
 main "$@"
