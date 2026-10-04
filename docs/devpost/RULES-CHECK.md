@@ -11,7 +11,7 @@ All three were read on Sat 2026-10-03, about 17:20 PDT.
 | # | Requirement (source, quote) | How we meet it | Status |
 |---|---|---|---|
 | 1 | **Deadline:** "Oct 4, 2026 @ 9:00pm PDT" (O). Extended per (U): "submission deadline has been extended … October 4, 2026 at 9:00 PM" | Staged by Sun 18:00 for JP's one-click submit; three hours of buffer | 🟡 submit |
-| 2 | **Development period:** "Projects must be original and developed during the hackathon period" (R). Period listed as "September 16 – September 30, 2026" (R/O), "September 14–30" in (U), then the deadline was extended to Oct 4 and (U) "encouraged continued development work during the extended period" | All code is new; the repo's first commit is 2026-10-03, inside the extended window. The idea came from JP's pre-weekend notes; no prior code is reused. Low risk. To be safe, the Devpost text says the project was built during the submission window | ✅ (low risk) |
+| 2 | **Development period:** "Projects must be original and developed during the hackathon period" (R). Period listed as "September 16 – September 30, 2026" (R/O) and "September 14–30" (U); then (U) extended the deadline to Oct 4 and "encouraged continued development work during the extended period" | All code is new; the repo's first commit is 2026-10-03, inside the extended submission window (Oct 3–4, before the Oct 4 21:00 PDT deadline). SUBMISSION.md says so in "How we built it". A clarifying question for the hackathon manager is drafted in [MANAGER-QUESTION.md](MANAGER-QUESTION.md); sending it is JP's call, since it goes out as him | 🟡 open: JP decides whether to send the question |
 | 3 | **Age:** "Participants must meet the legal age requirement in their country of residence" (R) | JP is an adult. Alec: ⟨confirm he's of legal age⟩ | 🟡 JP confirms |
 | 4 | **Students only:** the overview badge says "Students only" (O); the rules text doesn't say it | JP is a Sierra College student. Alec is a student ⟨school to confirm⟩ | 🟡 school name |
 | 5 | **Team:** the overview badge says "Team required" (O). The rules say "Open to individuals or teams (each participant can join only one team)" (R), and (U) says "You can participate individually or as part of a team" | Team of two: JP and Alec. That satisfies both readings. Neither of them may be on another team | 🟡 Devpost team created, Alec joined (JP's local agent owns this) |
@@ -30,7 +30,7 @@ All three were read on Sat 2026-10-03, about 17:20 PDT.
 | 13 | **Prototype / demo:** "Share a working prototype, mockup, or proof-of-concept" (O) | Live at https://creekwatch.realm.watch. **Not reachable yet** (HTTP 000 at 17:19); the deploy lane is in progress | 🟡 deploy lane |
 | 14 | **Original work** | All new code. AI coding assistance is disclosed in SUBMISSION.md ("How we built it"). **Neither the rules nor the overview has an AI-use clause**: we checked R, O and U and found none. Disclosing it is a voluntary good-faith step | ✅ |
 | 15 | **Showcase:** "results … will be showcased on the OneAquaHealth Open Information Hub" (O) | Fine with the MIT licence. Nothing private is in the repo or the video | ℹ️ |
-| 16 | **Prize amount:** the rules say "5000$ Cash/InKind Prize TBD" (R); the overview and updates say "$3,500 in cash" / "$3,500+" (O/U) | Don't quote any prize figure in public materials | ℹ️ |
+| 16 | **Prize amount mismatch:** the rules say "5000$ Cash/InKind Prize TBD" (R), but the overview lists "$3,500 in cash": Winner $1,500, Runner Up $1,000, Second Runner Up $500, and Special Mention $250 × 2 winners, plus certificates (O). (U) says "Prize Pool: $3,500+" | We follow the overview's figures. No change to what we build or submit. Public materials quote no prize figure | ℹ️ |
 | 17 | **Judging weights** (R): Impact 30%, Innovation 20%, Technical 20%, UX 15%, Feasibility 15% | The script and submission lead with impact (One Health), then the explainable score (innovation and technical), then the plain-words flow (UX), then next steps and open data (feasibility) | ℹ️ |
 
 ## Privacy and data-safety checks (our own rules, for a public repo)
@@ -41,8 +41,9 @@ All three were read on Sat 2026-10-03, about 17:20 PDT.
 
 ## Still open (owner)
 1. Make the repo public after the secret scan (**lead**).
-2. Alec's surname, school and legal-age confirmation; his Devpost registration and team join (**JP / JP's local agent**).
+2. Alec's surname and school (use "Alec" only until JP answers), and legal-age confirmation; his Devpost registration and team join (**JP / JP's local agent**).
 3. Live URL up and phone-usable (**deploy lane**, target Sun 08:00).
 4. OSM attribution visible on the map (**web lane**).
 5. Video recorded, 3:00–5:00 confirmed with `ffprobe`, and uploaded publicly (**JP + Alec**).
-6. Every ⟨fill⟩ in SUBMISSION.md resolved (**story lane**, Sunday afternoon).
+6. Whether to send MANAGER-QUESTION.md (**JP**; sent as him, so not drafted to send automatically).
+7. Every ⟨fill⟩ in SUBMISSION.md resolved (**story lane**, Sunday afternoon).
