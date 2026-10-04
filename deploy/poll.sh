@@ -21,7 +21,10 @@ flock -n 9 || { log "WARN: previous poll still running; this pass SKIPPED"; exit
 for _ in $(seq 1 30); do   # e.g. a redeploy swap in progress
   [ "$(docker inspect -f '{{.State.Running}}' "$NAME" 2>/dev/null)" = true ] && break; sleep 2
 done
-if ! docker exec "$NAME" python -c 'import creekwatch.alerts.poller' 2>/dev/null; then
+# First prove we can reach the container at all: otherwise a denied docker socket (e.g. unit hardening)
+# would look exactly like "no poller in this build" below and silently disable alerting.
+timeout 30 docker exec "$NAME" true || { log "FAIL: cannot exec into $NAME (docker socket/container)"; exit 1; }
+if ! timeout 30 docker exec "$NAME" python -c 'import creekwatch.alerts.poller' 2>/dev/null; then
   log "this build has no creekwatch.alerts.poller; nothing to do"; exit 0
 fi
 log "pass start"
