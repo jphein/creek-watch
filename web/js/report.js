@@ -3,6 +3,7 @@ import { getCreeks, postReport, ApiError, reportBand } from './api.js';
 import { icon } from './icons.js';
 import { kvGet, kvSet, kvDel, outboxAdd, outboxAll, outboxDel, draftLoad, draftSave, draftClear } from './store.js';
 import { esc, haversineKm, fmtDistance, bandLabel, flagText, toast } from './ui.js';
+import { recordCleanup, badgeSVG, badgesStripHTML } from './badges.js';
 
 const STEPS = [
   { key: 'photo', title: 'Take a picture of the creek', hint: 'Stand back so we can see the water and the bank.' },
@@ -67,7 +68,9 @@ const blank = () => ({
   water_color: '', flow: '', algae: '', trash: '', dead_fish: '', odor: '',
   wildlife_seen: '', notes: '', reporter_name: localStorageGet('cw-name'),
   noPhoto: false,
+  trash_removed: false, trash_bags: 0,
 });
+let lastCleanup = null; // {bags, newly, saved, stats} for the confirmation card
 
 // Site access notes come from OSM research; drop "(OSM way 123…)" style refs for field users.
 const plainAccess = (t) => String(t).replace(/\s*\((?:[^()]*\bOSM\b[^()]*)\)/gi, '').replace(/\s+([.,])/g, '$1');
@@ -322,12 +325,36 @@ function stepSee() {
   return (
     choiceGrid('algae', 'Green slime or algae?', { cols: 3 }) +
     choiceGrid('trash', 'Trash in or near the water?', { cols: 3 }) +
+    cleanupBlock() +
     choiceGrid('dead_fish', 'Any dead fish?', { cols: 2 }) +
     `<label class="field">
       <span class="field-label">${icon.heron} Animals you saw <em>(optional)</em></span>
       <input type="text" name="wildlife_seen" maxlength="200" autocomplete="off" placeholder="Ducks, a heron, crawdads…" value="${esc(st.wildlife_seen)}">
     </label>`
   );
+}
+
+// Shown only when there's trash: optional "I picked it up" + bag count + a safety line.
+function cleanupBlock() {
+  if (st.trash !== 'some' && st.trash !== 'lots') return '';
+  const on = !!st.trash_removed;
+  const bags = st.trash_bags | 0;
+  return `<div class="cleanup">
+    <p class="safety" role="note"><span aria-hidden="true">⚠️</span> Only pick up what’s safe. Leave needles, chemicals and big items, and report them.</p>
+    <button type="button" class="cleanup-toggle" data-act="cleanup" aria-pressed="${on}">
+      <span class="ct-icon" aria-hidden="true">🧤</span>
+      <span><span class="ct-label">I picked it up</span><span class="ct-sub">${on ? 'Thank you! Tap again to undo.' : 'Optional. Tap if you removed some.'}</span></span>
+      <span class="ct-check" aria-hidden="true">${on ? '✓' : ''}</span>
+    </button>
+    ${on ? `<div class="bags" role="group" aria-labelledby="bags-l">
+      <span id="bags-l" class="bags-label">About how many bags? <em>(optional)</em></span>
+      <div class="stepper">
+        <button type="button" class="step-btn" data-act="bags-dec" aria-label="One fewer bag" ${bags <= 0 ? 'disabled' : ''}>−</button>
+        <output class="bags-n" aria-live="polite" aria-label="${bags} bag${bags === 1 ? '' : 's'}">${bags}</output>
+        <button type="button" class="step-btn" data-act="bags-inc" aria-label="One more bag" ${bags >= 20 ? 'disabled' : ''}>+</button>
+      </div>
+    </div>` : ''}
+  </div>`;
 }
 
 function stepSmell() {
@@ -365,6 +392,9 @@ function stepSend() {
         ${summaryRow('Water', `${labelOf('water_color', st.water_color)}, ${labelOf('flow', st.flow).toLowerCase()} flow` + editBtn(2))}
         ${summaryRow('Algae', labelOf('algae', st.algae) + editBtn(3))}
         ${summaryRow('Trash', labelOf('trash', st.trash) + editBtn(3))}
+        ${st.trash === 'some' || st.trash === 'lots'
+          ? summaryRow('Cleanup', esc(st.trash_removed ? `Picked up${st.trash_bags > 0 ? `, about ${st.trash_bags} bag${st.trash_bags === 1 ? '' : 's'}` : ''} 🧤` : 'Not picked up') + editBtn(3))
+          : ''}
         ${summaryRow('Dead fish', labelOf('dead_fish', st.dead_fish) + editBtn(3))}
         ${summaryRow('Smell', labelOf('odor', st.odor) + editBtn(4))}
       </dl>
@@ -409,6 +439,7 @@ function renderDone() {
         : ''
     }
     ${flags.length ? `<ul class="flag-list">${flags.map((f) => `<li class="${f.alert ? 'alert' : ''}">${esc(f.text)}</li>`).join('')}</ul>` : ''}
+    ${cleanupCardHTML()}
     <h3>What happens next</h3>
     <ol class="next-steps">
       <li><strong>It shows on the map</strong> for anyone to see, with your photo.</li>
@@ -421,6 +452,19 @@ function renderDone() {
     </div>
   </section>`;
   root.querySelector('.step-title')?.focus({ preventScroll: true });
+}
+
+function cleanupCardHTML() {
+  const c = lastCleanup;
+  if (!c) return '';
+  const newly = c.newly || [];
+  return `<section class="celebrate" aria-labelledby="cel-h">
+    <div class="cel-burst" aria-hidden="true">🧤</div>
+    <h3 id="cel-h">Thank you for cleaning up!</h3>
+    <p>${c.bags > 0 ? `About ${c.bags} bag${c.bags === 1 ? '' : 's'} of trash out of the creek. ` : ''}Every piece you take out is one less for fish, birds and the river downstream.</p>
+    ${newly.map((b) => `<div class="new-badge" role="status">${badgeSVG(b.id, { size: 88 })}<div><span class="nb-kicker">New badge</span><strong>${esc(b.name)}</strong><span class="nb-rule">For ${esc(b.rule)}</span></div></div>`).join('')}
+    ${c.saved ? badgesStripHTML(c.stats) : '<p class="b-note">This phone isn’t letting us save badges (private browsing or storage turned off), but your cleanup is in the report. Thank you!</p>'}
+  </section>`;
 }
 
 function render() {
@@ -478,6 +522,13 @@ export function bindReport(el) {
         persist();
         return render();
       }
+      if (t.name === 'trash') {
+        if (t.value === 'none') { st.trash_removed = false; st.trash_bags = 0; }
+        persist();
+        render();
+        el.querySelector(`input[name="trash"][value="${CSS.escape(t.value)}"]`)?.focus();
+        return;
+      }
       if (t.name === 'site_id') {
         st.site_id_manual = true;
         persist();
@@ -516,6 +567,14 @@ export function bindReport(el) {
     if (act === 'gps') return locate();
     if (act === 'photo-clear') { setPhoto(null); persist(); return render(); }
     if (act === 'no-photo') { st.noPhoto = true; persist(); return go(1); }
+    if (act === 'cleanup' || act === 'bags-inc' || act === 'bags-dec') {
+      if (act === 'cleanup') { st.trash_removed = !st.trash_removed; if (!st.trash_removed) st.trash_bags = 0; }
+      else st.trash_bags = Math.max(0, Math.min(20, (st.trash_bags | 0) + (act === 'bags-inc' ? 1 : -1)));
+      persist();
+      render();
+      (el.querySelector(`[data-act="${act}"]:not([disabled])`) || el.querySelector('[data-act="cleanup"]'))?.focus();
+      return;
+    }
     if (act === 'send') return send();
     if (act === 'send-nophoto') { setPhoto(null); st.noPhoto = true; persist(); return send(); }
     if (act === 'queue') return queue();
@@ -546,7 +605,9 @@ function buildForm() {
     odor: st.odor,
     dead_fish: st.dead_fish === 'true' ? 'true' : 'false',
     notes: st.notes.trim(),
+    trash_removed: st.trash !== 'none' && st.trash_removed ? 'true' : 'false',
   };
+  if (f.trash_removed === 'true' && (st.trash_bags | 0) > 0) f.trash_bags = String(Math.min(20, st.trash_bags | 0));
   if (st.site_id) f.site_id = st.site_id;
   if (st.wildlife_seen.trim()) f.wildlife_seen = st.wildlife_seen.trim();
   if (st.reporter_name.trim()) f.reporter_name = st.reporter_name.trim().slice(0, 60);
@@ -596,12 +657,14 @@ async function queue() {
 
 function finish(fields) {
   try { if (fields.reporter_name) localStorage.setItem('cw-name', fields.reporter_name); } catch { /* soft */ }
+  lastCleanup = fields.trash_removed === 'true' ? { bags: Number(fields.trash_bags || 0), ...recordCleanup(Number(fields.trash_bags || 0)) } : null;
   draftClear();
   kvDel('draft-photo');
   lastError = null;
 }
 
 function reset() {
+  lastCleanup = null;
   const keep = { creek_id: st.creek_id, site_id: st.site_id, lat: st.lat, lon: st.lon, accuracy: st.accuracy, gpsAt: st.gpsAt };
   st = { ...blank(), ...keep };
   setPhoto(null);

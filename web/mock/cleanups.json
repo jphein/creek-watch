@@ -1,0 +1,12 @@
+{
+ "wolf": {
+  "cleanups": 7,
+  "bags": 12,
+  "since": "2026-10-01T00:00:00Z"
+ },
+ "deer": {
+  "cleanups": 0,
+  "bags": 0,
+  "since": null
+ }
+}
