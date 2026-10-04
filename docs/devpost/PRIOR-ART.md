@@ -3,7 +3,7 @@
 **Short answer: yes, a lot.** Photo-based citizen creek reporting has existed since 2010, including an IBM app called *Creek Watch*. The contest sponsor already runs its own guided citizen-science app, and several other entries in this hackathon also turn citizen checks into an explained stream-health score. What's genuinely new in ours is narrower than "a citizen creek app". It's in the [Differentiation](#4-differentiation-honest) section below.
 
 **Method:**
-- Researched Sat 2026-10-03, about 17:35–18:30 PDT, using web search plus direct fetches.
+- Researched Sat 2026-10-03, about 17:30–17:40 PDT (clock-checked), using web search plus direct fetches.
 - "Status" means checked live with `curl` (HTTP code) or the GitHub API at that time. **403** means the site blocks scripted requests (bot protection); it is not dead.
 - Claims come from the linked pages. "Inferred" marks anything we didn't read directly.
 
