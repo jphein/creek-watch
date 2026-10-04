@@ -54,6 +54,7 @@ Newer reports count more: a report's weight halves every 3 days. Each condition 
 | Sewage or chemical smell | −30 | A leak, spill or illegal discharge, which is a risk to people and pets too. |
 | Brown water | −15 | Soil and the pollutants that ride on it. Sediment smothers spawning gravel. |
 | Lots of algae | −15 | Uses up oxygen at night. Some blooms are toxic to dogs. |
+| Orange water | −12 | Orange water can be a sign of mine drainage (iron and other metals) from old mine sites. Avoid contact and report it through [CalEPA's environmental complaint form](https://calepa.ca.gov/enforcement/complaints/), which routes it to the Regional Water Board. |
 | Green water | −10 | A sign of algae feeding on extra nutrients. |
 | Lots of trash | −10 | Harms wildlife and signals runoff from streets or camps. |
 | Flood flow | −10 | Scours the banks and flushes runoff into the creek. |
@@ -82,6 +83,7 @@ If a reporter picked up the trash they saw, the trash still counts (it shows lit
 | Recent contamination report | Dead fish or a sewage/chemical smell reported 3 to 7 days ago | At least **watch** |
 | **Runoff / sediment watch** | ≥ 0.5 in of rain in the last 24 h **and** a report of brown or cloudy water in the last 48 h | At least **watch** |
 | **Algal bloom watch** | A report of lots of algae or green water this week **and** air temperature ≥ 80 °F | At least **watch** |
+| **Orange water reported** | A report of orange water in the last 3 days (possible mine drainage) | At least **watch** |
 | Heavy rain forecast | ≥ 0.5 in of rain forecast in the next 24 h | Advisory only; the score is unchanged |
 | **E. coli above the recreational threshold** | Any volunteer test on the creek in the last 60 days with E. coli > 320 MPN/100 mL (California's recreational statistical threshold value, not a single-sample limit) | **watch** for 14 days after the test, then **advisory** to day 60; names the group and the test date |
 

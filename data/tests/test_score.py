@@ -249,3 +249,33 @@ def test_trash_removed_keys_optional_and_flag():
     assert "trash_removed" not in report_flags(report(trash="none", trash_removed=True))   # nothing to remove
     assert "trash_removed" not in report_flags(report(trash="lots"))
     compute_health("deer", [report(2, trash="lots")], conditions(), now=NOW)   # no new keys: fine
+
+
+
+# --- orange water (possible mine drainage) -------------------------------------------------
+def test_orange_water_signal_watch_and_flag():
+    base = compute_health("wolf", CLEAN, conditions(), now=NOW)
+    res = compute_health("wolf", CLEAN + [report(5, water_color="orange")], conditions(), now=NOW)
+    s = sig(res, "water_orange")
+    assert -12 <= s["weight"] < 0 and res["score"] < base["score"]
+    assert "can be a sign of mine drainage" in s["explanation"]
+    assert "toxic" not in s["explanation"].lower()                       # careful wording, no overclaim
+    assert "https://calepa.ca.gov/enforcement/complaints/" in s["explanation"]
+    w = [w for w in res["warnings"] if w["id"] == "orange_water_watch"]
+    assert w and w[0]["level"] == "watch" and BAND_ORDER(res["band"]) >= BAND_ORDER("watch")
+    assert "toxic" not in w[0]["explanation"].lower()
+    assert "orange_water" in report_flags(report(water_color="orange"))
+    assert "orange_water" not in report_flags(report(water_color="brown"))
+
+
+def test_old_orange_report_no_watch_but_still_scored():
+    res = compute_health("wolf", CLEAN + [report(4 * 24, water_color="orange")], conditions(), now=NOW)
+    assert not any(w["id"] == "orange_water_watch" for w in res["warnings"])   # > 72 h: no watch
+    assert sig(res, "water_orange")["weight"] < 0                             # still in the 7-day score
+
+
+def test_orange_watch_becomes_creekwatch_alert():
+    from data.alerts.others import creekwatch_alerts
+    res = compute_health("deer", [report(2, water_color="orange")], conditions(), now=NOW)
+    (a,) = [a for a in creekwatch_alerts("deer", res, NOW) if "orange" in a["id"]]
+    assert (a["id"], a["severity"], a["category"]) == ("creekwatch:deer:orange_water_watch", "watch", "contamination")
