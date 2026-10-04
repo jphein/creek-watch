@@ -55,7 +55,7 @@ latest_before=$(cat "$T/dest/LATEST")
 flock "$T/stage/.lock" sleep 6 & holder=$!; sleep 1
 out=$(CW_BACKUP_LOCK_WAIT=0 $B 2>&1); rc=$?
 wait $holder
-{ [ $rc = 0 ] && grep -q "holds the lock; skipping" <<<"$out"; } || bad "lock not honoured (rc=$rc: $out)"
+{ [ $rc = 75 ] && grep -q "this run is SKIPPED" <<<"$out"; } || bad "lock not honoured or skip not signalled (rc=$rc: $out)"
 
 # Redeploy swap window: the lock is held ~4 s and the container is renamed away meanwhile (what
 # redeploy.sh does). With the default wait, the backup must wait it out and succeed.
