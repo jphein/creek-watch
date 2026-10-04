@@ -76,7 +76,7 @@ for (const scheme of ['light', 'dark']) {
   });
   if (SHOTS) { await c.scrollIntoViewIfNeeded(); await p.screenshot({ path: `${SHOTS}/card-orange-sidestream-${scheme}.png` }); }
   await p.goto(base + 'index.html?mock=1#map'); await p.waitForSelector('.leaflet-marker-icon .pin', { timeout: 20000 }); await p.waitForTimeout(1000);
-  R[`D_${scheme}`].sidePin = await p.locator('.leaflet-marker-icon:has(.pin)').evaluateAll((els) => els.map((e) => e.title).find((t) => /side stream/.test(t)) || '');
+  R[`D_${scheme}`].sidePin = await p.locator('.leaflet-marker-icon:has(.pin)').evaluateAll((els) => els.map((e) => e.title).find((t) => /away from named spots/.test(t)) || '');
   await ctx.close();
 }
 await b.close(); close();
@@ -85,15 +85,15 @@ const checks = {
   orangeOption: R.B.orangeTile.count === 1 && R.B.orangeTile.label === 'Orange' && /mine drainage/.test(R.B.orangeTile.sub) && R.B.orangeTile.icon === 1,
   orangePosted: R.B.post.water_color === 'orange' && /Orange/.test(R.B.summaryWater),
   sideStreamNotAutoPicked: R.B.autoPicked === '' && /not right at it, so we’ll use your exact GPS point/.test(R.B.gpsText),
-  sideStreamLabelAndHint: R.B.elsewhereLabel === 'Somewhere else (a side stream or tributary)' && /exact GPS point/.test(R.B.hint) && /Name the stream in Notes/.test(R.B.hint),
+  sideStreamLabelAndHint: R.B.elsewhereLabel === 'Somewhere else (between spots, or a side stream)' && /exact GPS point/.test(R.B.hint) && /If it’s a side stream, name it in Notes/.test(R.B.hint),
   sideStreamPost: R.B.post.site_id === null && R.B.post.location_kind === 'side_stream' && R.B.post.lat === '39.235' && R.B.post.lon === '-121.04',
-  sideStreamSummaryAndNotes: /Side stream or other spot near Wolf Creek \(your GPS point\)/.test(R.B.summaryPlace) && /Which stream is this/.test(R.B.notesPlaceholder),
+  sideStreamSummaryAndNotes: /Away from named spots near Wolf Creek \(your GPS point\)/.test(R.B.summaryPlace) && /If it’s a side stream, which one\?/.test(R.B.notesPlaceholder),
   atSiteAutoPicks: R.N.autoPicked === 'wolf-memorial-park' && R.N.post.site_id === 'wolf-memorial-park' && R.N.post.location_kind === null,
   chooseElsewhereWorks: R.C.autoPicked === 'wolf-memorial-park' && R.C.post.site_id === null && R.C.post.location_kind === 'side_stream' && R.C.post.lat === '39.2127',
   cardsLabelOrange: R.D_light.tags.includes('Orange / rusty') && R.D_dark.tags.includes('Orange / rusty'),
-  cardsLabelSideStream: R.D_light.tags.includes('Side stream'),
+  cardsLabelNeutral: R.D_light.tags.includes('Not at a named spot') && !R.D_light.tags.some((t) => /side stream/i.test(t)),
   orangeIsWatch: R.bands.serverFlag === 'watch' && R.bands.noFlags === 'watch' && R.bands.derived.includes('orange_water') && !R.bands.positive && /band-watch/.test(R.D_light.dot),
-  sideStreamPinTitle: R.D_light.sidePin === 'Watch report · side stream near Wolf Creek',
+  pinTitleNeutral: R.D_light.sidePin === 'Watch report · away from named spots near Wolf Creek',
   orangeWordingPlain: /orange or rusty-looking water/.test(R.bands.text) && !/toxic|unsafe/i.test(R.bands.text),
   noPageErrors: [R.B, R.C, R.N].every((r) => !r.errs.length),
 };

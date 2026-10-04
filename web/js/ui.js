@@ -149,7 +149,7 @@ export function reportCardHTML(r, creekName = '', siteName = '', { band } = {}) 
         <strong>${esc(siteName || creekName || 'Creek report')}</strong>
         <time datetime="${esc(r.observed_at)}">${esc(timeAgo(r.observed_at))}</time>
       </header>
-      <p class="rep-tags">${r.location_kind === 'side_stream' ? '<span class="tag-side">Side stream</span>' : ''}${[v('water_color'), `${v('flow')} flow`, v('algae'), v('trash'), v('odor')]
+      <p class="rep-tags">${r.location_kind === 'side_stream' ? '<span class="tag-side">Not at a named spot</span>' : ''}${[v('water_color'), `${v('flow')} flow`, v('algae'), v('trash'), v('odor')]
         .filter(Boolean)
         .map((t) => `<span>${esc(t)}</span>`)
         .join('')}${r.dead_fish ? '<span class="tag-alert">Dead fish</span>' : ''}${

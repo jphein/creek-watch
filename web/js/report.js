@@ -314,8 +314,8 @@ function stepWhere() {
           .join('')}
         <label class="site">
           <input type="radio" name="site_id" value="" ${st.site_id === '' ? 'checked' : ''}>
-          <span class="site-face"><span class="site-dot other" aria-hidden="true"></span><span class="site-name">Somewhere else (a side stream or tributary)</span></span>${
-            st.site_id === '' ? `<span class="site-access">${st.lat != null ? 'We’ll use your exact GPS point.' : 'Turn on location so we can use your exact spot.'} Name the stream in Notes on the last step, for example “small stream off ${esc(creek.name)} by the trail.”</span>` : ''
+          <span class="site-face"><span class="site-dot other" aria-hidden="true"></span><span class="site-name">Somewhere else (between spots, or a side stream)</span></span>${
+            st.site_id === '' ? `<span class="site-access">${st.lat != null ? 'We’ll use your exact GPS point.' : 'Turn on location so we can use your exact spot.'} If it’s a side stream, name it in Notes on the last step, for example “small stream off ${esc(creek.name)} by the trail.”</span>` : ''
           }
         </label>
       </div>
@@ -384,7 +384,7 @@ function stepSend() {
   return `
     <label class="field">
       <span class="field-label">Notes <em>(optional)</em></span>
-      <textarea name="notes" maxlength="1000" rows="3" placeholder="${st.site_id === '' ? 'Which stream is this? Anything unusual?' : 'Anything that seemed unusual?'}">${esc(st.notes)}</textarea>
+      <textarea name="notes" maxlength="1000" rows="3" placeholder="${st.site_id === '' ? 'If it’s a side stream, which one? Anything unusual?' : 'Anything that seemed unusual?'}">${esc(st.notes)}</textarea>
     </label>
     <label class="field">
       <span class="field-label">Your first name <em>(optional, shown with your report)</em></span>
@@ -395,7 +395,7 @@ function stepSend() {
       ${photo ? `<img class="sum-photo" src="${photoUrl}" alt="Your creek photo">` : ''}
       <dl>
         ${summaryRow('Photo', (photo ? 'Added' : 'None') + editBtn(0))}
-        ${summaryRow('Place', esc(site ? `${site.name}, ${creek ? creek.name : ''}` : `Side stream or other spot near ${creek ? creek.name : 'the creek'} (your GPS point)`) + editBtn(1))}
+        ${summaryRow('Place', esc(site ? `${site.name}, ${creek ? creek.name : ''}` : `Away from named spots near ${creek ? creek.name : 'the creek'} (your GPS point)`) + editBtn(1))}
         ${summaryRow('Water', `${labelOf('water_color', st.water_color)}, ${labelOf('flow', st.flow).toLowerCase()} flow` + editBtn(2))}
         ${summaryRow('Algae', labelOf('algae', st.algae) + editBtn(3))}
         ${summaryRow('Trash', labelOf('trash', st.trash) + editBtn(3))}
