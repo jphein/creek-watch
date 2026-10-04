@@ -52,6 +52,50 @@ REPORT_RULES = [
 ]
 
 
+# Volunteer lab/field sample thresholds (screening values, see data/README.md):
+#   DO >= 7.0 mg/L: Central Valley Basin Plan minimum for cold-water (COLD) habitat
+#   pH 6.5-8.5:     Central Valley Basin Plan objective
+#   E. coli 320 MPN/100 mL: CA statewide bacteria objective (REC-1 statistical threshold value)
+#   water temp > 20 C: rule of thumb for stress on trout and other cold-water life
+#   turbidity > 10 / 25 NTU: rule of thumb for elevated / high (no fixed numeric objective here)
+WQ_FULL_DAYS = 60     # samples this recent count fully
+WQ_HALF_DAYS = 180    # ... this recent count half; older ones are shown as context only
+
+
+def _wq_penalties(r: dict) -> list[tuple[str, float]]:
+    out = []
+    do = r.get("do_mg_l")
+    if do is not None:
+        if do < 5:
+            out.append((f"dissolved oxygen {do} mg/L is dangerously low for fish", 15))
+        elif do < 7:
+            out.append((f"dissolved oxygen {do} mg/L is below the 7 mg/L cold-water standard", 6))
+    ph = r.get("ph")
+    if ph is not None and not 6.5 <= ph <= 8.5:
+        out.append((f"pH {ph} is outside the 6.5-8.5 standard", 5))
+    ec = r.get("ecoli_mpn_100ml")
+    if ec is not None and ec > 320:
+        out.append((f"E. coli {ec:g} per 100 mL is above the state swimming threshold of 320", 12))
+    t = r.get("water_temp_c")
+    if t is not None and t > 20:
+        out.append((f"water {t} °C is warm enough to stress trout", 5))
+    tu = r.get("turbidity_ntu")
+    if tu is not None:
+        if tu > 25:
+            out.append((f"turbidity {tu} NTU is high (muddy)", 8))
+        elif tu > 10:
+            out.append((f"turbidity {tu} NTU is elevated", 4))
+    return out
+
+
+def _fmt_readings(r: dict) -> str:
+    names = {"do_mg_l": ("DO", "mg/L"), "ph": ("pH", ""), "water_temp_c": ("water", "°C"),
+             "turbidity_ntu": ("turbidity", "NTU"), "ecoli_mpn_100ml": ("E. coli", "/100 mL"),
+             "conductivity_us_cm": ("conductivity", "µS/cm")}
+    return ", ".join(f"{names[k][0]} {v:g}{(' ' + names[k][1]) if names[k][1] else ''}"
+                     for k, v in r.items() if k in names)
+
+
 # --------------------------------------------------------------------------- utils
 def _parse_time(v) -> datetime | None:
     if v is None:
@@ -203,6 +247,32 @@ def compute_health(creek_id: str, reports: list[dict] | None, conditions: dict |
             f"USGS NWIS {gauge.get('site_no')}")
     else:
         sig("stream_flow", None, 0, "No usable stream-gauge reading right now.", "USGS NWIS")
+
+    # ---- volunteer lab/field samples (RiverDB: SYRCL, SSI, WCCA)
+    wq_st = ((conditions or {}).get("water_quality") or {}).get("stations") or []
+    if wq_st:
+        st = wq_st[0]  # most recent sample on this creek
+        age = st.get("age_days")
+        age = 10 ** 6 if age is None else age
+        scale = 1.0 if age <= WQ_FULL_DAYS else 0.5 if age <= WQ_HALF_DAYS else 0.0
+        pens = _wq_penalties(st.get("readings") or {})
+        total = -sum(p for _, p in pens) * scale
+        when = f"{st.get('date')} ({age} days ago)"
+        if scale == 0:
+            how = ("This sample is too old to count toward today's score; it is shown as background, "
+                   "and it is the most recent volunteer sample published for this creek.")
+        elif pens:
+            how = "Out of range: " + "; ".join(t for t, _ in pens) + "." + (
+                " The sample is 2-6 months old, so it counts half." if scale < 1 else "")
+        else:
+            how = "All readings are within healthy ranges." + (
+                " The sample is 2-6 months old." if scale < 1 else "")
+        sig("volunteer_lab_data", st.get("date"), total,
+            f"Latest volunteer water test, {st.get('name')}, {when}: {_fmt_readings(st.get('readings') or {})}. {how}",
+            st.get("credit") or "RiverDB volunteer monitoring")
+    else:
+        sig("volunteer_lab_data", None, 0, "No volunteer water-test data is available right now.",
+            "RiverDB volunteer monitoring")
 
     # ---- citizen reports
     n = len(recent)

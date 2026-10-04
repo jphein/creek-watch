@@ -45,20 +45,23 @@ def test_get_conditions_from_fixtures(monkeypatch):
     assert c["fetched_at"].endswith("Z")
 
 
-def test_usgs_503_falls_back_to_new_api(monkeypatch):
+def test_gauge_uses_new_usgs_api_first(monkeypatch):
     calls = []
+    monkeypatch.setattr(ingest, "_http_get_text", lambda url, timeout: calls.append(url) or route(url))
+    g = ingest.get_conditions("deer")["gauge"]
+    assert g["discharge_cfs"] == 4.84 and g["observed_at"] == "2026-10-04T00:00:00Z"
+    assert any("ogcapi" in u for u in calls) and not any("waterservices" in u for u in calls)
 
+
+def test_new_usgs_api_down_falls_back_to_legacy_nwis(monkeypatch):
     def fake(url, timeout):
-        calls.append(url)
-        if "waterservices.usgs.gov" in url:
+        if "ogcapi" in url:
             raise OSError("HTTP Error 503")
         return route(url)
 
     monkeypatch.setattr(ingest, "_http_get_text", fake)
     g = ingest.get_conditions("deer")["gauge"]
-    assert g["discharge_cfs"] == 4.84 and g["observed_at"] == "2026-10-04T00:00:00Z"
-    assert sum("waterservices" in u for u in calls) == 2   # retried once
-    assert any("ogcapi" in u for u in calls)
+    assert g["discharge_cfs"] == 4.84 and g["name"] == "DEER C NR SMARTSVILLE CA"
 
 
 def test_everything_down_gives_nulls_not_exceptions(monkeypatch):
@@ -117,3 +120,53 @@ def test_transient_weather_failure_is_retried(monkeypatch):
 
     monkeypatch.setattr(ingest, "_http_get_text", flaky)
     assert ingest.get_conditions("deer")["weather"]["precip_24h_in"] is not None
+
+
+# --- RiverDB volunteer water quality ---------------------------------------------
+from data import wq  # noqa: E402
+
+RIVERDB = json.loads((FIX / "riverdb_syrcl_deer_below_nc.json").read_text())["data"]["sitevisits"]
+
+
+@pytest.fixture(autouse=True)
+def no_network_riverdb(monkeypatch):
+    monkeypatch.setattr(wq, "_gql", lambda ref, timeout: RIVERDB)
+
+
+def test_latest_readings_normalises_riverdb():
+    r = wq.latest_readings(RIVERDB)
+    assert r["date"] == "2026-08-08"
+    assert r["readings"]["do_mg_l"] == 9.1 and r["readings"]["ph"] == 7.3
+    assert r["readings"]["water_temp_c"] == 14.13
+
+
+def test_latest_readings_skips_invalid_and_percent_do():
+    visits = [{"date": "2026-01-01", "resultsv": [
+        {"is_valid": False, "mean": 1.0, "unit": "mg/L", "param": {"name": "DO"}},
+        {"is_valid": True, "mean": 95.0, "unit": "%", "param": {"name": "DO"}},
+        {"is_valid": True, "mean": 7.0, "unit": "none", "param": {"name": "pH"}}]}]
+    assert wq.latest_readings(visits)["readings"] == {"ph": 7.0}
+
+
+def test_water_quality_live_and_snapshot(monkeypatch):
+    now = datetime(2026, 10, 4, tzinfo=timezone.utc)
+    out = wq.get_water_quality("deer", now=now)
+    first = out["stations"][0]
+    assert first["agency"] == "SYRCL" and first["live"] is True and first["age_days"] == 57
+    assert any(s["agency"] == "SSI" and s["live"] is False for s in out["stations"])  # from snapshot
+    assert all(s["credit"] for s in out["stations"])
+
+
+def test_water_quality_riverdb_down_falls_back_to_snapshot(monkeypatch):
+    def boom(ref, timeout):
+        raise OSError("riverdb down")
+    monkeypatch.setattr(wq, "_gql", boom)
+    out = wq.get_water_quality("deer")
+    syrcl = [s for s in out["stations"] if s["agency"] == "SYRCL"]
+    assert syrcl and all(s["live"] is False for s in syrcl)
+
+
+def test_conditions_include_water_quality(monkeypatch):
+    monkeypatch.setattr(ingest, "_http_get_text", lambda url, timeout: route(url))
+    c = ingest.get_conditions("wolf")
+    assert c["water_quality"]["stations"][0]["agency"] == "WCCA"
