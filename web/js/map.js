@@ -112,11 +112,11 @@ export async function mountMap(el, qs) {
   }
   const jbr = conds.flatMap((c) => c?.river?.stations || []).find((x) => x?.station_id === 'JBR');
   for (const st of holes.values()) {
-    const lat = Number(st.lat), lon = Number(st.lon);
-    if (!Number.isFinite(lat) || !Number.isFinite(lon)) continue;
-    L.marker([lat, lon], {
+    if (!isNum(st.lat) || !isNum(st.lon)) continue; // a null coordinate must not become 0, 0
+    const name = spotName(st);
+    L.marker([Number(st.lat), Number(st.lon)], {
       icon: L.divIcon({ className: '', html: '<div class="swim-marker" aria-hidden="true">≈</div>', iconSize: [24, 24], iconAnchor: [12, 12] }),
-      title: `Swim hole: ${st.name}`, alt: `Swim hole ${st.name}`, keyboard: true,
+      title: `Swim hole: ${name}`, alt: `Swim hole ${name}`, keyboard: true,
     }).bindPopup(swimPopupHTML(st, jbr), { maxWidth: 300, autoPanPaddingTopLeft: [52, 12], autoPanPaddingBottomRight: [12, 90] }).addTo(map); // clear the zoom control and legend
   }
 
@@ -171,6 +171,9 @@ export async function mountMap(el, qs) {
 }
 
 const ECOLI_STV = 320;
+// Number(null) and Number('') are 0, which would show a missing reading as a real-looking zero.
+const isNum = (x) => x != null && x !== '' && Number.isFinite(Number(x));
+const spotName = (st) => String(st.name ?? '').trim() || 'Unnamed spot';
 export function swimPopupHTML(st, jbr) {
   const t = Date.parse(`${String(st.date || '').slice(0, 10)}T12:00:00`);
   const when = t ? new Date(t).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : '';
@@ -178,7 +181,7 @@ export function swimPopupHTML(st, jbr) {
   const today = new Date(); today.setHours(12, 0, 0, 0);
   const days = t ? Math.max(0, Math.round((today - t) / 864e5)) : null;
   const v = Number(st.ecoli_mpn_100ml);
-  const val = Number.isFinite(v)
+  const val = isNum(st.ecoli_mpn_100ml)
     ? `E. coli <strong>${esc(v)}</strong> per 100 mL: ${v <= ECOLI_STV
       ? `below California’s recreational threshold of ${ECOLI_STV}.`
       : `above the ${ECOLI_STV} recreational threshold (a statistical threshold, not a single-sample limit).`}`
@@ -186,12 +189,12 @@ export function swimPopupHTML(st, jbr) {
   const href = httpsUrl(st.source_url);
   const southYuba = /south yuba/i.test(String(st.river || ''));
   const flowT = Date.parse(jbr?.observed_at || '');
-  const flow = southYuba && jbr && Number.isFinite(Number(jbr.flow_cfs))
+  const flow = southYuba && jbr && isNum(jbr.flow_cfs)
     ? `<p class="sp-flow">South Yuba at Jones Bar now: ${esc(Number(jbr.flow_cfs))} cfs${flowT ? `, as of ${esc(new Date(flowT).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' }))}` : ''}.</p>`
     : '';
   return `<div class="swim-pop">
     <p class="sp-kicker">Swim hole · volunteer bacteria test</p>
-    <strong class="sp-name">${esc(st.name)}</strong>${st.river ? `<span class="sp-river">${esc(st.river)}</span>` : ''}
+    <strong class="sp-name">${esc(spotName(st))}</strong>${st.river ? `<span class="sp-river">${esc(st.river)}</span>` : ''}
     <p class="sp-date">Tested <strong>${esc(when || 'date unknown')}</strong>${days != null ? ` (${esc(days)} day${days === 1 ? '' : 's'} ago)` : ''}: a summer sample, not a live reading.</p>
     <p class="sp-val">${val}</p>
     ${st.stale ? '<p class="sp-note">An older sample; newer tests may not be published yet.</p>' : ''}

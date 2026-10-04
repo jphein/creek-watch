@@ -26,7 +26,24 @@ for (const scheme of ['light', 'dark']) {
   await p.locator('.leaflet-popup-close-button').dispatchEvent('click'); await p.waitForTimeout(200);
   r.oregon = await openPopup(p, 'Oregon Creek swimming hole');
   r.errs = errs; R[scheme] = r;
-  if (scheme === 'light') { await p.goto(base + 'index.html?mock=1#about'); await p.waitForSelector('#about-h'); R.about = (await p.locator('#page-about').innerText()).includes('Swim-hole bacteria tests'); }
+  if (scheme === 'light') {
+    // Missing values (null / "") must never render as a real-looking 0 (Number(null) === 0).
+    R.nulls = await p.evaluate(async () => {
+      const { swimPopupHTML } = await import('./js/map.js');
+      const txt = (h) => { const d = document.createElement('div'); d.innerHTML = h; return d.textContent.replace(/\s+/g, ' '); };
+      const st = { station_id: 'x', name: 'Test hole', river: 'South Yuba River', date: '2026-08-08', ecoli_mpn_100ml: 5 };
+      const jbr = (flow_cfs) => ({ station_id: 'JBR', flow_cfs, observed_at: '2026-10-04T08:00:00-07:00' });
+      return {
+        ecoliNull: txt(swimPopupHTML({ ...st, ecoli_mpn_100ml: null }, jbr(39))),
+        ecoliEmpty: txt(swimPopupHTML({ ...st, ecoli_mpn_100ml: '' }, jbr(39))),
+        ecoliZero: txt(swimPopupHTML({ ...st, ecoli_mpn_100ml: 0 }, jbr(39))),
+        flowNull: txt(swimPopupHTML(st, jbr(null))),
+        flowEmpty: txt(swimPopupHTML(st, jbr(''))),
+        flowZero: txt(swimPopupHTML(st, jbr(0))),
+        nameNull: txt(swimPopupHTML({ ...st, name: null }, jbr(39))),
+      };
+    });
+    await p.goto(base + 'index.html?mock=1#about'); await p.waitForSelector('#about-h'); R.about = (await p.locator('#page-about').innerText()).includes('Swim-hole bacteria tests'); }
   await ctx.close();
 }
 // Edge path: >320, hostile name, http link, duplicates across creeks, stale, bad coords; then empty.
@@ -35,6 +52,9 @@ for (const scheme of ['light', 'dark']) {
   sw.stations[0].ecoli_mpn_100ml = 410; sw.stations[0].stale = true;
   sw.stations[1].name = '<img src=x onerror="window.__xss=1">Edwards'; sw.stations[1].source_url = 'http://riverdb.org/insecure';
   sw.stations.push({ ...sw.stations[2], station_id: 'nocoords', lat: null, lon: 'x', name: 'No coords' });
+  sw.stations.push({ ...sw.stations[2], station_id: 'nullcoords', lat: null, lon: null, name: 'Null coords' }); // not 0, 0
+  sw.stations.push({ ...sw.stations[2], station_id: 'emptycoords', lat: '', lon: '', name: 'Empty coords' });
+  sw.stations.push({ ...sw.stations[3], station_id: 'noname', name: null, lat: Number(sw.stations[3].lat) + 0.01 });
   const wolf = { ...COND.wolf, swim_holes: sw }, deer = { ...COND.deer, swim_holes: sw }; // same regional list on both creeks
   const ctx = await b.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: 'block' });
   await ctx.route('**/api/creeks', (r) => r.fulfill(json(mock('creeks'))));
@@ -43,6 +63,7 @@ for (const scheme of ['light', 'dark']) {
   const p = await ctx.newPage(); const errs = []; p.on('pageerror', (e) => errs.push(e.message));
   await p.goto(base + '#map'); await p.waitForSelector('.leaflet-marker-icon .swim-marker', { timeout: 20000 }); await p.waitForTimeout(800);
   R.edge = { markers: await p.locator('.leaflet-marker-icon .swim-marker').count() };
+  R.edge.titles = await p.locator('.leaflet-marker-icon:has(.swim-marker)').evaluateAll((els) => els.map((e) => e.title));
   R.edge.over = await openPopup(p, 'Purdon Crossing');
   R.edge.overNeutral = await p.locator('.leaflet-marker-icon[title="Swim hole: Purdon Crossing"] .swim-marker').getAttribute('class');
   await p.locator('.leaflet-popup-close-button').dispatchEvent('click'); await p.waitForTimeout(200);
@@ -72,7 +93,12 @@ const checks = {
   jonesBarOnlySouthYuba: /South Yuba at Jones Bar now: \d+(\.\d+)? cfs/.test(L.purdon) && !/Jones Bar/.test(L.oregon),
   neverUnsafe: ![L.purdon, L.oregon, R.dark.purdon, R.edge.over].some((t) => /unsafe|toxic/i.test(t)),
   aboveWordingNeutral: /above the 320 recreational threshold \(a statistical threshold, not a single-sample limit\)/.test(R.edge.over) && R.edge.overNeutral === 'swim-marker' && /older sample/.test(R.edge.over),
-  dedupeAndBadCoords: R.edge.markers === 5,
+  dedupeAndBadCoords: R.edge.markers === 6 && !R.edge.titles.some((t) => /coords/.test(t)),
+  unnamedTitle: R.edge.titles.includes('Swim hole: Unnamed spot') && !R.edge.titles.some((t) => /undefined|null/.test(t)),
+  ecoliMissingNotZero: [R.nulls.ecoliNull, R.nulls.ecoliEmpty].every((t) => /No E\. coli number in the latest test\./.test(t) && !/E\. coli 0|below California/.test(t))
+    && /E\. coli 0 per 100 mL: below/.test(R.nulls.ecoliZero),
+  flowMissingOmitted: [R.nulls.flowNull, R.nulls.flowEmpty].every((t) => !/Jones Bar|0 cfs/.test(t)) && /Jones Bar now: 0 cfs/.test(R.nulls.flowZero),
+  popupUnnamed: /Unnamed spot/.test(R.nulls.nameNull) && !/undefined|null/.test(R.nulls.nameNull),
   escapedAndHttpsOnly: !R.edge.xss && !R.edge.injected && R.edge.httpLinks === 0,
   emptyRendersNothing: R.empty === 0,
   aboutLine: R.about,
