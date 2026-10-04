@@ -1,0 +1,21 @@
+# Build: GIT_SHA=$(git rev-parse --short HEAD) BUILT=$(date -u +%FT%TZ) docker compose up -d --build
+services:
+  creekwatch:
+    build:
+      context: .
+      args:
+        GIT_SHA: ${GIT_SHA:-}
+        GIT_BRANCH: ${GIT_BRANCH:-main}
+        BUILT: ${BUILT:-}
+    image: creekwatch:latest
+    container_name: creekwatch
+    restart: unless-stopped
+    ports:
+      - "${CREEKWATCH_BIND:-127.0.0.1}:8080:8080"
+    volumes:
+      - creekwatch-data:/srv/creekwatch
+    environment:
+      CREEKWATCH_LOG_LEVEL: INFO
+
+volumes:
+  creekwatch-data:
