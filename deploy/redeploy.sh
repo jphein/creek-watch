@@ -69,6 +69,8 @@ healthy() {  # $1 = timeout s, $2 = port, $3 = 1 to also check through Caddy (th
 #   journalctl CONTAINER_TAG=creekwatch [--since ...]     (docker logs still works for the running one)
 # Bounded by journald's own cap (defaults on ubox0: persistent, SystemMaxUse = min(10% of /, 4 GiB);
 # ~33 days of retention at 2026-10-03 volumes), not by per-container json-file rotation.
+# mode=non-blocking (4 MiB ring buffer in dockerd): if journald stalls, log lines are dropped instead of
+# blocking the app's stdout, so a logging hiccup can never freeze the public site.
 run_app() {  # $1 = container name, $2 = host port, $3 = image, $4 = restart policy
   local envfile=(); [ -f "$BASE/app.env" ] && envfile=(--env-file "$BASE/app.env")
   docker run -d --name "$1" --restart "$4" \
@@ -76,7 +78,7 @@ run_app() {  # $1 = container name, $2 = host port, $3 = image, $4 = restart pol
     -v "$VOLUME:$CW_VAR" \
     -e "GIT_SHA=$SHA" -e "CREEKWATCH_PUBLIC_URL=https://${HOSTNAME_PUBLIC}" \
     "${envfile[@]}" \
-    --log-driver journald --log-opt tag="$1" \
+    --log-driver journald --log-opt tag="$1" --log-opt mode=non-blocking --log-opt max-buffer-size=4m \
     --memory "$CW_MEMORY" --memory-swap "$CW_MEMORY" --pids-limit "$CW_PIDS" \
     --security-opt no-new-privileges --cap-drop ALL \
     "$3" >/dev/null
