@@ -47,12 +47,16 @@ Values travel only through pipes: never through argv, logs, the repo or the imag
 
 ## Alert poller
 
-**Decision (FINAL, 2026-10-03, jp-main): the systemd timer.** `creekwatch-poll.timer` runs `deploy/poll.sh` every 10 min, which does `docker exec … timeout -k 10 300 python -m creekwatch.alerts.poller --once` inside the live container. **`CREEKWATCH_POLLER` stays unset.**
+**Decision (FINAL, 2026-10-03, jp-main): the systemd timer.** `creekwatch-poll.timer` runs `deploy/poll.sh` every **5 min**, which does `docker exec … timeout -k 10 300 python -m creekwatch.alerts.poller --once` inside the live container. **`CREEKWATCH_POLLER` stays unset.**
 
-- `--once` runs only the sources that are **due**, per `alert_sources.next_due` in the DB, so intervals and backoff survive across passes. Intervals: NWS 5 min, NWPS/USGS 15 min, HAB 1 h, SSO 12 h, RiverDB/OEHHA 24 h. Use `--force` for a manual full run.
+- `--once` runs only the sources that are **due**, per `alert_sources.next_due` in the DB, so intervals and backoff survive across passes. The 5-min cadence (±20 s) keeps NWS inside the web page's 600 s freshness window, and passes are cheap because only due sources run. Intervals: NWS 5 min, NWPS/USGS 15 min, HAB 1 h, SSO 12 h, RiverDB/OEHHA 24 h. Use `--force` for a manual full run.
 - Exit codes are passed through to systemd: 0 means OK or nothing due; 2 means every source that ran failed; 3 means the adapters failed to load (a broken deploy). A skipped overlapping pass exits 75, and an unreachable container exits 1. The output is a one-line JSON summary in the journal.
 - Why the timer: exactly one poller process, failures visible to systemd, and no reliance on the push claim during a redeploy's staging overlap. The atomic push claim (one `UPDATE … WHERE rank(last) < rank(new)`, gated on rowcount == 1) still protects an accidental overlap, such as a manual `--force` during a timer pass.
 - Hardening: the deadline is inside the container (a hung pass is killed there), there's a lock, the unit has `NoNewPrivileges`, `PrivateTmp`, `ProtectSystem=strict` and `ProtectHome=read-only`, and `install.sh` installs the units **without enabling** the timer. Enabling it is a one-time `sudo systemctl enable --now creekwatch-poll.timer`.
+
+**Push delivery is at-most-once per (alert, severity).** The claim is committed *before* sending. A pass killed after its claim (for example by a redeploy stopping the container mid-pass, which really happens) never sends that push, and no later pass will either. The alternative, sending before claiming, could double-send, and that's worse for alerts. An alert that returns after ≥12 h inactive re-arms its claim (#49); shorter gaps stay quiet, to suppress flapping.
+
+**Testing rule: prod is read-only.** Never post reports, create alerts or add subscriptions on prod. Alerts are public (`/api/alerts`, `/alerts.atom`, `/alerts.cap.xml`), and feed readers can cache them. On 2026-10-03 (19:46–19:48) an overlap check was run **on prod in error**: a test dead-fish report raised a public "Possible contamination" alert for Wolf Creek for about 2 minutes. There were 0 subscribers, so no push went out; it was retracted by deleting the report and re-polling. Write-path tests, including the concurrent `--force` overlap check, run **only on a scratch container**: the same image, a scratch volume, and no real subscriptions.
 
 **Documented alternative: the in-app poller** (`CREEKWATCH_POLLER=1` in app.env via `deploy/secrets.sh install-lines`): a 30 s tick, with the staging container also polling during redeploys, relying on the claim. **Never run both:** to switch, disable the timer first, then set the env and redeploy.
 
