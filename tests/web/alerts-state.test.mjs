@@ -5,12 +5,17 @@ const { base, close } = await serveWeb();
 const b = await launch();
 const iso = (msAgo) => new Date(Date.now() - msAgo).toISOString();
 const json = (body, status = 200) => ({ status, contentType: 'application/json', body: JSON.stringify(body) });
+const src = (list, schedule = {}) => json({ sources: list.map(([source, agoMin]) => ({ source, last_ok: agoMin == null ? null : iso(agoMin * 60e3) })), schedule });
 const cases = [
-  ['fresh sources, no alerts → ✓', [], json({ sources: [{ source: 'nws', last_ok: iso(5 * 60e3) }], schedule: { nws: { interval_s: 600 } } }), 'clear'],
-  ['stale sources, no alerts → couldn’t check', [], json({ sources: [{ source: 'nws', last_ok: iso(3 * 3600e3) }], schedule: { nws: { interval_s: 600 } } }), 'unchecked'],
-  ['no source ever ok → couldn’t check', [], json({ sources: [{ source: 'nws', last_ok: null, last_error: 'timeout' }], schedule: {} }), 'unchecked'],
+  ['nws fresh (+creekwatch), no alerts → ✓', [], src([['nws', 5], ['creekwatch', 1]], { nws: { interval_s: 600 } }), 'clear'],
+  ['nws fresh, others stale → ✓ allowed', [], src([['nws', 5], ['sso', 600], ['hab', 600]]), 'clear'],
+  ['nws stale, no alerts → couldn’t check', [], src([['nws', 180]], { nws: { interval_s: 600 } }), 'unchecked'],
+  ['creekwatch fresh + all others stale → couldn’t check', [], src([['creekwatch', 1], ['nws', 180], ['sso', 180], ['hab', 180]]), 'unchecked'],
+  ['nws stale + others fresh → couldn’t check', [], src([['nws', 180], ['sso', 2], ['hab', 2], ['creekwatch', 1]]), 'unchecked'],
+  ['nws missing, others fresh → couldn’t check', [], src([['sso', 2], ['creekwatch', 1]]), 'unchecked'],
+  ['no source ever ok → couldn’t check', [], src([['nws', null]]), 'unchecked'],
   ['sources endpoint missing → couldn’t check', [], json({ detail: 'Not Found' }, 404), 'unchecked'],
-  ['stale sources, alerts present → list + out-of-date note', JSON.parse(mock('alerts')), json({ sources: [{ source: 'nws', last_ok: iso(3 * 3600e3) }], schedule: {} }), 'stale-list'],
+  ['nws stale, alerts present → list + incomplete note', JSON.parse(mock('alerts')), src([['nws', 180], ['sso', 2]]), 'stale-list'],
 ];
 const out = [];
 for (const [label, alerts, sources, want] of cases) {
@@ -25,6 +30,24 @@ for (const [label, alerts, sources, want] of cases) {
     : (await p.locator('.alerts-list .banner.error').count()) ? 'unchecked'
     : (await p.locator('.stale-note').count()) && (await p.locator('.alerts-list .alert-item').count()) ? 'stale-list' : 'other';
   out.push({ label, want, got, ok: got === want });
+  await ctx.close();
+}
+// Re-visit refreshes source health: fresh on first visit (✓), then nws goes stale → after leaving and
+// coming back to the tab the ✓ must be gone.
+{
+  let stale = false;
+  const ctx = await b.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: 'block' });
+  await ctx.route('**/api/alerts/sources', (r) => r.fulfill(src([['nws', stale ? 180 : 5]])));
+  await ctx.route('**/api/alerts?**', (r) => r.fulfill(json([])));
+  await ctx.route('**/api/alerts', (r) => r.fulfill(json([])));
+  await ctx.route('**/api/creeks', (r) => r.fulfill(json(JSON.parse(mock('creeks')))));
+  const p = await ctx.newPage();
+  await p.goto(base + '#alerts'); await p.waitForSelector('.all-clear');
+  stale = true;
+  await p.evaluate(() => (location.hash = '#about')); await p.waitForTimeout(200);
+  await p.evaluate(() => (location.hash = '#alerts')); await p.waitForTimeout(1200);
+  const got = (await p.locator('.all-clear').count()) ? 'clear' : (await p.locator('.alerts-list .banner.error').count()) ? 'unchecked' : 'other';
+  out.push({ label: 're-visit after nws goes stale → couldn’t check', want: 'unchecked', got, ok: got === 'unchecked' });
   await ctx.close();
 }
 await b.close(); close();
