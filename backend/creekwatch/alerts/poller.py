@@ -10,6 +10,7 @@ backed off (exponential, capped) and never blocks the others or the app's reques
 from __future__ import annotations
 
 import logging
+import os
 import threading
 import time
 from concurrent.futures import Future, ThreadPoolExecutor
@@ -171,7 +172,11 @@ class Poller:
                 # Claim first (atomic, DB-level): at most one process announces each (id, severity),
                 # even during the redeploy overlap. Claimed even with push off, so a later
                 # subscriber never receives a backlog.
-                if self.store.claim_push(ch.alert["id"], ch.alert["severity"]) and self.push is not None:
+                won = self.store.claim_push(ch.alert["id"], ch.alert["severity"])
+                # Ops instrument (deploy's overlap test): every attempt logs its outcome with the pid.
+                log.info("push claim %s id=%s sev=%s kind=%s pid=%d", "won" if won else "lost",
+                         ch.alert["id"], ch.alert["severity"], ch.kind, os.getpid())
+                if won and self.push is not None:
                     try:
                         summary["pushed"] += self.push.notify(ch.alert, ch.kind).get("sent", 0)
                     except Exception:

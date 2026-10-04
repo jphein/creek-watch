@@ -255,3 +255,35 @@ def test_long_intervals_not_clamped(store):
     p = Poller([FakeAdapter("riverdb", interval_s=86400), FakeAdapter("sso", interval_s=43200)], store, ctx_factory)
     assert p.interval("riverdb") == 86400 and p.interval("sso") == 43200 and p.fetch_timeout_s > 60
     p.shutdown()
+
+
+def test_claim_outcome_logged_with_pid(tmp_path, caplog):
+    import logging
+    import os
+    a = Poller([FakeAdapter("nws", [make_alert()])], AlertStore(tmp_path / "z.db"), ctx_factory)
+    b = Poller([FakeAdapter("nws", [make_alert()])], AlertStore(tmp_path / "z.db"), ctx_factory)
+    with caplog.at_level(logging.INFO, logger="creekwatch.alerts"):
+        a.run_due(force=True)
+        b.store.apply_fetch("nws", [])                                # make it "new" again for b
+        b.run_due(force=True)
+    lines = [r.getMessage() for r in caplog.records if r.getMessage().startswith("push claim")]
+    assert lines[0] == f"push claim won id=nws:abc-1 sev=watch kind=new pid={os.getpid()}"
+    assert lines[1] == f"push claim lost id=nws:abc-1 sev=watch kind=new pid={os.getpid()}"
+    a.shutdown(); b.shutdown()
+
+
+def test_sources_endpoint_contract_frozen(tmp_path):
+    """luna's all-clear logic reads this shape (frozen from fe854b9): additive keys only."""
+    from fastapi.testclient import TestClient
+    from creekwatch.config import Settings
+    from creekwatch.main import create_app
+    app = create_app(Settings(data_dir=tmp_path / "d", web_dir=tmp_path / "w", sites_json=tmp_path / "m.json"))
+    p = Poller([FakeAdapter("nws", [make_alert()], interval_s=300)], app.state.alert_store, ctx_factory)
+    app.state.alert_poller.adapters, app.state.alert_poller.state = p.adapters, p.state
+    p.run_due(force=True)
+    with TestClient(app) as c:
+        j = c.get("/api/alerts/sources").json()
+    assert isinstance(j["sources"], list) and j["sources"][0]["source"] == "nws"
+    assert j["sources"][0]["last_ok"].endswith("Z") and "last_error" in j["sources"][0]
+    assert j["schedule"]["nws"]["interval_s"] == 300
+    p.shutdown()
