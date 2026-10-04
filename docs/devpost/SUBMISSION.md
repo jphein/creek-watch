@@ -28,6 +28,18 @@ Anyone at the creek files a 2-minute photo report; Creek Watch fuses it with liv
 ## Inspiration
 Wolf Creek runs through downtown Grass Valley, and Deer Creek runs through downtown Nevada City, in California's Sierra foothills. Both pass parks, trails, streets and homes, and people walk beside them every day. Yet neither is monitored live where people are. **Wolf Creek has no real-time USGS stream gauge at all.** **Deer Creek's only real-time gauge (USGS 11418500, near Smartsville) is about 22 km downstream of Nevada City, below Lake Wildwood, whose regulation damps and delays what happens in town.** Those walkers see things an instrument can't: trash, algae, foam, an odd smell, a dead fish. But there's no simple way to record what they saw or to connect it with the stream-gauge and weather data that already exist. We wanted the people who notice first to become part of the early-warning system.
 
+## Why this matters: water warnings here are real, but scattered
+These are public records, checked on October 3, 2026, the weekend we built Creek Watch:
+- **Sewage spills.** The State Water Board's sanitary-sewer spill data ([Cat 1–3 spills file](https://www.waterboards.ca.gov/water_issues/programs/sso/docs/data_files/Cat1-2-3-Spills.txt), reporting since June 2023) lists **41 spill events in and around Nevada County**. Three of them reached our creeks or the lake on Deer Creek:
+  - **Wolf Creek**, Grass Valley, May 5, 2026: 850 gallons to surface water (1,000 gallons total);
+  - **Deer Creek**, Nevada City, September 3, 2025: 50 gallons to surface water (300 total);
+  - **Lake Wildwood**, November 20, 2025: 71,355 gallons to surface water (71,455 total).
+- **Algal blooms.** The state's freshwater harmful-algal-bloom reports ([data.ca.gov](https://data.ca.gov/dataset/surface-water-freshwater-harmful-algal-blooms), [HABs portal](https://mywaterquality.ca.gov/habs/where/freshwater_events.html)) show **open "Caution" advisories at Lake of the Pines** (from September 22, 2026) **and Lake Zyac** (from September 15, 2026), both in Nevada County.
+- **Fish.** California's OEHHA lists **10 fish-consumption advisories touching Nevada County, including one for [Deer Creek](https://oehha.ca.gov/fish/advisories/deer-creek)** ([dataset](https://data.ca.gov/dataset/fish-consumption-advisory-serving-recommendations)).
+- **Weather.** While we were building, the National Weather Service had a **Heat Advisory** in effect at our Deer Creek trail site (issued October 3, 2026).
+
+Each of these lives on a different government website, in a different format. Someone walking by the creek has no single place to see them, and no way to add what they see themselves. That gap, together with having no live stream gauge in town, is why we built Creek Watch.
+
 ## What it does
 - **Report (phone-first):** take or choose a photo, then answer six quick questions: water colour, algae, trash, flow, odour, and dead fish. An optional note and wildlife sighting can be added. GPS fills the location and the app picks the nearest named spot. Photos have their EXIF metadata stripped on the server, and the reporter's name is optional.
 - **Map:** creek lines, named monitoring spots and recent-report pins coloured by health band. Tap a pin to see the photo and the report.
