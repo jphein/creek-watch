@@ -77,32 +77,50 @@ def _retry_once(fn):
 
 # -------------------------------------------------------------------------- cache
 _cache: dict[str, tuple[float, object]] = {}
+_failed: dict[str, float] = {}
 _lock = threading.Lock()
 
 
-def _cached(key: str, ttl: float, fn):
-    """Return fn() cached for ttl seconds. On failure, serve last good value as stale."""
-    now = time.time()
-    with _lock:
-        hit = _cache.get(key)
-    if hit and now - hit[0] < ttl:
-        return hit[1]
-    try:
-        val = fn()
-    except Exception:  # noqa: BLE001 - any upstream failure degrades to stale/None
-        val = None
-    if val is not None:
-        with _lock:
-            _cache[key] = (now, val)
-        return val
+FAIL_BACKOFF_S = 900   # after a failed refresh, don't retry that upstream for 15 min
+
+
+def _stale(hit):
     if hit and hit[1] is not None:
         return dict(hit[1], stale=True) if isinstance(hit[1], dict) else hit[1]
     return None
 
 
+def _cached(key: str, ttl: float, fn):
+    """Return fn() cached for ttl seconds. On failure, serve last good value as stale.
+
+    Failures are remembered for FAIL_BACKOFF_S: until then we serve stale/None immediately
+    instead of re-calling a down upstream on every request (2026-10-03: RiverDB refusing
+    connections made every uncached /api/conditions take ~16 s)."""
+    now = time.time()
+    with _lock:
+        hit = _cache.get(key)
+        failed_at = _failed.get(key)
+    if hit and now - hit[0] < ttl:
+        return hit[1]
+    if failed_at is not None and now - failed_at < FAIL_BACKOFF_S:
+        return _stale(hit)
+    try:
+        val = fn()
+    except Exception:  # noqa: BLE001 - any upstream failure degrades to stale/None
+        val = None
+    with _lock:
+        if val is not None:
+            _cache[key] = (now, val)
+            _failed.pop(key, None)
+        else:
+            _failed[key] = now
+    return val if val is not None else _stale(hit)
+
+
 def clear_cache():
     with _lock:
         _cache.clear()
+        _failed.clear()
 
 
 def _utc_iso(s: str | None) -> str | None:

@@ -121,7 +121,8 @@ def get_water_quality(creek_id: str, *, timeout_s: float = 10, now: datetime | N
     from . import ingest  # shared TTL cache
 
     now = now or datetime.now(timezone.utc)
-    fetch = fetch or (lambda ref: latest_readings(_gql(ref, timeout_s)))
+    # RiverDB is a small volunteer-run server: short timeout (failures back off 15 min in _cached).
+    fetch = fetch or (lambda ref: latest_readings(_gql(ref, min(timeout_s, 5))))
     snap = _snapshot()
     stations = []
     for st in STATIONS.get(creek_id, []):
