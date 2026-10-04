@@ -1,6 +1,7 @@
 // Map — creek lines, site markers, recent-report pins coloured by band.
 import { getCreeks, getReports, getConditions, getAlerts, reportBand } from './api.js';
 import { esc, bandLabel, reportCardHTML, alertHTML, SEV, httpsUrl } from './ui.js';
+import { wqPopupHTML, upstreamNoteHTML, isNum } from './sites.js';
 
 const LEAFLET_CSS = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css';
 const LEAFLET_JS = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js';
@@ -84,22 +85,22 @@ export async function mountMap(el, qs) {
     }
   }
 
-  // Volunteer water-test stations (RiverDB) as small flask markers.
+  // Volunteer water-test stations (RiverDB) as small flask markers. Each popup shows only that site:
+  // its own test, its access note, and reports within 500 m labelled with their own spot (WCCA).
   const conds = await Promise.all(creeks.map((c) => getConditions(c.id).catch(() => null)));
+  const reportSpot = (r) => creeks.find((x) => x.id === r.creek_id)?.sites?.find((s) => s.id === r.site_id)?.name || '';
   conds.forEach((cond, i) => {
     for (const st of cond?.water_quality?.stations || []) {
-      if (st.lat == null || st.lon == null) continue;
-      L.marker([st.lat, st.lon], {
+      if (!isNum(st.lat) || !isNum(st.lon)) continue;
+      L.marker([Number(st.lat), Number(st.lon)], {
         icon: L.divIcon({ className: '', html: '<div class="flask-marker" aria-hidden="true">⚗</div>', iconSize: [22, 22], iconAnchor: [11, 11] }),
         title: `Volunteer water test: ${st.name}`,
         alt: `Volunteer water test site ${st.name}`,
         keyboard: true,
       })
-        .bindPopup(
-          `<strong>${esc(st.name)}</strong><br>${esc(creeks[i].name)} · volunteer water test<br>Tested ${esc(st.date)}${
-            st.age_days != null ? ` (${esc(st.age_days)} days ago)` : ''
-          }<br><span class="credit">${esc(st.credit || '')}</span><br><a href="#dashboard">See results</a>`
-        )
+        .bindPopup(wqPopupHTML(st, creeks[i].name, reports, { spotName: reportSpot, band: reportBand }),
+          // Scroll inside the popup rather than run under the legend on short phones.
+          { maxWidth: 300, maxHeight: Math.max(260, innerHeight - 330), autoPanPaddingTopLeft: [52, 12], autoPanPaddingBottomRight: [12, 90] })
         .addTo(map);
     }
   });
@@ -158,7 +159,7 @@ export async function mountMap(el, qs) {
       keyboard: true,
       riseOnHover: true,
     })
-      .bindPopup(reportCardHTML(r, c?.name || '', site?.name || '', { band }), { maxWidth: 300 })
+      .bindPopup(reportCardHTML(r, c?.name || '', site?.name || '', { band }) + upstreamNoteHTML(), { maxWidth: 300 })
       .addTo(map);
     pinsById.set(String(r.id), m);
   }
@@ -171,8 +172,6 @@ export async function mountMap(el, qs) {
 }
 
 const ECOLI_STV = 320;
-// Number(null) and Number('') are 0, which would show a missing reading as a real-looking zero.
-const isNum = (x) => x != null && x !== '' && Number.isFinite(Number(x));
 const spotName = (st) => String(st.name ?? '').trim() || 'Unnamed spot';
 export function swimPopupHTML(st, jbr) {
   const t = Date.parse(`${String(st.date || '').slice(0, 10)}T12:00:00`);
@@ -199,6 +198,7 @@ export function swimPopupHTML(st, jbr) {
     <p class="sp-val">${val}</p>
     ${st.stale ? '<p class="sp-note">An older sample; newer tests may not be published yet.</p>' : ''}
     ${flow}
+    ${upstreamNoteHTML()}
     <p class="credit">${esc(st.credit || 'Volunteer monitoring')}${href ? ` · <a href="${esc(href)}" target="_blank" rel="noopener noreferrer">data</a>` : ''}</p>
   </div>`;
 }
