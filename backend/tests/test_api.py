@@ -365,3 +365,59 @@ def test_failed_conditions_negative_cached_60s(monkeypatch):
     assert "error" in dl.conditions("deer")
     clock[0] += 59; dl.conditions("deer"); assert len(calls) == 1
     clock[0] += 2;  dl.conditions("deer"); assert len(calls) == 2
+
+
+# ---- water_color "orange" (possible mine drainage) + reports away from named sites --------------
+
+def test_orange_water_accepted_and_returned(client):
+    r = client.post("/api/reports", data=dict(REPORT, water_color="orange"))
+    assert r.status_code == 201, r.text
+    rep = r.json()
+    assert rep["water_color"] == "orange"
+    assert client.get(f"/api/reports/{rep['id']}").json()["water_color"] == "orange"
+    assert [x["water_color"] for x in client.get("/api/reports").json()] == ["orange"]
+    assert client.post("/api/reports", data=dict(REPORT, water_color="rust")).status_code == 422
+
+
+def test_report_on_a_tributary_away_from_named_sites(client):
+    """site_id is optional: a point >1.5 km from every named site (e.g. a small tributary) is accepted
+    with site_id null, as long as it is within 25 km of the creek's sites/line."""
+    from creekwatch.main import haversine_km
+    creeks = {c["id"]: c for c in client.get("/api/creeks").json()}
+    lat, lon = 39.2950, -121.0600                                   # ~4 km from every Deer Creek stub site
+    assert min(haversine_km(lat, lon, s["lat"], s["lon"]) for s in creeks["deer"]["sites"]) > 1.5
+    r = client.post("/api/reports", data=dict(REPORT, lat=str(lat), lon=str(lon), water_color="orange"))
+    assert r.status_code == 201, r.text
+    assert r.json()["site_id"] is None
+    far = client.post("/api/reports", data=dict(REPORT, lat="39.55", lon="-121.06"))   # ~32 km north
+    assert far.status_code == 422 and "km" in far.json()["detail"]
+
+
+def test_side_stream_skips_site_autopick(client):
+    near_site = dict(REPORT)          # REPORT's point is ~0.03 km from deer-pioneer-park
+    assert client.post("/api/reports", data=near_site).json()["site_id"] == "deer-pioneer-park"   # default
+    r = client.post("/api/reports", data=dict(near_site, location_kind="side_stream", water_color="orange"))
+    assert r.status_code == 201, r.text
+    rep = r.json()
+    assert rep["site_id"] is None and rep["location_kind"] == "side_stream"
+    assert client.get(f"/api/reports/{rep['id']}").json()["location_kind"] == "side_stream"
+    assert client.post("/api/reports", data=dict(near_site, location_kind="")).json()["location_kind"] is None
+
+
+@pytest.mark.parametrize("extra,msg", [
+    ({"location_kind": "creek"}, "location_kind must be"),
+    ({"location_kind": "side_stream", "site_id": "deer-pioneer-park"}, "can't also name a site"),
+])
+def test_location_kind_validation(client, extra, msg):
+    r = client.post("/api/reports", data=dict(REPORT, **extra))
+    assert r.status_code == 422 and msg in r.text
+
+
+def test_reports_migration_adds_location_kind(tmp_path):
+    import sqlite3
+    from creekwatch import db
+    p = tmp_path / "old3.db"
+    db.init(p)
+    c = sqlite3.connect(p); c.execute("ALTER TABLE reports DROP COLUMN location_kind"); c.commit(); c.close()
+    db.init(p)
+    assert "location_kind" in {r[1] for r in sqlite3.connect(p).execute("PRAGMA table_info(reports)")}

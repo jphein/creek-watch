@@ -37,14 +37,15 @@ from .alerts.store import AlertStore
 
 log = logging.getLogger("creekwatch")
 
-WaterColor = Literal["clear", "cloudy", "brown", "green", "other"]
+WaterColor = Literal["clear", "cloudy", "brown", "green", "orange", "other"]  # orange: possible mine drainage (iron/metals)
 Amount = Literal["none", "some", "lots"]
 Flow = Literal["dry", "low", "normal", "high", "flood"]
 Odor = Literal["none", "earthy", "sewage", "chemical", "rotten", "other"]
 
 REPORT_COLUMNS = ("id", "creek_id", "site_id", "lat", "lon", "observed_at", "created_at", "water_color", "algae",
                   "trash", "flow", "odor", "dead_fish", "wildlife_seen", "notes", "reporter_name", "photo_file", "flags",
-                  "trash_removed", "trash_bags")
+                  "trash_removed", "trash_bags", "location_kind")
+LOCATION_KINDS = {"side_stream"}  # NULL/absent = at or near a named site (auto-pick allowed)
 MAX_TRASH_BAGS = 20
 HEALTH_WINDOW = timedelta(days=14)  # data.score windows to 7 days itself, with recency decay
 _START = time.time()
@@ -289,6 +290,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         dead_fish: Annotated[bool, Form()] = False,
         trash_removed: Annotated[bool, Form()] = False,
         trash_bags: Annotated[str | None, Form(max_length=4)] = None,
+        location_kind: Annotated[str | None, Form(max_length=20)] = None,
         wildlife_seen: Annotated[str | None, Form(max_length=500)] = None,
         notes: Annotated[str | None, Form(max_length=1000)] = None,
         reporter_name: Annotated[str | None, Form(max_length=60)] = None,
@@ -321,9 +323,16 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
         site_ids = {st["id"] for st in creek["sites"]}
         site_id = (site_id or "").strip() or None
+        kind = (location_kind or "").strip() or None
+        if kind is not None and kind not in LOCATION_KINDS:
+            raise HTTPException(422, "location_kind must be 'side_stream' or left out")
+        if kind == "side_stream" and site_id:
+            raise HTTPException(422, "A side-stream report can't also name a site; leave site_id empty")
         if site_id and site_id not in site_ids:
             raise HTTPException(422, f"site_id {site_id!r} is not on {creek['name']}")
-        if not site_id:  # auto-pick the nearest named spot if the reporter is right at one
+        # Auto-pick the nearest named spot if the reporter is right at one, unless they told us they're
+        # on a side stream (a tributary near town must not be relabelled e.g. "Downtown Grass Valley").
+        if not site_id and kind != "side_stream":
             best = min(creek["sites"], key=lambda st: haversine_km(lat, lon, st["lat"], st["lon"]))
             if haversine_km(lat, lon, best["lat"], best["lon"]) <= 1.5:
                 site_id = best["id"]
@@ -368,6 +377,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             "dead_fish": bool(dead_fish), "wildlife_seen": clean_text(wildlife_seen), "notes": clean_text(notes),
             "reporter_name": clean_text(reporter_name), "photo_file": photo_file,
             "trash_removed": bool(trash_removed), "trash_bags": bags,
+            "location_kind": kind,
         }
         rec["flags"] = json.dumps(data.report_flags(rec))
         cols = [c for c in REPORT_COLUMNS if c != "id"]

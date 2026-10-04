@@ -26,7 +26,8 @@ CREATE TABLE IF NOT EXISTS reports (
     photo_file    TEXT,
     flags         TEXT NOT NULL DEFAULT '[]',
     trash_removed INTEGER NOT NULL DEFAULT 0,
-    trash_bags    INTEGER
+    trash_bags    INTEGER,
+    location_kind TEXT
 );
 CREATE INDEX IF NOT EXISTS reports_creek_obs ON reports (creek_id, observed_at DESC);
 """
@@ -49,4 +50,5 @@ def init(db_path: Path) -> None:
         # reports created before the cleanup fields (CREATE IF NOT EXISTS doesn't add columns)
         _add_column(conn, "reports", "trash_removed", "INTEGER NOT NULL DEFAULT 0")
         _add_column(conn, "reports", "trash_bags", "INTEGER")
+        _add_column(conn, "reports", "location_kind", "TEXT")   # NULL = named site or auto-picked
         conn.execute("CREATE INDEX IF NOT EXISTS reports_cleanups ON reports (creek_id) WHERE trash_removed = 1")
