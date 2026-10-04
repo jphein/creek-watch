@@ -901,3 +901,11 @@ html[data-save-data] .photo-figure { display: none; }
 .upstream-note { margin: 8px 0 0; font-size: 0.82rem; font-style: italic; color: var(--muted); }
 .leaflet-popup-content > .upstream-note { margin: 0 12px 10px; }
 .recent-scope { margin: -4px 0 8px; font-size: 0.85rem; color: var(--muted); }
+
+/* ---------- past-study sites (data #109): grey, dated, never a status colour ---------- */
+.study-marker { min-width: 26px; height: 20px; padding: 0 3px; border-radius: 6px; display: grid; place-items: center; background: var(--surface-2); color: var(--muted); border: 1.5px dashed var(--muted); font: 800 10px/1 var(--font); box-shadow: 0 1px 4px rgb(0 0 0 / 0.25); }
+.study-marker.sm { display: inline-grid; min-width: 22px; height: 16px; font-size: 9px; }
+.h-others { margin: 8px 14px 0; border-top: 1px dashed var(--line); }
+.h-others > summary { cursor: pointer; padding: 10px 0; min-height: 44px; font-weight: 700; color: var(--brand); }
+.h-others .h-station { padding-left: 0; padding-right: 0; }
+.h-water { font-size: 0.82rem !important; color: var(--muted) !important; margin-top: -2px !important; }

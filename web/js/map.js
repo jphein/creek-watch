@@ -41,7 +41,7 @@ export async function mountMap(el, qs) {
     <div class="map-wrap"><div id="map-canvas" role="region" aria-label="Map of Wolf Creek and Deer Creek with recent reports"></div>
     <div class="map-legend" aria-label="Legend">${['good', 'fair', 'watch', 'alert']
       .map((b) => `<span><span class="band-dot band-${b}"></span>${BAND_GLYPH[b]} ${bandLabel(b)}</span>`)
-      .join('')}<span><span class="flask-marker sm" aria-hidden="true">⚗</span> Water test</span><span><span class="alert-marker sm sev-watch" aria-hidden="true"><span>!</span></span> Alert area</span><span><span class="swim-marker sm" aria-hidden="true">≈</span> Swim hole test</span></div></div>`;
+      .join('')}<span><span class="flask-marker sm" aria-hidden="true">⚗</span> Water test</span><span><span class="alert-marker sm sev-watch" aria-hidden="true"><span>!</span></span> Alert area</span><span><span class="swim-marker sm" aria-hidden="true">≈</span> Swim hole test</span><span><span class="study-marker sm" aria-hidden="true">’24</span> Past study site</span></div></div>`;
   try {
     L = await loadLeaflet();
   } catch (e) {
@@ -121,6 +121,24 @@ export async function mountMap(el, qs) {
     }).bindPopup(swimPopupHTML(st, jbr), { maxWidth: 300, autoPanPaddingTopLeft: [52, 12], autoPanPaddingBottomRight: [12, 90] }).addTo(map); // clear the zoom control and legend
   }
 
+  // Past-study sites (data #109): study-only stations (site_id null) as grey, dated pins. History, never
+  // current conditions: no colour scale, never red, the period leads the popup.
+  const studied = new Set();
+  for (const cond of conds) for (const s of cond?.bacteria_history?.studies || []) {
+    if (!s || s.is_current !== false) continue;
+    for (const st of s.stations || []) {
+      const key = String(st?.station_code ?? st?.name ?? '');
+      if (!st || st.site_id != null || !key || studied.has(key) || !isNum(st.lat) || !isNum(st.lon)) continue;
+      studied.add(key);
+      const yr = String(s.period || '').slice(0, 4);
+      const name = String(st.name ?? '').trim() || 'Study site';
+      L.marker([Number(st.lat), Number(st.lon)], {
+        icon: L.divIcon({ className: '', html: `<div class="study-marker" aria-hidden="true">${esc(yr.slice(2) ? `’${yr.slice(2)}` : '·')}</div>`, iconSize: [26, 20], iconAnchor: [13, 10] }),
+        title: `Past study site${yr ? ` (${yr})` : ''}: ${name}`, alt: `Past study site ${name}`, keyboard: true,
+      }).bindPopup(studyPopupHTML(st, s), { maxWidth: 300, maxHeight: Math.max(260, innerHeight - 330), autoPanPaddingTopLeft: [52, 12], autoPanPaddingBottomRight: [12, 90] }).addTo(map);
+    }
+  }
+
   // Alert areas (docs/ALERTS-SPEC.md): polygons dashed + lightly filled, points as glyph markers.
   const SEV_VAR = { alert: '--alert', watch: '--watch', advisory: '--brand', info: '--muted' };
   for (const a of await getAlerts().catch(() => [])) {
@@ -169,6 +187,27 @@ export async function mountMap(el, qs) {
     map.fitBounds(b, { padding: [24, 24] });
   }
   showMap(qs);
+}
+
+// "2024-05-22 to 2024-09-04" -> "May–Sep 2024" (dates read as UTC, so no off-by-one month).
+export function studyMonths(period) {
+  const m = String(period || '').match(/(\d{4})-(\d{2})-\d{2}\D+(\d{4})-(\d{2})-\d{2}/);
+  if (!m) return String(period || '');
+  const mon = (y, mo) => new Date(Date.UTC(+y, +mo - 1, 15)).toLocaleDateString(undefined, { month: 'short', timeZone: 'UTC' });
+  return m[1] === m[3] ? `${mon(m[1], m[2])}–${mon(m[3], m[4])} ${m[1]}` : `${mon(m[1], m[2])} ${m[1]} – ${mon(m[3], m[4])} ${m[3]}`;
+}
+export function studyPopupHTML(st, s) {
+  const ctx = httpsUrl(s.context_url);
+  const n = (st.samples || []).length;
+  return `<div class="swim-pop study-pop">
+    <p class="sp-kicker">Past study · ${esc(String(s.period || '').slice(0, 4) || 'history')}</p>
+    <strong class="sp-name">${esc(String(st.name ?? '').trim() || 'Study site')}</strong>${st.waterbody ? `<span class="sp-river">${esc(st.waterbody)}</span>` : ''}
+    <p class="sp-date">Tested ${n ? 'weekly ' : ''}<strong>${esc(studyMonths(s.period))}</strong>: a past study, not current conditions.</p>
+    ${st.text ? `<p class="sp-val">${esc(st.text)}</p>` : ''}
+    ${upstreamNoteHTML()}
+    <p class="credit">${esc(s.credit || s.agency || 'Past study')}${ctx ? ` · <a href="${esc(ctx)}" target="_blank" rel="noopener noreferrer">${esc(s.context_label || 'Study map')}</a>` : ''}</p>
+    <a class="see-alerts" href="#dashboard">See the charts on the Creeks page →</a>
+  </div>`;
 }
 
 const ECOLI_STV = 320;

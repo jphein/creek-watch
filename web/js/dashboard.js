@@ -161,17 +161,27 @@ function historyHTML(cond) {
   return studies.map((s) => {
     const objUrl = httpsUrl(s.objective?.url), srcUrl = httpsUrl(s.source_url);
     const year = String(s.period || '').slice(0, 4);
+    // Link only: the Board's map (its CSV forbids reproduction; numbers come from CEDEN).
+    const ctxUrl = httpsUrl(s.context_url);
+    // Our own spots first; study-only stations (site_id null, #109) collapse below, in API order.
+    const all = (s.stations || []).filter(Boolean);
+    const ours = all.filter((st) => st.site_id != null || !('site_id' in st)), others = all.filter((st) => !ours.includes(st));
+    const stationBlock = (st) => `<section class="h-station" aria-label="${esc(st.name)}">
+        <h4>${esc(st.name)}</h4>${st.waterbody && st.site_id == null && 'site_id' in st ? `<p class="h-water">${esc(st.waterbody)}</p>` : ''}
+        ${st.text ? `<p>${esc(st.text)}</p>` : ''}
+        ${historyChart(st, s.objective, s.gm_min_samples)}
+      </section>`;
     return `<details class="history" data-study="${esc(s.id || '')}">
       <summary><span class="h-kicker">Past study · ${esc(year || 'history')}</span><strong>${esc(s.title || 'Past study')}</strong>
         <span class="h-period">${esc(s.period || '')}</span></summary>
       <p class="h-note">This is <strong>history</strong>, not today’s water. It shows what one study measured during ${esc(s.period || 'that period')}.</p>
-      ${(s.stations || []).map((st) => `<section class="h-station" aria-label="${esc(st.name)}">
-        <h4>${esc(st.name)}</h4>
-        ${st.text ? `<p>${esc(st.text)}</p>` : ''}
-        ${historyChart(st, s.objective, s.gm_min_samples)}
-      </section>`).join('')}
+      ${ours.map(stationBlock).join('')}
+      ${others.length ? `<details class="h-others"><summary>Other sites in this study (${others.length})</summary>
+        <p class="h-note small">Study sites that aren’t Creek Watch spots, upstream to downstream. Grey “2024 study” pins on the map.</p>
+        ${others.map(stationBlock).join('')}</details>` : ''}
       ${s.method_note ? `<p class="h-method small">${esc(s.method_note)}</p>` : ''}
       <p class="credit">${esc(s.credit || '')}${srcUrl ? ` · <a href="${esc(srcUrl)}" target="_blank" rel="noopener">data</a>` : ''}${
+        ctxUrl ? ` · <a href="${esc(ctxUrl)}" target="_blank" rel="noopener">${esc(s.context_label || 'Study map')}</a>` : ''}${
         objUrl ? ` · compared with the <a href="${esc(objUrl)}" target="_blank" rel="noopener">state objective</a>` : ''}${s.licence ? ` · Licence: ${esc(s.licence)}` : ''}</p>
     </details>`;
   }).join('');
