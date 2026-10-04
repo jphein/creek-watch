@@ -1,6 +1,6 @@
 # creekwatch.realm.watch: Creek Watch (IEEE OneAquaHealth hackathon), container on ubox0 at 127.0.0.1:8442.
 # Public via the existing cloudflared tunnel (ingress -> https://localhost:443, SNI creekwatch.realm.watch);
-# No LAN dnsmasq override: LAN clients take the same Cloudflare path as phones. Repo: jphein/creek-watch deploy/. 2026-10-03
+# LAN: gatekeeper dnsmasq -> 10.0.6.11 (direct to Caddy). Repo: jphein/creek-watch deploy/. 2026-10-03
 creekwatch.realm.watch {
 	tls {
 		dns cloudflare {env.CLOUDFLARE_API_TOKEN}
@@ -16,9 +16,16 @@ creekwatch.realm.watch {
 	header @uploads Cache-Control "private, max-age=86400"
 	@notuploads not path /uploads/*
 	header @notuploads ?Cache-Control "no-cache"
-	# Public requests arrive from cloudflared on localhost; hand the app the real client IP
+	# Public requests arrive from cloudflared on localhost: hand the app the real client IP
 	# (uvicorn --proxy-headers) so the per-IP rate limit doesn't lump every reporter together.
-	reverse_proxy 127.0.0.1:8442 {
-		header_up X-Forwarded-For {http.request.header.CF-Connecting-IP}
+	# LAN requests (gatekeeper dnsmasq -> 10.0.6.11) have no CF header and keep Caddy's own XFF.
+	@viacf header CF-Connecting-IP *
+	handle @viacf {
+		reverse_proxy 127.0.0.1:8442 {
+			header_up X-Forwarded-For {http.request.header.CF-Connecting-IP}
+		}
+	}
+	handle {
+		reverse_proxy 127.0.0.1:8442
 	}
 }

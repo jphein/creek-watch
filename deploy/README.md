@@ -32,14 +32,14 @@ A sha that fails is written to `~/creekwatch/failed.shas`, and the timer won't r
 - `redeploy.sh`: build, stage, swap, verify and roll back. It re-execs itself on ubox0 and forwards `CW_*` overrides.
 - `install.sh`: idempotent. It copies `redeploy.sh` to `~/creekwatch/bin/` on ubox0 and installs and enables `creekwatch-redeploy.{service,timer}`. After each successful deploy, the installed copy self-updates from `main`.
 - `Caddyfile.snippet`: the site block in `/etc/caddy/Caddyfile` on ubox0. Besides the proxy it sets two things:
-  - `X-Forwarded-For` comes from `CF-Connecting-IP`, so per-IP rate limiting sees real phones and not cloudflared.
+  - Tunnel traffic gets `X-Forwarded-For` from `CF-Connecting-IP`, so per-IP rate limiting sees real phones and not cloudflared. LAN traffic, which has no CF header, keeps Caddy's own XFF.
   - `Cache-Control` keeps the Cloudflare edge from caching: photos are marked `private`, so deletion is effective, and everything else is `no-cache`, so a redeploy reaches phones at once.
 - `cloudflared-ingress.yml`: the rule in `/etc/cloudflared/config.yml`, placed above the catch-all 404. It shares the tunnel with `list.techempower.org`.
 - `placeholder/`: the "coming soon" nginx page. It's the rollback target of last resort.
 
 ## One-time setup already done (2026-10-03)
 
-- **DNS:** a proxied CNAME `creekwatch.realm.watch` → `<tunnel-id>.cfargotunnel.com` in the realm.watch zone, created with Caddy's DNS token. There's deliberately no LAN dnsmasq override, so LAN clients take the same path as phones.
+- **DNS:** a proxied CNAME `creekwatch.realm.watch` → `<tunnel-id>.cfargotunnel.com` in the realm.watch zone, created with Caddy's DNS token. The LAN has a gatekeeper dnsmasq override to `10.0.6.11`, like the other realm.watch sites, so LAN clients go straight to Caddy and Caddy keeps their real LAN IP.
 - **Repo access:** a read-only deploy key on ubox0 (`~/.ssh/creekwatch_deploy`, ssh alias `github-creekwatch`). Once the repo is public this is optional.
 - **Monitoring:** `status.realm.watch` checks `/healthz` and `/api/version` (jphein/status.realm.watch#14).
 - **Backups** sit next to each edited file on ubox0, as `*.bak-pre-creekwatch-*`.
