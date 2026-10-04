@@ -384,18 +384,27 @@ def get_conditions(creek_id: str, *, max_age_s: int | None = None, timeout_s: fl
     }
     from . import wq   # lazy: wq imports ingest
     jobs["wq"] = lambda: wq.get_water_quality(creek_id, timeout_s=timeout_s)
+    jobs["swim"] = lambda: wq.get_swim_holes(timeout_s=timeout_s)
     from . import cdec
     jobs["river"] = lambda: _cached("cdec:river", ttl("gauge"), lambda: cdec.get_river(timeout_s=timeout_s))
     futs = {k: _pool.submit(fn) for k, fn in jobs.items()}
     res = {}
     partial = []   # jobs that timed out or raised: the answer is incomplete
+    riverdb_deadline = time.monotonic() + WQ_WAIT_S   # ONE shared cap for all RiverDB jobs
     for k, f in futs.items():
         try:
-            res[k] = f.result(timeout=WQ_WAIT_S if k == "wq" else timeout_s * 2 + 2)
+            wait = (max(0.0, riverdb_deadline - time.monotonic()) if k in ("wq", "swim")
+                    else timeout_s * 2 + 2)
+            res[k] = f.result(timeout=wait)
         except Exception:  # noqa: BLE001
             res[k] = None
-            if k != "wq":
+            if k not in ("wq", "swim"):
                 partial.append(k)
+            if k == "swim":   # same RiverDB cap as wq: snapshot now, the job fills the cache
+                try:
+                    res[k] = dict(wq.get_swim_holes(timeout_s=timeout_s, cached_only=True), capped=True)
+                except Exception:  # noqa: BLE001
+                    res[k] = None
             if k == "wq":
                 # RiverDB slow (e.g. a cold process after a deploy): answer now from the snapshot
                 # plus any cached live value; the job keeps running and fills the cache for the
@@ -442,13 +451,14 @@ def get_conditions(creek_id: str, *, max_age_s: int | None = None, timeout_s: fl
     except Exception:  # noqa: BLE001
         bacteria_history = {"studies": []}
     out_extra = {}
-    if (res.get("wq") or {}).get("capped") or partial:
+    if (res.get("wq") or {}).get("capped") or (res.get("swim") or {}).get("capped") or partial:
         # Partial answer (RiverDB capped, or any job timed out/raised): ask the API not to cache
         # it for the full 10 min; the next request after the hint picks up the finished jobs.
         out_extra["cache_ttl_hint_s"] = CAPPED_TTL_HINT_S
     return {**out_extra, "creek_id": creek_id, "gauge": gauge, "weather": weather,
             "water_quality": water_quality, "river": river,
-            "bacteria_history": bacteria_history, "fetched_at": _now_iso()}
+            "bacteria_history": bacteria_history,
+            "swim_holes": res.get("swim") or {"stations": []}, "fetched_at": _now_iso()}
 
 
 if __name__ == "__main__":  # python3 -m data.ingest

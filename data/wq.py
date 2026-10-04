@@ -16,6 +16,8 @@ from __future__ import annotations
 
 import json
 import pathlib
+import threading
+import time
 import urllib.request
 from datetime import datetime, timezone
 
@@ -74,12 +76,32 @@ PARAMS = {
     "ecoli_mpn_100ml": ("EColi",),
 }
 
+_Q_YEAR = ("query getStationDataSince($stationRef: ID, $fromYear: Int) { sitevisits(stationRef: $stationRef, "
+           "fromYear: $fromYear) { date resultsv { is_valid mean unit param { name } } } }")
 _Q = ("query getStationData($stationRef: ID) { sitevisits(stationRef: $stationRef) "
       "{ date resultsv { is_valid mean unit param { name } } } }")
 
 
-def _gql(ref: str, timeout: float) -> list[dict]:
-    body = json.dumps({"query": _Q, "variables": {"stationRef": ref}}).encode()
+# RiverDB is a small volunteer-run server (2026-10-03: a burst of our queries preceded an
+# outage). Every call in this process goes through one gate, >= MIN_INTERVAL_S apart.
+MIN_INTERVAL_S = 5.0
+_gate = threading.Lock()
+_last_call = [0.0]
+
+
+def _throttle():
+    with _gate:
+        wait = _last_call[0] + MIN_INTERVAL_S - time.monotonic()
+        if wait > 0:
+            time.sleep(wait)
+        _last_call[0] = time.monotonic()
+
+
+def _gql(ref: str, timeout: float, from_year: int | None = None) -> list[dict]:
+    _throttle()
+    q = _Q_YEAR if from_year else _Q
+    variables = {"stationRef": ref, **({"fromYear": from_year} if from_year else {})}
+    body = json.dumps({"query": q, "variables": variables}).encode()
     req = urllib.request.Request(GQL, data=body, headers={"Content-Type": "application/json", "User-Agent": UA})
     with urllib.request.urlopen(req, timeout=timeout) as r:
         d = json.load(r)
@@ -155,3 +177,69 @@ def get_water_quality(creek_id: str, *, timeout_s: float = 10, now: datetime | N
     stations.sort(key=lambda s: s["date"], reverse=True)
     return {"stations": stations,
             "fetched_at": now.replace(microsecond=0).isoformat().replace("+00:00", "Z")}
+
+
+# ---------------------------------------------------------------------------------------------
+# SYRCL swim-hole bacteria (RiverDB project SYRCL_BACTERIA): South/Middle Yuba swim holes.
+# Regional context (not on Wolf/Deer Creek), so it never feeds a creek score.
+SWIM_STATIONS = [
+    dict(id="17592186178137", name="Purdon Crossing", river="South Yuba River", lat=39.32772, lon=-121.04731),
+    dict(id="17592186178152", name="Edwards Crossing", river="South Yuba River", lat=39.33029, lon=-120.98347),
+    dict(id="17592186178153", name="Hwy 49 bridge (below)", river="South Yuba River", lat=39.2979, lon=-121.08923),
+    dict(id="17592186178155", name="Bridgeport (South Yuba River State Park)", river="South Yuba River",
+         lat=39.29267, lon=-121.19778),
+    dict(id="17592186178191", name="Oregon Creek swimming hole", river="Middle Yuba River (Oregon Creek)",
+         lat=39.404972, lon=-121.0754),
+]
+SWIM_CREDIT = "South Yuba River Citizens League volunteer bacteria monitoring, via RiverDB"
+
+
+def latest_ecoli(visits: list[dict]) -> dict | None:
+    """Most recent valid E. coli result. Exact param "EColi": the same visits also carry
+    TotalColiform, which often sits at the 2419.6 test ceiling and is NOT E. coli."""
+    best = None
+    for v in visits:
+        for r in v.get("resultsv") or []:
+            if (r.get("param") or {}).get("name") != "EColi" or r.get("is_valid") is False:
+                continue
+            if r.get("mean") is None or (r.get("unit") or "") != "MPN/100 mL" or not v.get("date"):
+                continue
+            d = v["date"][:10]
+            if best is None or d > best["date"]:
+                best = {"date": d, "ecoli_mpn_100ml": round(float(r["mean"]), 1)}
+    return best
+
+
+def _swim_snapshot() -> dict:
+    try:
+        return json.loads((_DIR / "swim_snapshot.json").read_text())["stations"]
+    except (OSError, KeyError, ValueError):
+        return {}
+
+
+def get_swim_holes(*, timeout_s: float = 10, now: datetime | None = None, fetch=None,
+                   cached_only: bool = False) -> dict:
+    """Latest SYRCL E. coli per swim hole (live, cached 24 h; snapshot fallback). Never raises."""
+    from . import ingest
+    now = now or datetime.now(timezone.utc)
+    fetch = fetch or (lambda ref: latest_ecoli(_gql(ref, min(timeout_s, 5), from_year=now.year - 1)))
+    snap = _swim_snapshot()
+    out = []
+    for st in SWIM_STATIONS:
+        key = f"riverdb-swim:{st['id']}"
+        data = ingest._peek(key, ttl=86400) if cached_only else \
+            ingest._cached(key, 86400, lambda ref=st["id"]: fetch(ref))
+        live = data is not None and not data.get("stale")
+        if data is None:
+            data = snap.get(st["id"])
+        if not data:
+            continue
+        out.append({
+            "station_id": st["id"], "name": st["name"], "river": st["river"],
+            "lat": st["lat"], "lon": st["lon"],
+            "date": data["date"], "age_days": (now.date() - datetime.fromisoformat(data["date"]).date()).days,
+            "ecoli_mpn_100ml": data["ecoli_mpn_100ml"],
+            "live": live, "stale": bool(data.get("stale")),
+            "credit": SWIM_CREDIT, "source_url": "https://riverdb.org/org/SYRCL",
+        })
+    return {"stations": out, "fetched_at": now.replace(microsecond=0).isoformat().replace("+00:00", "Z")}

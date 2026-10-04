@@ -75,6 +75,17 @@ class RiverDBBacteria(Source):
                     continue
                 if a:
                     out.append(a)
+        # SYRCL swim holes (South/Middle Yuba): region-wide, not tied to Wolf or Deer Creek.
+        for sh in wq.get_swim_holes(now=now)["stations"]:
+            self._seen += 1
+            try:
+                a = ecoli_alert(None, dict(sh, readings={"ecoli_mpn_100ml": sh["ecoli_mpn_100ml"]},
+                                           site_id=None), now)
+            except Exception as e:  # noqa: BLE001
+                self.skip(f"swim hole {sh.get('station_id', '?')}", e)
+                continue
+            if a:
+                out.append(a)
         out.append(make_alert(
             source="riverdb", source_id="ssi-pioneer-park-status", source_name="Sierra Streams Institute",
             category="bacteria", severity="info",
@@ -89,23 +100,31 @@ class RiverDBBacteria(Source):
         return out
 
 
-def ecoli_alert(creek_id: str, st: dict, now: datetime) -> dict | None:
+def ecoli_alert(creek_id: str | None, st: dict, now: datetime) -> dict | None:
     ec = (st.get("readings") or {}).get("ecoli_mpn_100ml")
     age = st.get("age_days")
     if ec is None or ec <= ECOLI_LIMIT or age is None or age > ECOLI_RECENT_DAYS:
         return None
+    # Never render "at None": fall back to the river, then a generic phrase.
+    name = (st.get("name") or "").strip() or (
+        f"a {st['river']} swim hole" if st.get("river") else "a monitoring site")
     d = datetime.fromisoformat(st["date"]).replace(tzinfo=timezone.utc)
     return make_alert(
         source="riverdb", source_id=f"{st['station_id']}:{st['date']}", source_name=st["credit"],
-        category="bacteria", severity="watch" if age <= ECOLI_WATCH_DAYS else "advisory",
-        title=f"E. coli above the recreational threshold at {st['name']}",
-        summary=ecoli_text(ec, st["name"], st["date"]) + " It also lowers this creek's Creek Watch score.",
+        # Region-wide (no creek) alerts are capped at "advisory": a creek_ids [] alert matches every
+        # push subscriber and "watch" bypasses quiet hours, so a Yuba swim-hole result must not push
+        # Deer/Wolf-only subscribers by default. Creek alerts keep watch -> advisory after 14 days.
+        category="bacteria",
+        severity=("watch" if age <= ECOLI_WATCH_DAYS else "advisory") if creek_id else "advisory",
+        title=f"E. coli above the recreational threshold at {name}",
+        summary=ecoli_text(ec, name, st["date"]) + (" It also lowers this creek's Creek Watch score."
+                                                       if creek_id else ""),
         instruction=("Consider skipping swimming or putting your face in the water here until a newer "
                      "test comes back lower, and wash hands after contact."),
         effective=d, expires=d + timedelta(days=ECOLI_RECENT_DAYS),
-        lat=st.get("lat"), lon=st.get("lon"), creek_ids=[creek_id],
+        lat=st.get("lat"), lon=st.get("lon"), creek_ids=[creek_id] if creek_id else [],
         site_ids=[st["site_id"]] if st.get("site_id") else [],
-        area_desc=st["name"], url=st.get("source_url") or "https://riverdb.org/",
+        area_desc=name, url=st.get("source_url") or "https://riverdb.org/",
         attribution=st["credit"],
     )
 

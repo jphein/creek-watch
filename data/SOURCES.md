@@ -74,3 +74,16 @@ Everything here is public and keyless. Retrieved 2026-10-03 unless noted.
 - **Times:** CDEC's station pages label hourly times "DATE / TIME PDT", i.e. California local time. We convert from America/Los_Angeles to UTC.
 - **Freshness:** hourly, but CDEC's own lag varies. At 20:41 PDT on 2026-10-03 the newest JBR value was 09:00 PDT; at 20:51 PDT it was 19:00 PDT. So every value carries `observed_at` and `age_hours`, and the UI must show the observation time.
 - **Exposure:** `conditions["river"]` (regional, the same for both creeks). Cached 15 min, with the shared failure backoff. Missing values (−9999) are skipped. The module never raises.
+
+## Swim-hole bacteria: SYRCL via RiverDB (project `SYRCL_BACTERIA`)
+- **Stations** (RiverDB station refs; coordinates from RiverDB):
+  - Purdon Crossing `17592186178137` (39.32772, −121.04731);
+  - Edwards Crossing `17592186178152` (39.33029, −120.98347);
+  - Hwy 49 bridge (below) `17592186178153` (39.2979, −121.08923);
+  - Bridgeport / South Yuba River State Park `17592186178155` (39.29267, −121.19778);
+  - Oregon Creek swimming hole `17592186178191` (39.404972, −121.0754), Middle Yuba.
+- **E. coli only:** the exact parameter `EColi` in MPN/100 mL. The same visits also report `TotalColiform`, which often sits at the Colilert ceiling of 2419.6. That is NOT E. coli and is never read as it.
+- **Freshness:** 2026 samples were taken on 2026-06-13 and 2026-08-08. Latest E. coli 4.1–11.0 MPN/100 mL, all far below 320.
+- **Polite access:** every RiverDB call in the process goes through one throttle, ≥ 5 s apart (`wq.MIN_INTERVAL_S`). Each query is bounded with `fromYear` and fetches minimal fields. Results are cached 24 h, with the shared failure back-off and single-flight. The fallback snapshot is `swim_snapshot.json`, rebuilt with `python3 -m data.tools.build_swim_snapshot`.
+- **Exposure:** `conditions["swim_holes"]` (regional; the same for both creeks; no score effect). The `riverdb` alert source raises a region-wide bacteria alert (watch, then advisory after 14 days) for E. coli > 320 within 60 days.
+- RiverDB's own `safetoswim` resolver was broken on 2026-10-03 (it errors for every argument form), so this reads `sitevisits(stationRef, fromYear)` directly.
