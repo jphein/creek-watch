@@ -373,7 +373,7 @@
      "date": "2026-08-08",
      "age_days": 57,
      "ecoli_mpn_100ml": 5.2,
-     "live": false,
+     "live": true,
      "stale": false,
      "credit": "South Yuba River Citizens League volunteer bacteria monitoring, via RiverDB",
      "source_url": "https://riverdb.org/org/SYRCL"
@@ -387,7 +387,7 @@
      "date": "2026-08-08",
      "age_days": 57,
      "ecoli_mpn_100ml": 5.2,
-     "live": false,
+     "live": true,
      "stale": false,
      "credit": "South Yuba River Citizens League volunteer bacteria monitoring, via RiverDB",
      "source_url": "https://riverdb.org/org/SYRCL"
@@ -401,7 +401,7 @@
      "date": "2026-08-08",
      "age_days": 57,
      "ecoli_mpn_100ml": 11.0,
-     "live": false,
+     "live": true,
      "stale": false,
      "credit": "South Yuba River Citizens League volunteer bacteria monitoring, via RiverDB",
      "source_url": "https://riverdb.org/org/SYRCL"
@@ -415,7 +415,7 @@
      "date": "2026-08-08",
      "age_days": 57,
      "ecoli_mpn_100ml": 4.1,
-     "live": false,
+     "live": true,
      "stale": false,
      "credit": "South Yuba River Citizens League volunteer bacteria monitoring, via RiverDB",
      "source_url": "https://riverdb.org/org/SYRCL"
@@ -429,13 +429,13 @@
      "date": "2026-08-08",
      "age_days": 57,
      "ecoli_mpn_100ml": 9.8,
-     "live": false,
+     "live": true,
      "stale": false,
      "credit": "South Yuba River Citizens League volunteer bacteria monitoring, via RiverDB",
      "source_url": "https://riverdb.org/org/SYRCL"
     }
    ],
-   "fetched_at": "2026-10-04T14:09:43Z"
+   "fetched_at": "2026-10-04T15:20:26Z"
   }
  },
  "deer": {
@@ -572,7 +572,7 @@
      "date": "2026-08-08",
      "age_days": 57,
      "ecoli_mpn_100ml": 5.2,
-     "live": false,
+     "live": true,
      "stale": false,
      "credit": "South Yuba River Citizens League volunteer bacteria monitoring, via RiverDB",
      "source_url": "https://riverdb.org/org/SYRCL"
@@ -586,7 +586,7 @@
      "date": "2026-08-08",
      "age_days": 57,
      "ecoli_mpn_100ml": 5.2,
-     "live": false,
+     "live": true,
      "stale": false,
      "credit": "South Yuba River Citizens League volunteer bacteria monitoring, via RiverDB",
      "source_url": "https://riverdb.org/org/SYRCL"
@@ -600,7 +600,7 @@
      "date": "2026-08-08",
      "age_days": 57,
      "ecoli_mpn_100ml": 11.0,
-     "live": false,
+     "live": true,
      "stale": false,
      "credit": "South Yuba River Citizens League volunteer bacteria monitoring, via RiverDB",
      "source_url": "https://riverdb.org/org/SYRCL"
@@ -614,7 +614,7 @@
      "date": "2026-08-08",
      "age_days": 57,
      "ecoli_mpn_100ml": 4.1,
-     "live": false,
+     "live": true,
      "stale": false,
      "credit": "South Yuba River Citizens League volunteer bacteria monitoring, via RiverDB",
      "source_url": "https://riverdb.org/org/SYRCL"
@@ -628,13 +628,13 @@
      "date": "2026-08-08",
      "age_days": 57,
      "ecoli_mpn_100ml": 9.8,
-     "live": false,
+     "live": true,
      "stale": false,
      "credit": "South Yuba River Citizens League volunteer bacteria monitoring, via RiverDB",
      "source_url": "https://riverdb.org/org/SYRCL"
     }
    ],
-   "fetched_at": "2026-10-04T14:09:43Z"
+   "fetched_at": "2026-10-04T15:20:26Z"
   }
  }
 }
