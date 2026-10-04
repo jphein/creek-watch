@@ -6,7 +6,7 @@ import json
 import logging
 import sqlite3
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Iterable
 
@@ -52,11 +52,10 @@ CREATE TABLE IF NOT EXISTS alert_sources (
 REARM_AFTER_S = 12 * 3600
 
 
-def _age_s(since: str | None, now: str) -> float:
-    if not since:
-        return 0.0
+def _minus(now: str, seconds: float) -> str:
+    """ISO-Z timestamp `seconds` before `now` (same format, so string comparison in SQL is ordered)."""
     fmt = "%Y-%m-%dT%H:%M:%SZ"
-    return (datetime.strptime(now, fmt) - datetime.strptime(since, fmt)).total_seconds()
+    return (datetime.strptime(now, fmt) - timedelta(seconds=seconds)).strftime(fmt)
 
 
 def now_iso() -> str:
@@ -80,6 +79,9 @@ class AlertStore:
                 c.execute("ALTER TABLE alert_sources ADD COLUMN next_due REAL")
             if "inactive_since" not in {r[1] for r in c.execute("PRAGMA table_info(alerts)")}:
                 c.execute("ALTER TABLE alerts ADD COLUMN inactive_since TEXT")
+                # backfill: rows already inactive start their re-arm clock at migration time
+                c.execute("UPDATE alerts SET inactive_since=? WHERE status!='active' AND inactive_since IS NULL",
+                          (now_iso(),))
 
     def _conn(self) -> sqlite3.Connection:
         c = sqlite3.connect(self.db_path, timeout=10)
@@ -117,21 +119,26 @@ class AlertStore:
                     if row["payload"] == payload:
                         kind = "unchanged"
                     elif a["status"] == "active" and row["status"] != "active":
-                        kind = "new"  # re-activated
-                        if _age_s(row["inactive_since"], now) >= REARM_AFTER_S:
-                            # a new incident under the same id: announce it again
-                            c.execute("UPDATE alerts SET last_pushed_severity=NULL WHERE id=?", (a["id"],))
+                        kind = "new"  # re-activated (claim re-arm, if due, happens atomically below)
                     elif (a["status"] == "active"
                           and SEVERITY_RANK[a["severity"]] > SEVERITY_RANK.get(row["severity"], -1)):
                         kind = "escalated"
                     else:
                         kind = "updated"
                     if kind != "unchanged":
+                        # Compare-and-set re-arm, in the SAME statement as the status flip. SQLite evaluates
+                        # SET expressions against the pre-update row, so only the writer that actually
+                        # flips inactive(>=REARM_AFTER_S) -> active clears the claim; a concurrent poller
+                        # that read the same stale row sees status already 'active' and keeps the claim.
                         c.execute("UPDATE alerts SET payload=?, status=?, severity=?, category=?, updated=?, "
-                                  "expires=?, inactive_since=CASE WHEN ?='active' THEN NULL "
+                                  "expires=?, "
+                                  "last_pushed_severity=CASE WHEN ?='active' AND status!='active' "
+                                  "AND inactive_since IS NOT NULL AND inactive_since<=? "
+                                  "THEN NULL ELSE last_pushed_severity END, "
+                                  "inactive_since=CASE WHEN ?='active' THEN NULL "
                                   "ELSE COALESCE(inactive_since, ?) END WHERE id=?",
                                   (payload, a["status"], a["severity"], a["category"], a["updated"], a["expires"],
-                                   a["status"], now, a["id"]))
+                                   a["status"], _minus(now, REARM_AFTER_S), a["status"], now, a["id"]))
                 c.execute("DELETE FROM alert_creeks WHERE alert_id = ?", (a["id"],))
                 c.executemany("INSERT OR IGNORE INTO alert_creeks VALUES (?, ?)",
                               [(a["id"], cid) for cid in a["area"]["creek_ids"]])
