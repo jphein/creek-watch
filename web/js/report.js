@@ -92,19 +92,29 @@ let sending = false;
 let lastError = null;
 let done = null; // server response after success
 
+let photoTouched = false; // the user tapped "Open camera" / "Choose from my photos"
+
+// Late async loads (draft photo from IndexedDB, /api/creeks on a weak signal) must not re-render the photo
+// step once the picker was tapped: on a phone the camera app is open, and replacing the <input> detaches it,
+// so its `change` never reaches us and the photo is silently lost (reproduced: creeks 3 s late).
+function renderUnlessPicking() {
+  if (STEPS[st.step]?.key === 'photo' && photoTouched) return;
+  render();
+}
+
 export async function mountReport(el) {
   root = el;
   st = { ...blank(), ...(draftLoad() || {}) };
+  render(); // show the form right away; IndexedDB and the network can be slow
   const saved = await kvGet('draft-photo');
-  if (saved instanceof Blob) setPhoto(saved, false);
-  render();
+  if (saved instanceof Blob && !photo && !photoTouched) { setPhoto(saved, false); renderUnlessPicking(); }
   try {
     creeks = await getCreeks();
   } catch (e) {
     creeks = [];
     lastError = e;
   }
-  render();
+  renderUnlessPicking(); // the photo step doesn't need creeks; Next renders the "where" step with them
   flushOutbox();
 }
 
@@ -558,6 +568,7 @@ export function bindReport(el) {
     }
   });
   el.addEventListener('click', (e) => {
+    if (e.target.closest('[data-photo], .file-btn')) photoTouched = true;
     const b = e.target.closest('[data-act],[data-go]');
     if (!b) return;
     if (b.dataset.go) return go(+b.dataset.go);
@@ -673,6 +684,7 @@ function finish(fields) {
 
 function reset() {
   lastCleanup = null;
+  photoTouched = false;
   const keep = { creek_id: st.creek_id, site_id: st.site_id, lat: st.lat, lon: st.lon, accuracy: st.accuracy, gpsAt: st.gpsAt };
   st = { ...blank(), ...keep };
   setPhoto(null);
