@@ -58,7 +58,7 @@
 - **Prompt:** pick the one you'd do first and say why.
 
 ## 9. Team (1–2 lines)
-- JP (Jeffrey Hein): Sierra College student, developer, founder of TechEMPOWER. He built the app.
+- JP (Jeffrey Hein): Sierra College student and full-stack developer. He built the app.
 - Alec ___ (your school): field reports, writing, narration, testing.
 
 ---

@@ -11,11 +11,11 @@ Built for Wolf Creek (Grass Valley, CA) and Deer Creek (Nevada City, CA) for the
 
 ## What it does
 
-- **Report:** anyone at the creek takes a photo and answers six quick, plain-language questions on their phone: water colour, algae, trash, flow, odour and dead fish. Location fills in from GPS, and the nearest spot is picked automatically.
+- **Report:** anyone at the creek takes a photo and answers six quick, plain-language questions on their phone: water colour, algae, trash, flow, odour and dead fish. Location fills in from GPS, and the nearest spot is picked automatically when you're at it. "Somewhere else (between spots, or a side stream)" keeps your exact GPS point instead.
 - **Cleanups:** when trash is reported, an optional "I picked it up" toggle (with a bag count) records a cleanup, shown beside a safety line. Badges (Creek Helper, Creek Steward, Trash Hero) live only in the browser's local storage: no account, nothing sent. Creek cards show "N reported cleanups · B bags" (honour system, not verified). The score thanks people who removed trash, but reported trash still counts.
 - **Map:** creek lines, named monitoring spots and recent reports, coloured by health band.
 - **Dashboard:** a 0–100 health score per creek. **Every signal explains why it moved the score**, and the card shows the latest USGS gauge, NWS weather and Open-Meteo rainfall.
-- **Early warning:** rule-based *watch* and *alert* signals. Examples: heavy rain plus brown water means a runoff watch; lots of algae plus warm weather means an algal-bloom watch; dead fish or a chemical or sewage odour means an alert.
+- **Early warning:** rule-based *watch* and *alert* signals. Examples: heavy rain plus brown water means a runoff watch; lots of algae plus warm weather means an algal-bloom watch; orange water means a possible mine-drainage watch (or a natural iron seep; report it via [CalEPA's complaint form](https://calepa.ca.gov/enforcement/complaints/)); dead fish or a chemical or sewage odour means an alert.
 - **Privacy:** photos are re-encoded from raw pixels (at most 1600 px), which removes all EXIF metadata including GPS. Public report locations are rounded to 3 decimal places (about 110 m). Reporter names are optional.
 
 ## Run it locally
@@ -123,7 +123,7 @@ Creek Watch is not affiliated with or endorsed by USGS, NOAA/NWS, Open-Meteo or 
 
 ## Team
 
-- **Jeffrey "JP" Hein:** Sierra College student, full-stack developer, founder of TechEMPOWER. Design and development.
+- **Jeffrey "JP" Hein:** Sierra College student and full-stack developer. Design and development.
 - **Alec:** student. Field reports, writing, demo narration and testing.
 
 Built with AI coding assistance (Claude Code) under human direction and review. The health score itself uses deterministic, explainable rules, not AI.
