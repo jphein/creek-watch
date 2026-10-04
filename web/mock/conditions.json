@@ -1,0 +1,31 @@
+{
+ "wolf": {
+  "gauge": null,
+  "weather": {
+   "temp_f": 78,
+   "precip_24h_in": 0.4,
+   "forecast_short": "Sunny, high near 80",
+   "observed_at": "2026-10-03T22:00:00Z",
+   "source_url": "https://forecast.weather.gov/MapClick.php?lat=39.2191&lon=-121.0611"
+  },
+  "fetched_at": "2026-10-03T22:50:00Z"
+ },
+ "deer": {
+  "gauge": {
+   "site_no": "11418500",
+   "name": "DEER C NR SMARTSVILLE CA",
+   "discharge_cfs": 18.4,
+   "gage_height_ft": 2.31,
+   "observed_at": "2026-10-03T22:30:00Z",
+   "source_url": "https://waterdata.usgs.gov/monitoring-location/11418500/"
+  },
+  "weather": {
+   "temp_f": 84,
+   "precip_24h_in": 0.0,
+   "forecast_short": "Sunny, high near 84",
+   "observed_at": "2026-10-03T22:00:00Z",
+   "source_url": "https://forecast.weather.gov/MapClick.php?lat=39.2616&lon=-121.0161"
+  },
+  "fetched_at": "2026-10-03T22:50:00Z"
+ }
+}
