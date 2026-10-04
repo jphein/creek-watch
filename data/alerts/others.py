@@ -158,6 +158,7 @@ class OEHHA(Source):
 # Creek Watch's own early-warning rules (data/score.py warnings) -> alerts
 WARNING_CATEGORY = {
     "contamination_alert": "contamination", "contamination_followup": "contamination",
+    "orange_water_watch": "contamination",
     "runoff_sediment_watch": "runoff", "runoff_ahead": "runoff",
     "algal_bloom_watch": "algal_bloom", "bacteria_watch": "bacteria",
 }
