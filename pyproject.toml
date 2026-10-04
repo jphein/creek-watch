@@ -17,6 +17,10 @@ dependencies = [
     "sigil.realm.watch @ git+https://github.com/jphein/sigil.realm.watch#subdirectory=python",
 ]
 
+[project.optional-dependencies]
+# Cloudflare Containers build: photos to R2 via the S3 API.
+cf = ["boto3>=1.34"]
+
 [dependency-groups]
 dev = ["pytest>=8", "lxml>=5"]
 

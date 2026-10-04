@@ -49,6 +49,16 @@ class Settings:
     push_rate_count: int = field(default_factory=lambda: int(os.environ.get("CREEKWATCH_PUSH_RATE_COUNT", "20")))
     public_url: str | None = field(default_factory=lambda: os.environ.get("CREEKWATCH_PUBLIC_URL") or None)
 
+    # Cloudflare build: photos to R2, write freeze for cutover, cron-triggered poll (all off by default).
+    uploads_backend: str = field(default_factory=lambda: os.environ.get("CREEKWATCH_UPLOADS_BACKEND", "local"))
+    r2_endpoint: str = field(default_factory=lambda: os.environ.get("CREEKWATCH_R2_ENDPOINT", ""))
+    r2_bucket: str = field(default_factory=lambda: os.environ.get("CREEKWATCH_R2_BUCKET", ""))
+    r2_access_key_id: str = field(default_factory=lambda: os.environ.get("CREEKWATCH_R2_ACCESS_KEY_ID", ""), repr=False)
+    r2_secret_access_key: str = field(default_factory=lambda: os.environ.get("CREEKWATCH_R2_SECRET_ACCESS_KEY", ""),
+                                      repr=False)
+    read_only: bool = field(default_factory=lambda: _env_bool("CREEKWATCH_READ_ONLY", False))
+    internal_token: str = field(default_factory=lambda: os.environ.get("CREEKWATCH_INTERNAL_TOKEN", ""), repr=False)
+
     @property
     def db_path(self) -> Path:
         return self.data_dir / "creekwatch.db"
