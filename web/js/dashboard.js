@@ -194,8 +194,9 @@ const CONFIDENCE = {
 function cleanupCountHTML(cs) {
   const n = Number(cs?.cleanups) | 0, bags = Number(cs?.bags) | 0;
   if (!(n > 0)) return '';
-  return `<p class="cleanup-count"><span aria-hidden="true">🧤</span> <span><strong>${n} cleanup${n === 1 ? '' : 's'}</strong>${
-    bags > 0 ? ` · <strong>${bags} bag${bags === 1 ? '' : 's'}</strong> of trash` : ''} removed by volunteers</span></p>`;
+  // Honour system (Oracle): always "reported", never presented as verified.
+  return `<p class="cleanup-count" title="Reported by volunteers in Creek Watch reports; not independently verified."><span aria-hidden="true">🧤</span> <span><strong>${n} reported cleanup${n === 1 ? '' : 's'}</strong>${
+    bags > 0 ? ` · <strong>${bags} bag${bags === 1 ? '' : 's'}</strong>` : ''}</span></p>`;
 }
 
 async function creekCard(c) {

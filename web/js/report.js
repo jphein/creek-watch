@@ -1,5 +1,5 @@
 // Report page — the guided 6-step flow (SPEC "Pages" #1, Track 1).
-import { getCreeks, postReport, ApiError, reportBand } from './api.js';
+import { getCreeks, postReport, ApiError, reportBand, warningFlags } from './api.js';
 import { icon } from './icons.js';
 import { kvGet, kvSet, kvDel, outboxAdd, outboxAll, outboxDel, draftLoad, draftSave, draftClear } from './store.js';
 import { esc, haversineKm, fmtDistance, bandLabel, flagText, toast } from './ui.js';
@@ -420,7 +420,7 @@ function renderDone() {
   const r = done;
   const creek = creeks.find((c) => c.id === r.creek_id);
   const band = reportBand(r);
-  const flags = (r.flags || [])
+  const flags = warningFlags(r.flags)
     .map((f) => ({ text: flagText(f), alert: /dead_fish|sewage|chemical|alert/.test(String(f)) }))
     .filter((f) => f.text);
   root.innerHTML = `

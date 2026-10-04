@@ -49,7 +49,7 @@ async function fileCleanup(p, { bags = 3, pickUp = true, name = '' } = {}) {
   await ctx.route('**/api/reports', (r) => {
     if (r.request().method() !== 'POST') return r.fulfill(json('[]'));
     post = r.request().postData() || '';
-    return r.fulfill(json({ id: 1, creek_id: 'wolf', trash_removed: true, trash_bags: 3, flags: [], photo_url: null }, 201));
+    return r.fulfill(json({ id: 1, creek_id: 'wolf', trash: 'some', water_color: 'clear', algae: 'none', odor: 'none', trash_removed: true, trash_bags: 3, flags: ['trash_removed'], photo_url: null }, 201));
   });
   await ctx.route('**/api/{alerts,health,conditions,stats}**', (r) => r.fulfill(json('[]')));
   const p = await ctx.newPage(); p.on('pageerror', (e) => console.error('A pageerror:', e.message));
@@ -58,6 +58,17 @@ async function fileCleanup(p, { bags = 3, pickUp = true, name = '' } = {}) {
   const field = (n) => (post.match(new RegExp(`name="${n}"\\r\\n\\r\\n([^\\r]*)`)) || [])[1];
   R.A_postTrashRemoved = field('trash_removed'); R.A_postTrashBags = field('trash_bags');
   R.A_celebrate = await p.locator('.celebrate').count();
+  R.A_noWarningForCleanup = (await p.locator('.flag-list li').count()) === 0;
+  R.A_bandNotRaised = (await p.locator('.band-chip').innerText()).includes('Fair');
+  R.A_bands = await p.evaluate(async () => {
+    const { reportBand } = await import('/js/api.js');
+    const base = { water_color: 'clear', algae: 'none', odor: 'none', dead_fish: false };
+    return {
+      cleanOnly: reportBand({ ...base, trash: 'none', flags: ['trash_removed'] }),
+      someTrashCleaned: reportBand({ ...base, trash: 'some', flags: ['trash_removed'] }),
+      heavyStillWatch: reportBand({ ...base, trash: 'lots', flags: ['trash_heavy', 'trash_removed'] }),
+    };
+  });
   R.A_newBadge = await p.locator('.new-badge strong').allTextContents();
   R.A_stored = await p.evaluate(() => JSON.parse(localStorage.getItem('cw-badges') || 'null'));
   R.A_badgeAlt = await p.locator('.new-badge svg[role="img"]').getAttribute('aria-label');
@@ -136,12 +147,13 @@ await b.close(); close();
 const checks = {
   hiddenUntilTrash: R.A_blockHiddenBeforeTrash, safety: R.A_safetyShown, toggle: R.A_togglePressed, bags3: R.A_bagsShown === '3',
   summary: /Picked up, about 3 bags/.test(R.A_summaryRow), postTrashRemoved: R.A_postTrashRemoved === 'true', postTrashBags: R.A_postTrashBags === '3',
-  celebrate: R.A_celebrate === 1, helperEarned: R.A_newBadge?.join() === 'Creek Helper', storedCounts: R.A_stored?.cleanups === 1 && R.A_stored?.bags === 3,
+  celebrate: R.A_celebrate === 1, noWarningForCleanup: R.A_noWarningForCleanup, bandNotRaised: R.A_bandNotRaised,
+  positiveFlagNeverRaisesBand: R.A_bands?.cleanOnly === 'good' && R.A_bands?.someTrashCleaned === 'fair' && R.A_bands?.heavyStillWatch === 'watch', helperEarned: R.A_newBadge?.join() === 'Creek Helper', storedCounts: R.A_stored?.cleanups === 1 && R.A_stored?.bags === 3,
   badgeAlt: R.A_badgeAlt === 'Creek Helper badge',
   stewardAndHero: R.B_newBadges?.join() === 'Creek Steward,Trash Hero', stripAllEarned: R.B_stripEarned?.length === 3,
   noneHides: R.C_blockGoneOnNone, noneResets: R.C_resetAfterNone,
   storageBlockedStillWorks: R.D_doneShown === 1 && R.D_honestNote && R.D_pageErrors === 0,
-  counterWolf: /7 cleanups · 12 bags of trash removed by volunteers/.test(R.E_light_wolfCounter), counterZeroHidden: R.E_light_deerCounterHidden,
+  counterWolf: /^🧤 7 reported cleanups · 12 bags$/.test(R.E_light_wolfCounter.trim()), counterNeverVerified: !/verified/i.test(R.E_light_wolfCounter), counterZeroHidden: R.E_light_deerCounterHidden,
   counterErrorHidden: R.E_counterHiddenOnError, cleanedChip: R.F_light_cleanChips >= 1, pinBadge: R.F_light_pinBadges >= 1,
   aboutStrip: R.G_light_aboutStrip && R.G_dark_aboutStrip, lockedHasText: R.G_light_lockedTextNotColourOnly,
 };

@@ -138,9 +138,13 @@ export function deriveFlags(r) {
 const ALERT_HINTS = ['dead_fish', 'sewage', 'chemical', 'alert'];
 
 // Per-report band for map pins (the API gives bands per creek, not per report).
+// Flags that are good news (data #60 adds "trash_removed"): never a warning, never raise the band.
+export const POSITIVE_FLAGS = new Set(['trash_removed']);
+export const warningFlags = (flags) => (flags || []).map(String).filter((f) => !POSITIVE_FLAGS.has(f));
+
 export function reportBand(r) {
   if (r.band) return r.band;
-  const flags = (r.flags && r.flags.length ? r.flags : deriveFlags(r)).map(String);
+  const flags = r.flags && r.flags.length ? warningFlags(r.flags) : deriveFlags(r);
   if (flags.some((x) => ALERT_HINTS.some((h) => x.includes(h)))) return 'alert';
   if (flags.length) return 'watch';
   if (r.algae === 'some' || r.trash === 'some' || ['cloudy', 'green', 'other'].includes(r.water_color) || ['rotten', 'other'].includes(r.odor))
