@@ -1,7 +1,7 @@
 // Dashboard — one card per creek: score gauge, band, explained signals,
 // gauge + weather, 7-day report sparkline, recent reports.
 import { getCreeks, getHealth, getConditions, getReports, getAlerts, getCleanupStats, reportBand } from './api.js';
-import { esc, BANDS, bandLabel, timeAgo, reportCardHTML, signalLabel, signalValue, safeUrl, alertHTML } from './ui.js';
+import { esc, BANDS, bandLabel, timeAgo, reportCardHTML, signalLabel, signalValue, safeUrl, httpsUrl, alertHTML } from './ui.js';
 
 const BAND_GLYPH = { good: '✓', fair: '~', watch: '!', alert: '✕' };
 
@@ -106,6 +106,110 @@ function condHTML(c) {
     }</div>
   </div>
   ${g?.note ? `<p class="cond-note">${esc(g.note)}</p>` : ''}`;
+}
+
+/* ---------- dated history: past bacteria studies (data #70) ----------
+   Rules: always dated ("2024 Regional Board study"), never beside today's readings, credit + state-objective
+   link, the data lane's ready-made text verbatim, never the word "unsafe". Values may be null or "<1"-style:
+   only finite numbers are plotted. */
+const num = (v) => (typeof v === 'number' ? v : typeof v === 'string' && /^\s*-?\d+(\.\d+)?\s*$/.test(v) ? Number(v) : NaN);
+
+// Objective lines carry the objective's own units (cfu), since the samples were measured as MPN (data lane).
+const unitTag = (obj) => (/cfu/i.test(String(obj?.units || '')) ? ' (cfu)' : '');
+
+function historyChart(st, obj, minN) {
+  // qual (CEDEN ResultQualCode): '=' exact; '<'/'>' means the number is the lab's limit, so never draw it as exact.
+  const pts = (st.samples || []).map((x) => ({ d: String(x.date || ''), v: num(x.ecoli), g: num(x.gm6w), n: Number(x.gm6w_n) || 0,
+    q: x.qual == null || x.qual === '' ? '=' : String(x.qual) }))
+    .filter((x) => /^\d{4}-\d{2}-\d{2}$/.test(x.d));
+  const exact = (x) => Number.isFinite(x.v) && x.q === '=';
+  const plotted = pts.filter(exact);
+  const limits = pts.filter((x) => Number.isFinite(x.v) && x.q !== '=').map((x) => `${x.q}${x.v}`);
+  if (plotted.length < 2) return '';
+  const stv = Number(obj?.stv) || 320, gm = Number(obj?.gm_six_week) || 100;
+  const W = 300, H = 120, padL = 30, padB = 16, top = 6, plotH = H - padB - top, plotW = W - padL - 4;
+  const yMax = Math.max(stv * 1.15, ...plotted.map((x) => x.v)) || 1;
+  const y = (v) => top + plotH - (Math.min(v, yMax) / yMax) * plotH;
+  const bw = Math.max(3, plotW / pts.length - 3);
+  const x = (i) => padL + i * (plotW / pts.length) + 1.5;
+  const bars = pts.map((p, i) => (exact(p)
+    ? `<rect class="hb" x="${x(i).toFixed(1)}" y="${Math.min(y(p.v), top + plotH - 2).toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(2, top + plotH - y(p.v)).toFixed(1)}" rx="2"><title>${esc(p.d)}: ${esc(p.v)}</title></rect>`
+    : '')).join('');
+  const gpts = pts.map((p, i) => (Number.isFinite(p.g) && p.n >= (minN || 5) ? `${(x(i) + bw / 2).toFixed(1)},${y(p.g).toFixed(1)}` : null)).filter(Boolean);
+  const ref = (v, cls, label) => `<line class="${cls}" x1="${padL}" x2="${W - 4}" y1="${y(v).toFixed(1)}" y2="${y(v).toFixed(1)}"/><text class="hl" x="${W - 6}" y="${(y(v) - 3).toFixed(1)}" text-anchor="end">${label}</text>`;
+  const first = pts[0].d, last = pts[pts.length - 1].d;
+  return `<figure class="hist-chart">
+    <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(`E. coli samples at ${st.name}, ${first} to ${last}: ${plotted.length} values plotted, highest ${Math.max(...plotted.map((p) => p.v))}`)}">
+      <line class="axis" x1="${padL}" x2="${padL}" y1="${top}" y2="${top + plotH}"/>
+      <text class="ht" x="${padL - 4}" y="${(y(0)).toFixed(1)}" text-anchor="end">0</text>
+      <text class="ht" x="${padL - 4}" y="${(top + 8).toFixed(1)}" text-anchor="end">${Math.round(yMax)}</text>
+      ${bars}
+      ${gpts.length > 1 ? `<polyline class="hg" points="${gpts.join(' ')}"/>` : ''}
+      ${ref(stv, 'ref stv', `${stv} statistical threshold${unitTag(obj)}`)}${ref(gm, 'ref gm', `${gm} six-week geometric mean${unitTag(obj)}`)}
+      <text class="ht" x="${padL}" y="${H - 3}">${esc(first)}</text><text class="ht" x="${W - 4}" y="${H - 3}" text-anchor="end">${esc(last)}</text>
+    </svg>
+    <figcaption class="small muted">Bars: each sample. Line: 6-week geometric mean (only with ${minN || 5}+ samples). Dashed lines: the state objectives; ${stv} is a statistical threshold for a month’s samples, not a single-sample limit. One sample above ${stv} isn’t by itself a violation.${
+      limits.length ? ` ${limits.length} result(s) outside the lab’s measuring range (${esc(limits.slice(0, 3).join(', '))}) not drawn as exact values.` : ''}${
+      pts.length - plotted.length - limits.length ? ` ${pts.length - plotted.length - limits.length} value(s) not shown (no number reported).` : ''}</figcaption>
+  </figure>`;
+}
+
+function historyHTML(cond) {
+  const studies = (cond?.bacteria_history?.studies || []).filter((s) => s && s.is_current === false);
+  if (!studies.length) return '';
+  return studies.map((s) => {
+    const objUrl = httpsUrl(s.objective?.url), srcUrl = httpsUrl(s.source_url);
+    const year = String(s.period || '').slice(0, 4);
+    return `<details class="history" data-study="${esc(s.id || '')}">
+      <summary><span class="h-kicker">Past study · ${esc(year || 'history')}</span><strong>${esc(s.title || 'Past study')}</strong>
+        <span class="h-period">${esc(s.period || '')}</span></summary>
+      <p class="h-note">This is <strong>history</strong>, not today’s water. It shows what one study measured during ${esc(s.period || 'that period')}.</p>
+      ${(s.stations || []).map((st) => `<section class="h-station" aria-label="${esc(st.name)}">
+        <h4>${esc(st.name)}</h4>
+        ${st.text ? `<p>${esc(st.text)}</p>` : ''}
+        ${historyChart(st, s.objective, s.gm_min_samples)}
+      </section>`).join('')}
+      ${s.method_note ? `<p class="h-method small">${esc(s.method_note)}</p>` : ''}
+      <p class="credit">${esc(s.credit || '')}${srcUrl ? ` · <a href="${esc(srcUrl)}" target="_blank" rel="noopener">data</a>` : ''}${
+        objUrl ? ` · compared with the <a href="${esc(objUrl)}" target="_blank" rel="noopener">state objective</a>` : ''}${s.licence ? ` · Licence: ${esc(s.licence)}` : ''}</p>
+    </details>`;
+  }).join('');
+}
+
+/* ---------- regional river context (data #73, CDEC) ----------
+   Yuba-system context only; never a score claim. The reading's age is shown prominently because CDEC
+   can lag 2–12 hours. */
+function fmtAsOf(iso) {
+  const t = Date.parse(iso || '');
+  if (!t) return '';
+  return new Date(t).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+}
+const n0 = (v, d = 0) => (Number.isFinite(Number(v)) ? Number(v).toLocaleString(undefined, { maximumFractionDigits: d }) : null);
+
+function riverHTML(cond) {
+  const sts = cond?.river?.stations || [];
+  if (!sts.length) return '';
+  return `<section class="river" aria-label="Yuba River and Englebright Lake">
+    <h4>Yuba River system <span class="r-sub">regional context, not part of this creek’s score</span></h4>
+    ${sts.map((st) => {
+      const vals = st.kind === 'reservoir'
+        ? [n0(st.storage_af) && `${n0(st.storage_af)} acre-feet stored`, n0(st.elevation_ft, 1) && `water level ${n0(st.elevation_ft, 1)} ft`]
+        : [n0(st.flow_cfs, 1) && `${n0(st.flow_cfs, 1)} cfs flow`, n0(st.stage_ft, 2) && `stage ${n0(st.stage_ft, 2)} ft`];
+      // Age from observed_at, client-side (the API's age_hours is frozen when its response was cached).
+      const obsT = Date.parse(st.observed_at || '');
+      const age = obsT ? Math.max(0, (Date.now() - obsT) / 3600e3) : Number(st.age_hours);
+      const stale = Number.isFinite(age) && age > 6;
+      const href = httpsUrl(st.source_url);
+      return `<div class="r-st${stale ? ' stale' : ''}">
+        <p class="r-name"><strong>${esc(st.name)}</strong></p>
+        <p class="r-vals">${esc(vals.filter(Boolean).join(' · ') || 'No reading')}</p>
+        <p class="r-age">As of ${esc(fmtAsOf(st.observed_at))}${Number.isFinite(age) ? ` (${esc(age < 1 ? 'under 1 h' : `${Math.round(age)} h`)} ago)` : ''}${
+          stale ? ' · <strong>older reading</strong>: CDEC data can lag several hours' : ''}</p>
+        ${st.note ? `<p class="r-note">${esc(st.note)}</p>` : ''}
+        <p class="credit">${esc(st.credit || 'CDEC')}${href ? ` · <a href="${esc(href)}" target="_blank" rel="noopener">station data</a>` : ''}</p>
+      </div>`;
+    }).join('')}
+  </section>`;
 }
 
 // Volunteer water tests (RiverDB). Thresholds per data/SOURCES.md.
@@ -235,6 +339,7 @@ async function creekCard(c) {
     }
     ${condHTML(cond)}
     ${wqHTML(cond)}
+    ${c.id === 'deer' ? riverHTML(cond) : ''}
     ${cleanupCountHTML(cleanups)}
     <div class="spark-wrap"><h4>Reports, last 7 days</h4>${spark.svg}<span class="spark-total">${spark.total}</span></div>
     <h3>Latest reports</h3>
@@ -249,6 +354,7 @@ async function creekCard(c) {
             .join('')}</div></details>`
         : ''
     }
+    ${historyHTML(cond)}
     ${health?.last_updated ? `<p class="updated">Score updated ${esc(timeAgo(health.last_updated))}.</p>` : ''}
   </article>`;
 }
