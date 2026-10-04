@@ -244,9 +244,9 @@ def compute_health(creek_id: str, reports: list[dict] | None, conditions: dict |
         sig("stream_flow", pct, w * scale,
             f"USGS gauge {gauge.get('site_no')} reads {gauge.get('discharge_cfs')} cfs, which is {pct}% of the "
             f"long-term median for this date (gauge is {where}). {why}",
-            f"USGS NWIS {gauge.get('site_no')}")
+            f"USGS {gauge.get('site_no')}")
     else:
-        sig("stream_flow", None, 0, "No usable stream-gauge reading right now.", "USGS NWIS")
+        sig("stream_flow", None, 0, "No usable stream-gauge reading right now.", "USGS")
 
     # ---- volunteer lab/field samples (RiverDB: SYRCL, SSI, WCCA)
     wq_st = ((conditions or {}).get("water_quality") or {}).get("stations") or []

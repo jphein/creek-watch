@@ -213,3 +213,10 @@ def test_healthy_lab_sample_no_penalty():
     s = sig(compute_health("deer", CLEAN, with_wq(wq(5, do_mg_l=9.1, ph=7.3, turbidity_ntu=1.3, water_temp_c=14)), now=NOW),
             "volunteer_lab_data")
     assert s["weight"] == 0 and "healthy" in s["explanation"]
+
+
+def test_stream_flow_source_is_api_neutral():
+    """Gauge data comes from the USGS Water Data API or legacy NWIS, so the source is just 'USGS <site>'."""
+    assert sig(compute_health("deer", CLEAN, conditions(), now=NOW), "stream_flow")["source"] == "USGS 11418500"
+    no_gauge = conditions(); no_gauge["gauge"] = None
+    assert sig(compute_health("deer", CLEAN, no_gauge, now=NOW), "stream_flow")["source"] == "USGS"
