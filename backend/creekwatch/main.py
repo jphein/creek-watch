@@ -95,10 +95,40 @@ def iso(dt: datetime) -> str:
     return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
+# Cloudflare edge ranges, vendored from https://www.cloudflare.com/ips-v4 and /ips-v6 (fetched 2026-10-04).
+# Used only on Fly: when Cloudflare proxies in front of Fly, Fly-Client-IP is the CF edge, not the visitor.
+# Refresh if Cloudflare publishes changes (rare); a stale list only degrades to per-edge rate limiting.
+CLOUDFLARE_NETS = tuple(ipaddress.ip_network(n) for n in (
+    "173.245.48.0/20",
+    "103.21.244.0/22",
+    "103.22.200.0/22",
+    "103.31.4.0/22",
+    "141.101.64.0/18",
+    "108.162.192.0/18",
+    "190.93.240.0/20",
+    "188.114.96.0/20",
+    "197.234.240.0/22",
+    "198.41.128.0/17",
+    "162.158.0.0/15",
+    "104.16.0.0/13",
+    "104.24.0.0/14",
+    "172.64.0.0/13",
+    "131.0.72.0/22",
+    "2400:cb00::/32",
+    "2606:4700::/32",
+    "2803:f800::/32",
+    "2405:b500::/32",
+    "2405:8100::/32",
+    "2a06:98c0::/29",
+    "2c0f:f248::/32",
+))
+
+
 def make_client_ip(trusted: str, on_fly: bool = False):
     """Real client IP.
     On Fly.io (on_fly, i.e. FLY_APP_NAME is set): every request arrives through fly-proxy, which sets
-    Fly-Client-IP to the real client, so that header is used. Off Fly it is IGNORED (a client could send it).
+    Fly-Client-IP to its immediate client. If that is a Cloudflare edge (CF proxy in front of Fly), the
+    edge-set CF-Connecting-IP is used; otherwise Fly-Client-IP. Off Fly both are IGNORED here.
     Homelab: only a trusted peer (Caddy via loopback/docker bridge) may vouch for the client, preferring
     Cloudflare's CF-Connecting-IP (set at the edge, so unspoofable through the tunnel), then the first
     X-Forwarded-For hop. Anyone else is identified by the TCP peer address."""
@@ -107,9 +137,19 @@ def make_client_ip(trusted: str, on_fly: bool = False):
     def client_ip(request: Request) -> str:
         if on_fly:
             try:
-                return str(ipaddress.ip_address(request.headers.get("fly-client-ip", "").strip()))
+                fly_ip = ipaddress.ip_address(request.headers.get("fly-client-ip", "").strip())
             except ValueError:
-                pass  # missing/garbage: fall back to the peer below
+                fly_ip = None  # missing/garbage: fall back to the peer below
+            if fly_ip is not None:
+                # Cloudflare in front of Fly: Fly-Client-IP is the CF edge; only then is CF-Connecting-IP
+                # (set by that edge) trusted. A non-CF Fly-Client-IP means a direct visitor: any
+                # CF-Connecting-IP they send is spoofed and ignored.
+                if any(fly_ip in n for n in CLOUDFLARE_NETS):
+                    try:
+                        return str(ipaddress.ip_address(request.headers.get("cf-connecting-ip", "").strip()))
+                    except ValueError:
+                        pass  # edge without a usable CF-Connecting-IP: per-edge bucket
+                return str(fly_ip)
         peer = request.client.host if request.client else "unknown"
         try:
             peer_ip = ipaddress.ip_address(peer)

@@ -468,3 +468,40 @@ def test_off_fly_spoofed_fly_header_does_not_split_buckets(tmp_path, monkeypatch
         codes = [c.post("/api/reports", data=REPORT, headers={"Fly-Client-IP": f"203.0.113.{i}"}).status_code
                  for i in range(4)]
     assert codes == [201, 201, 201, 429], "off Fly a rotating spoofed header must not evade the limit"
+
+
+def test_fly_behind_cloudflare_uses_cf_connecting_ip():
+    from creekwatch.main import CLOUDFLARE_NETS, make_client_ip
+    fly = make_client_ip("127.0.0.0/8,172.16.0.0/12", on_fly=True)
+    edge4, edge6 = "104.16.0.10", "2606:4700::1"           # inside published CF ranges
+    assert any(__import__("ipaddress").ip_address(edge4) in n for n in CLOUDFLARE_NETS)
+    assert fly(_req("172.16.5.9", fly_client_ip=edge4, cf_connecting_ip="198.51.100.20")) == "198.51.100.20"
+    assert fly(_req("172.16.5.9", fly_client_ip=edge6, cf_connecting_ip="2001:db8::7")) == "2001:db8::7"
+    assert fly(_req("172.16.5.9", fly_client_ip=edge4, cf_connecting_ip="nope")) == edge4   # unusable: per-edge
+    assert fly(_req("172.16.5.9", fly_client_ip=edge4)) == edge4
+    # a direct (non-CF) visitor's spoofed CF-Connecting-IP is ignored
+    assert fly(_req("172.16.5.9", fly_client_ip="203.0.113.7", cf_connecting_ip="198.51.100.99")) == "203.0.113.7"
+
+
+def test_fly_behind_cloudflare_separate_buckets_and_spoof_resistance(tmp_path, monkeypatch):
+    monkeypatch.setenv("FLY_APP_NAME", "creekwatch")
+    s = Settings(data_dir=tmp_path / "d", web_dir=tmp_path / "w", sites_json=tmp_path / "m.json", rate_limit_count=3)
+    edge = {"Fly-Client-IP": "104.16.0.10"}
+    with TestClient(create_app(s)) as c:
+        a = [c.post("/api/reports", data=REPORT, headers={**edge, "CF-Connecting-IP": "198.51.100.1"}).status_code
+             for _ in range(4)]
+        b = c.post("/api/reports", data=REPORT, headers={**edge, "CF-Connecting-IP": "198.51.100.2"}).status_code
+        # a direct visitor rotating a spoofed CF-Connecting-IP stays in ONE bucket
+        d = [c.post("/api/reports", data=REPORT, headers={"Fly-Client-IP": "203.0.113.50",
+                                                          "CF-Connecting-IP": f"198.51.100.{100 + i}"}).status_code
+             for i in range(4)]
+    assert a == [201, 201, 201, 429] and b == 201, "two visitors behind the same CF edge get separate buckets"
+    assert d == [201, 201, 201, 429], "spoofed CF-Connecting-IP from a non-CF peer must not evade the limit"
+
+
+def test_cloudflare_list_vendored():
+    from creekwatch.main import CLOUDFLARE_NETS
+    v4 = [n for n in CLOUDFLARE_NETS if n.version == 4]
+    v6 = [n for n in CLOUDFLARE_NETS if n.version == 6]
+    assert len(v4) >= 15 and len(v6) >= 7
+    assert __import__("ipaddress").ip_network("173.245.48.0/20") in v4
