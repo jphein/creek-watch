@@ -137,7 +137,7 @@ export async function mountMap(el, qs) {
         iconAnchor: [13, 30],
         popupAnchor: [0, -28],
       }),
-      title: `${bandLabel(band)} report${site ? ' at ' + site.name : ''}${r.trash_removed ? ' · cleaned up' : ''}`,
+      title: `${bandLabel(band)} report${site ? ' at ' + site.name : r.location_kind === 'side_stream' ? ` · away from named spots near ${c?.name || 'the creek'}` : ''}${r.trash_removed ? ' · cleaned up' : ''}`,
       alt: `${bandLabel(band)} report`,
       keyboard: true,
       riseOnHover: true,

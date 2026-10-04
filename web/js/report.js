@@ -19,6 +19,7 @@ const CHOICES = {
     ['clear', 'Clear', 'You can see the bottom', icon.clear],
     ['cloudy', 'Cloudy', 'Milky or hazy', icon.cloudy],
     ['brown', 'Brown', 'Muddy', icon.brown],
+    ['orange', 'Orange', 'Rusty; can mean mine drainage', icon.orange],
     ['green', 'Green', 'Tinted green', icon.green],
     ['other', 'Other', 'Another color', icon.other],
   ],
@@ -52,6 +53,8 @@ const CHOICES = {
     ['true', 'Yes', 'I saw dead fish', icon.deadFish],
   ],
 };
+
+const NEAR_SITE_KM = 0.5;
 
 const REQUIRED = {
   photo: [],
@@ -162,7 +165,9 @@ function locate() {
       const n = nearestSite(st.lat, st.lon);
       if (n && !st.site_id_manual) {
         st.creek_id = n.creek.id;
-        st.site_id = n.site.id;
+        // Only auto-pick a named spot when you're actually at it; otherwise it's "somewhere else" (e.g. a side
+        // stream) and the report keeps your exact GPS point.
+        st.site_id = n.d <= NEAR_SITE_KM ? n.site.id : '';
       }
       persist();
       render();
@@ -263,8 +268,8 @@ function stepWhere() {
       ${icon.pin}
       <div><strong>${far ? 'You seem far from the creek' : 'Got your location'}</strong>
       <span>${
-        n ? `Closest spot: ${esc(n.site.name)} on ${esc(n.creek.name)}, ${fmtDistance(n.d)} away.` : ''
-      } ${st.accuracy ? `Accurate to about ${fmtDistance(st.accuracy / 1000)}.` : ''}</span></div>
+        n ? `Closest named spot: ${esc(n.site.name)} on ${esc(n.creek.name)}, ${fmtDistance(n.d)} away.` : ''
+      } ${n && n.d > NEAR_SITE_KM ? 'You’re not right at it, so we’ll use your exact GPS point. ' : ''}${st.accuracy ? `Accurate to about ${fmtDistance(st.accuracy / 1000)}.` : ''}</span></div>
       <button type="button" class="btn ghost small" data-act="gps">Again</button></div>`;
   } else if (gpsState === 'denied')
     gps = `<div class="gps-card warn" role="status">${icon.pin}<div><strong>Location is turned off</strong><span>That’s OK. Pick your spot below.</span></div><button type="button" class="btn ghost small" data-act="gps">Try again</button></div>`;
@@ -309,7 +314,9 @@ function stepWhere() {
           .join('')}
         <label class="site">
           <input type="radio" name="site_id" value="" ${st.site_id === '' ? 'checked' : ''}>
-          <span class="site-face"><span class="site-dot other" aria-hidden="true"></span><span class="site-name">Somewhere else on ${esc(creek.name)}</span></span>
+          <span class="site-face"><span class="site-dot other" aria-hidden="true"></span><span class="site-name">Somewhere else (between spots, or a side stream)</span></span>${
+            st.site_id === '' ? `<span class="site-access">${st.lat != null ? 'We’ll use your exact GPS point.' : 'Turn on location so we can use your exact spot.'} If it’s a side stream, name it in Notes on the last step, for example “small stream off ${esc(creek.name)} by the trail.”</span>` : ''
+          }
         </label>
       </div>
     </fieldset>`
@@ -377,7 +384,7 @@ function stepSend() {
   return `
     <label class="field">
       <span class="field-label">Notes <em>(optional)</em></span>
-      <textarea name="notes" maxlength="1000" rows="3" placeholder="Anything that seemed unusual?">${esc(st.notes)}</textarea>
+      <textarea name="notes" maxlength="1000" rows="3" placeholder="${st.site_id === '' ? 'If it’s a side stream, which one? Anything unusual?' : 'Anything that seemed unusual?'}">${esc(st.notes)}</textarea>
     </label>
     <label class="field">
       <span class="field-label">Your first name <em>(optional, shown with your report)</em></span>
@@ -388,7 +395,7 @@ function stepSend() {
       ${photo ? `<img class="sum-photo" src="${photoUrl}" alt="Your creek photo">` : ''}
       <dl>
         ${summaryRow('Photo', (photo ? 'Added' : 'None') + editBtn(0))}
-        ${summaryRow('Place', esc(`${site ? site.name + ', ' : ''}${creek ? creek.name : '—'}`) + editBtn(1))}
+        ${summaryRow('Place', esc(site ? `${site.name}, ${creek ? creek.name : ''}` : `Away from named spots near ${creek ? creek.name : 'the creek'} (your GPS point)`) + editBtn(1))}
         ${summaryRow('Water', `${labelOf('water_color', st.water_color)}, ${labelOf('flow', st.flow).toLowerCase()} flow` + editBtn(2))}
         ${summaryRow('Algae', labelOf('algae', st.algae) + editBtn(3))}
         ${summaryRow('Trash', labelOf('trash', st.trash) + editBtn(3))}
@@ -609,6 +616,7 @@ function buildForm() {
   };
   if (f.trash_removed === 'true' && (st.trash_bags | 0) > 0) f.trash_bags = String(Math.min(20, st.trash_bags | 0));
   if (st.site_id) f.site_id = st.site_id;
+  else f.location_kind = 'side_stream'; // tells the server not to snap this report to the nearest named spot
   if (st.wildlife_seen.trim()) f.wildlife_seen = st.wildlife_seen.trim();
   if (st.reporter_name.trim()) f.reporter_name = st.reporter_name.trim().slice(0, 60);
   return f;

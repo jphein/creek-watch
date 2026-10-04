@@ -72,6 +72,7 @@ const FLAG_TEXT = {
   sewage_odor: 'Alert: a sewage smell can mean a leak. This is flagged for follow-up.',
   chemical_odor: 'Alert: a chemical smell can mean a spill. This is flagged for follow-up.',
   brown_water: 'Runoff watch: muddy water can mean soil or street runoff is washing in.',
+  orange_water: 'Orange water watch: orange or rusty-looking water can mean drainage from old mine sites (iron and other metals). Flagged for follow-up.',
   heavy_algae: 'Algae watch: thick algae can turn into a harmful bloom in warm weather.',
   flood: 'Flood: stay back from the banks. Fast water is dangerous.',
   heavy_trash: 'Lots of trash noted. It can harm wildlife and block the flow.',
@@ -96,7 +97,7 @@ const SIGNAL_LABEL = {
   rain_24h: 'Rain, last 24 hours', air_temp: 'Air temperature', stream_flow: 'Stream flow',
   report_coverage: 'Reports this week', early_warning_cap: 'Early warning', volunteer_lab_data: 'Volunteer water test',
   dead_fish: 'Dead fish seen', odor_sewage_chemical: 'Sewage or chemical smell', odor_rotten: 'Rotten-egg smell',
-  water_brown: 'Muddy brown water', water_green: 'Green water', water_cloudy: 'Cloudy water',
+  water_brown: 'Muddy brown water', water_green: 'Green water', water_cloudy: 'Cloudy water', water_orange: 'Orange (rusty) water',
   algae_lots: 'Lots of algae', algae_some: 'Some algae', trash_lots: 'Lots of trash', trash_some: 'Some trash',
   flow_flood: 'Flooding', flow_dry: 'Dry creek bed',
 };
@@ -130,7 +131,7 @@ export function toast(msg) {
 }
 
 export const VALUE_LABELS = {
-  water_color: { clear: 'Clear', cloudy: 'Cloudy', brown: 'Brown / muddy', green: 'Green', other: 'Other color' },
+  water_color: { clear: 'Clear', cloudy: 'Cloudy', brown: 'Brown / muddy', orange: 'Orange / rusty', green: 'Green', other: 'Other color' },
   flow: { dry: 'Dry', low: 'Low', normal: 'Normal', high: 'High', flood: 'Flooding' },
   algae: { none: 'No algae', some: 'Some algae', lots: 'Lots of algae' },
   trash: { none: 'No trash', some: 'Some trash', lots: 'Lots of trash' },
@@ -148,7 +149,7 @@ export function reportCardHTML(r, creekName = '', siteName = '', { band } = {}) 
         <strong>${esc(siteName || creekName || 'Creek report')}</strong>
         <time datetime="${esc(r.observed_at)}">${esc(timeAgo(r.observed_at))}</time>
       </header>
-      <p class="rep-tags">${[v('water_color'), `${v('flow')} flow`, v('algae'), v('trash'), v('odor')]
+      <p class="rep-tags">${r.location_kind === 'side_stream' ? '<span class="tag-side">Not at a named spot</span>' : ''}${[v('water_color'), `${v('flow')} flow`, v('algae'), v('trash'), v('odor')]
         .filter(Boolean)
         .map((t) => `<span>${esc(t)}</span>`)
         .join('')}${r.dead_fish ? '<span class="tag-alert">Dead fish</span>' : ''}${
@@ -190,6 +191,9 @@ export function shortArea(d) {
   return t.slice(0, 67).trimEnd() + '…';
 }
 
+// Creek Watch's own warnings arrive without a category ("other"); call them what they are.
+const categoryLabel = (a) => (a.category === 'other' || !a.category) && a.source === 'creekwatch' ? 'Early warning' : CATEGORY_LABEL[a.category] || 'Alert';
+
 /** One alert. `compact` = banner/popup form (title + summary + source link). */
 export function alertHTML(a, { compact = false, open = false } = {}) {
   const sev = SEV[a.severity] ? a.severity : 'info';
@@ -202,7 +206,7 @@ export function alertHTML(a, { compact = false, open = false } = {}) {
   if (compact) {
     return `<div class="alert-item sev-${sev} compact" role="${sev === 'alert' ? 'alert' : 'note'}">
       <span class="a-glyph" aria-hidden="true">${s.glyph}</span>
-      <div><p class="a-kicker"><span class="a-sev">${s.label}</span> · ${esc(CATEGORY_LABEL[a.category] || 'Alert')}</p>
+      <div><p class="a-kicker"><span class="a-sev">${s.label}</span> · ${esc(categoryLabel(a))}</p>
       <strong class="a-title">${esc(a.title)}</strong>
       ${a.summary ? `<p class="a-sum">${esc(a.summary)}</p>` : ''}
       <p class="a-src">Source: ${src}</p>${sev === 'alert' ? officialLine({ compact: true }) : ''}</div></div>`;
@@ -210,7 +214,7 @@ export function alertHTML(a, { compact = false, open = false } = {}) {
   return `<article class="alert-item sev-${sev}" id="alert-${esc(a.id)}" data-id="${esc(a.id)}" tabindex="-1">
     <span class="a-glyph" aria-hidden="true">${s.glyph}</span>
     <div class="a-body">
-      <p class="a-kicker"><span class="a-sev">${s.label}</span> · ${esc(CATEGORY_LABEL[a.category] || 'Alert')}${
+      <p class="a-kicker"><span class="a-sev">${s.label}</span> · ${esc(categoryLabel(a))}${
         a.area?.area_desc ? ` · <span class="a-area">${esc(shortArea(a.area.area_desc))}</span>` : ''
       }</p>
       <h3 class="a-title">${esc(a.title)}</h3>

@@ -133,6 +133,7 @@ export function deriveFlags(r) {
   if (['sewage', 'chemical'].includes(r.odor)) f.push(`${r.odor}_odor`);
   if (r.algae === 'lots') f.push('heavy_algae');
   if (r.water_color === 'brown') f.push('brown_water');
+  if (r.water_color === 'orange') f.push('orange_water'); // server: water_orange signal + orange_water_watch (watch)
   if (r.flow === 'flood') f.push('flood');
   if (r.trash === 'lots') f.push('heavy_trash');
   return f;

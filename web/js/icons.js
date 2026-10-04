@@ -31,6 +31,8 @@ export const icon = {
   cloudy: drop('#c9d3d6', '<circle cx="20" cy="31" r="2" fill="#7d8b8f"/><circle cx="28" cy="27" r="1.6" fill="#7d8b8f"/><circle cx="27" cy="35" r="1.8" fill="#7d8b8f"/>'),
   brown: drop('#9a6b3c'),
   green: drop('#5e9a3a'),
+  // Rusty orange (iron/mine drainage): orange body + darker rust flecks, so it differs from Brown by texture too.
+  orange: drop('#d9772b', '<circle cx="19" cy="30" r="2.2" fill="#8a3a12"/><circle cx="27" cy="25" r="1.8" fill="#8a3a12"/><circle cx="28" cy="35" r="2.4" fill="#8a3a12"/><circle cx="21" cy="38" r="1.5" fill="#8a3a12"/>'),
   other: drop('#b9a7d6', '<text x="24" y="36" text-anchor="middle" font-size="15" font-weight="700" fill="#2d2246" font-family="system-ui,sans-serif">?</text>'),
 
   // flow
