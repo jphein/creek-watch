@@ -138,6 +138,30 @@ def _field(r: dict, field: str):
     return v.strip().lower() if isinstance(v, str) else v
 
 
+def _bags(r: dict) -> int | None:
+    v = r.get("trash_bags")
+    if isinstance(v, bool) or v is None:
+        return None
+    try:
+        n = int(v)
+    except (TypeError, ValueError):
+        return None
+    return n if 0 <= n <= 20 else None
+
+
+def _trash_removed_note(reports: list[dict]) -> str:
+    """Trash still counts (it shows runoff/dumping reached the creek), but credit cleanups.
+    trash_removed / trash_bags are optional: older reports and other callers won't have them."""
+    removed = [r for r in reports if _truthy(r.get("trash_removed"))]
+    if not removed:
+        return ""
+    bags = sum(b for b in (_bags(r) for r in removed) if b)
+    bag_txt = f" ({bags} bag{'s' if bags != 1 else ''})" if bags else ""
+    if len(reports) == 1:
+        return f" The reporter removed it{bag_txt}. Thank you!"
+    return f" In {len(removed)} of these the reporter removed it{bag_txt}. Thank you!"
+
+
 def band_for(score: float) -> str:
     for lo, name in BANDS:
         if score >= lo:
@@ -161,6 +185,8 @@ def report_flags(report: dict) -> list[str]:
         f.append("green_water")
     if _field(report, "trash") == "lots":
         f.append("trash_heavy")
+    if _truthy(report.get("trash_removed")) and _field(report, "trash") in ("some", "lots"):
+        f.append("trash_removed")
     if _field(report, "flow") == "flood":
         f.append("flood_flow")
     return f
@@ -320,8 +346,10 @@ def compute_health(creek_id: str, reports: list[dict] | None, conditions: dict |
                 continue
             share = hit_w / total_w
             count = sum(1 for r, *_ in recent if _field(r, field) in values)
+            extra = _trash_removed_note([r for r, *_ in recent if _field(r, field) in values]) \
+                if field == "trash" else ""
             sig(name, round(share, 2), -pts * share,
-                f"{count} of {n} recent report(s) ({share:.0%} once newer reports are weighted more). {why}",
+                f"{count} of {n} recent report(s) ({share:.0%} once newer reports are weighted more). {why}{extra}",
                 "Creek Watch citizen reports")
 
     # ---- early-warning rules

@@ -220,3 +220,32 @@ def test_stream_flow_source_is_api_neutral():
     assert sig(compute_health("deer", CLEAN, conditions(), now=NOW), "stream_flow")["source"] == "USGS 11418500"
     no_gauge = conditions(); no_gauge["gauge"] = None
     assert sig(compute_health("deer", CLEAN, no_gauge, now=NOW), "stream_flow")["source"] == "USGS"
+
+
+
+# --- trash removal credit (optional report keys trash_removed / trash_bags) --------------
+def test_trash_removed_still_counts_but_is_credited():
+    plain = compute_health("deer", [report(2, trash="lots")], conditions(), now=NOW)
+    cleaned = compute_health("deer", [report(2, trash="lots", trash_removed=True, trash_bags=3)], conditions(), now=NOW)
+    assert sig(cleaned, "trash_lots")["weight"] == sig(plain, "trash_lots")["weight"] < 0   # still counts
+    assert "reporter removed it (3 bags)" in sig(cleaned, "trash_lots")["explanation"]
+    assert "removed" not in sig(plain, "trash_lots")["explanation"]
+
+
+def test_trash_removed_multiple_reports_and_bad_bag_values():
+    rs = [report(2, trash="some", trash_removed=True, trash_bags=1),
+          report(5, trash="some", trash_removed="true", trash_bags="2"),
+          report(8, trash="some", trash_removed=True, trash_bags=99),      # out of range: ignored
+          report(9, trash="some")]
+    e = sig(compute_health("deer", rs, conditions(), now=NOW), "trash_some")["explanation"]
+    assert "In 3 of these the reporter removed it (3 bags)" in e
+    one = sig(compute_health("deer", [report(2, trash="some", trash_removed=True)], conditions(), now=NOW),
+              "trash_some")["explanation"]
+    assert one.endswith("The reporter removed it. Thank you!")             # no bag count given
+
+
+def test_trash_removed_keys_optional_and_flag():
+    assert "trash_removed" in report_flags(report(trash="lots", trash_removed=True, trash_bags=2))
+    assert "trash_removed" not in report_flags(report(trash="none", trash_removed=True))   # nothing to remove
+    assert "trash_removed" not in report_flags(report(trash="lots"))
+    compute_health("deer", [report(2, trash="lots")], conditions(), now=NOW)   # no new keys: fine

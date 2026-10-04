@@ -62,6 +62,8 @@ Newer reports count more: a report's weight halves every 3 days. Each condition 
 | Some algae | −5 | Normal in summer, so a small deduction. |
 | Some trash | −4 | |
 
+If a reporter picked up the trash they saw, the trash still counts (it shows litter and runoff are reaching the creek), but the explanation credits the cleanup and how many bags were filled.
+
 ### Bands
 
 | Score | Band |
