@@ -168,6 +168,13 @@ export async function getAlerts({ creek_id, severity, category, status = 'active
   return (Array.isArray(list) ? list : []).sort(bySeverity);
 }
 
+/** One alert by id (deep links to alerts no longer in the active list). null if 404. */
+export async function getAlertItem(id) {
+  if (MOCK) return (await mockJson('alerts')).find((a) => a.id === id) || null;
+  try { return await request(`/api/alerts/item?id=${encodeURIComponent(id)}`); }
+  catch (e) { if (e.status === 404) return null; throw e; }
+}
+
 export async function getVapidKey() {
   if (MOCK) return (await mockJson('vapid')).key;
   return (await request('/api/push/vapid-public-key')).key;
@@ -178,8 +185,9 @@ export async function pushSubscribe(subscription, { creek_ids = [], min_severity
   const body = { subscription, creek_ids, min_severity, quiet_hours };
   if (MOCK) {
     await sleep(300);
+    const created = !sessionStorage.getItem('cw-mock-push');
     sessionStorage.setItem('cw-mock-push', JSON.stringify(body));
-    return body;
+    return { status: created ? 'created' : 'updated', creek_ids, min_severity, quiet_hours }; // backend response shape
   }
   return request('/api/push/subscriptions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
 }
