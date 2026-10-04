@@ -52,16 +52,15 @@ docker start creekwatch
 - `redeploy.sh`: build, stage, swap, verify and roll back. It re-execs itself on ubox0 and forwards `CW_*` overrides.
 - `install.sh`: idempotent. It copies `redeploy.sh` to `~/creekwatch/bin/` on ubox0 and installs and enables `creekwatch-redeploy.{service,timer}`. The installed copy is **never** self-updated from `main`: it runs on the host as a docker-group user, so a merge may only change what runs inside the container. Re-run `install.sh` to adopt a changed `redeploy.sh`.
 - `Caddyfile.snippet`: the site block in `/etc/caddy/Caddyfile` on ubox0. Besides the proxy it sets two things:
-  - Tunnel traffic gets `X-Forwarded-For` from `CF-Connecting-IP`, so per-IP rate limiting sees real phones and not cloudflared. LAN traffic, which has no CF header, keeps Caddy's own XFF.
-  - `Cache-Control` keeps the Cloudflare edge from caching: photos are marked `private`, so deletion is effective, and everything else is `no-cache`, so a redeploy reaches phones at once.
+  - Tunnel traffic gets `X-Forwarded-For` from `CF-Connecting-IP`, so per-IP rate limiting sees real phones and not cloudflared. Requests that reach Caddy directly, with no CF header, keep Caddy's own XFF.
+  - `Cache-Control` keeps the Cloudflare edge from caching: photos are marked `private`, so deletion is effective, and everything else is `no-cache`, so a redeploy reaches phones at once. Every response is `no-transform`, which stops Cloudflare injecting its Web Analytics beacon; the About page promises no trackers.
 - `cloudflared-ingress.yml`: the rule in `/etc/cloudflared/config.yml`, placed above the catch-all 404. It shares the tunnel with `list.techempower.org`.
 - `backup.sh` plus `creekwatch-backup.{service,timer}`: the hourly off-host backup described above.
 - `placeholder/`: the "coming soon" nginx page. It's the rollback target of last resort.
 
 ## One-time setup already done (2026-10-03)
 
-- **DNS:** a proxied CNAME `creekwatch.realm.watch` → `<tunnel-id>.cfargotunnel.com` in the realm.watch zone, created with Caddy's DNS token. The LAN has a gatekeeper dnsmasq override to `10.0.6.11`, like the other realm.watch sites, so LAN clients go straight to Caddy and Caddy keeps their real LAN IP.
-- **LAN DNS:** jp-main added `/creekwatch.realm.watch/10.0.6.11` to gatekeeper dnsmasq at 17:31. The pre-change backup is `scratch/deploy/gatekeeper/dhcp-before-creekwatch-1731.uci`.
+- **DNS:** a proxied CNAME `creekwatch.realm.watch` → `<tunnel-id>.cfargotunnel.com` in the realm.watch zone, created with Caddy's DNS token. The LAN has **no** dnsmasq override and resolves to Cloudflare like cellular does. jp-main briefly added one at 17:31, then removed it, because a LAN A record combined with CF's HTTPS/SVCB record (ECH plus ipv4hint) breaks TLS in Chrome. Don't add one.
 - **Repo access:** a read-only deploy key on ubox0 (`~/.ssh/creekwatch_deploy`, ssh alias `github-creekwatch`). Once the repo is public this is optional.
 - **Monitoring:** `status.realm.watch` checks `/healthz` and `/api/version` (jphein/status.realm.watch#14).
 - **Backups** sit next to each edited file on ubox0, as `*.bak-pre-creekwatch-*`.
