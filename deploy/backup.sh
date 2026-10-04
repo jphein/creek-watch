@@ -23,16 +23,19 @@ fi
 # ssh/docker/git that reads stdin can't swallow the rest of the script.
 main() {
 exec </dev/null
-NAME=creekwatch
+NAME="${CW_CONTAINER:-creekwatch}"
 VOLUME="${CW_VOLUME:-creekwatch-data}"
-DEST_HOST="${CW_BACKUP_HOST:-disks}"
+DEST_HOST="${CW_BACKUP_HOST:-disks}"   # "local" = a directory on this host (used by deploy/tests)
 DEST="${CW_BACKUP_DIR:-/mnt/raid/backups/ubox0/creekwatch}"
-STAGE="$HOME/creekwatch/backup-stage"
+STAGE="${CW_BACKUP_STAGE:-$HOME/creekwatch/backup-stage}"
 KEEP_DAYS="${CW_BACKUP_KEEP_DAYS:-14}"
 log() { printf '%s backup: %s\n' "$(date '+%F %T %Z')" "$*"; }
+# on_dest <shell cmd>: run on the backup host (or locally); dest_path <path>: rsync target spelling.
+on_dest() { if [ "$DEST_HOST" = local ]; then bash -c "$1"; else ssh -n "$DEST_HOST" "$1"; fi; }
+dest_path() { if [ "$DEST_HOST" = local ]; then printf '%s' "$1"; else printf '%s:%s' "$DEST_HOST" "$1"; fi; }
 
 if [ "${1:-}" = --list ]; then
-  exec ssh -n "$DEST_HOST" "cat $DEST/LATEST; ls -1 $DEST/db | tail -5; echo photos: \$(ls $DEST/uploads | wc -l); du -sh $DEST"
+  on_dest "cat $DEST/LATEST; ls -1 $DEST/db | tail -5; echo photos: \$(ls $DEST/uploads | wc -l); du -sh $DEST"; exit
 fi
 
 # Where the volume is mounted in the running container (follows the app's contract: /srv/creekwatch or /app/var).
@@ -41,6 +44,9 @@ DATADIR=$(docker inspect -f "{{range .Mounts}}{{if eq .Name \"$VOLUME\"}}{{.Dest
 
 STAMP=$(date -u +%Y%m%dT%H%MZ)
 mkdir -p "$STAGE"
+# One run at a time: a manual or test run must not race the hourly timer over $STAGE.
+exec 9>"$STAGE/.lock"
+flock -n 9 || { log "another backup is running; skipping"; exit 0; }
 rm -rf "${STAGE:?}/uploads" "$STAGE"/snap.db "$STAGE"/snap.db-wal "$STAGE"/snap.db-shm "$STAGE"/*.tar "$STAGE"/db.x "$STAGE"/up.x
 
 MAX_DB="${CW_BACKUP_MAX_DB_BYTES:-2000000000}"
@@ -144,11 +150,11 @@ else
 fi
 
 # 3) Ship off-host.
-ssh "$DEST_HOST" "mkdir -p $DEST/db $DEST/uploads"
-rsync -a --no-links --no-devices --no-specials "$STAGE/snap.db" "$DEST_HOST:$DEST/db/creekwatch-$STAMP.db"
-[ "$SKIP_UPLOADS" = 1 ] || rsync -a --no-links --no-devices --no-specials --delete "$STAGE/uploads/" "$DEST_HOST:$DEST/uploads/"
-ssh "$DEST_HOST" "echo '$STAMP reports=$COUNT' > $DEST/LATEST; find $DEST/db -name 'creekwatch-*.db' -mtime +$KEEP_DAYS -delete"
+on_dest "mkdir -p $DEST/db $DEST/uploads"
+rsync -a --no-links --no-devices --no-specials "$STAGE/snap.db" "$(dest_path "$DEST/db/creekwatch-$STAMP.db")"
+[ "$SKIP_UPLOADS" = 1 ] || rsync -a --no-links --no-devices --no-specials --delete "$STAGE/uploads/" "$(dest_path "$DEST/uploads/")"
+on_dest "echo '$STAMP reports=$COUNT' > $DEST/LATEST; find $DEST/db -name 'creekwatch-*.db' -mtime +$KEEP_DAYS -delete"
 rm -rf "${STAGE:?}/uploads" "$STAGE"/snap.db "$STAGE"/snap.db-wal "$STAGE"/snap.db-shm "$STAGE"/*.tar "$STAGE"/db.x "$STAGE"/up.x
-log "OK $STAMP reports=$COUNT photos=$(ssh "$DEST_HOST" "ls $DEST/uploads | wc -l") -> $DEST_HOST:$DEST"
+log "OK $STAMP reports=$COUNT photos=$(on_dest "ls $DEST/uploads | wc -l") -> $DEST_HOST:$DEST"
 }
 main "$@"
