@@ -230,6 +230,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     alert_poller = Poller(adapters, alert_store, _ctx, push=push_service, load_error=adapters_error)
     app.state.alert_store, app.state.alert_poller, app.state.push = alert_store, alert_poller, push_service
     register_alerts(app, alert_store, push_service, alert_poller, set(creek_by_id), client_ip, s.public_url,
+                    creek_names={c["id"]: c.get("name", c["id"]) for c in creeks}, sub_limiter=
                     RateLimiter(s.push_rate_count, s.rate_limit_window_s))
 
     # -- routes --------------------------------------------------------------

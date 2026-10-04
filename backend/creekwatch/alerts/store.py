@@ -58,6 +58,22 @@ def _minus(now: str, seconds: float) -> str:
     return (datetime.strptime(now, fmt) - timedelta(seconds=seconds)).strftime(fmt)
 
 
+def _add_column(c: sqlite3.Connection, table: str, column: str, decl: str) -> bool:
+    """Add a column if missing. Two NEW-code processes can initialise at once (the timer's `--once`
+    while a freshly swapped container starts): both see it missing, the loser's ALTER raises
+    "duplicate column name". That means the migration is done, not that init failed."""
+    if column in {r[1] for r in c.execute(f"PRAGMA table_info({table})")}:
+        return False
+    try:
+        c.execute(f"ALTER TABLE {table} ADD COLUMN {column} {decl}")
+        return True
+    except sqlite3.OperationalError as e:
+        if "duplicate column" in str(e).lower():
+            log.info("migration %s.%s already applied by another process", table, column)
+            return False
+        raise
+
+
 def now_iso() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
@@ -74,14 +90,12 @@ class AlertStore:
         db_path.parent.mkdir(parents=True, exist_ok=True)
         with self._conn() as c:
             c.executescript(SCHEMA)
-            cols = {r[1] for r in c.execute("PRAGMA table_info(alert_sources)")}
-            if "next_due" not in cols:  # DBs created before the persisted schedule
-                c.execute("ALTER TABLE alert_sources ADD COLUMN next_due REAL")
-            if "inactive_since" not in {r[1] for r in c.execute("PRAGMA table_info(alerts)")}:
-                c.execute("ALTER TABLE alerts ADD COLUMN inactive_since TEXT")
-                # backfill: rows already inactive start their re-arm clock at migration time
-                c.execute("UPDATE alerts SET inactive_since=? WHERE status!='active' AND inactive_since IS NULL",
-                          (now_iso(),))
+            _add_column(c, "alert_sources", "next_due", "REAL")      # persisted schedule
+            _add_column(c, "alerts", "inactive_since", "TEXT")        # re-arm clock (#49)
+            # Backfill, idempotent on every init (only rows that predate the column have NULL here):
+            # already-inactive rows start their re-arm clock at migration time.
+            c.execute("UPDATE alerts SET inactive_since=? WHERE status!='active' AND inactive_since IS NULL",
+                      (now_iso(),))
 
     def _conn(self) -> sqlite3.Connection:
         c = sqlite3.connect(self.db_path, timeout=10)

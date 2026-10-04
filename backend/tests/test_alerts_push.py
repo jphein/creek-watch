@@ -404,3 +404,122 @@ def test_payload_summary_capped_for_web():
     import json as _json
     p = _json.loads(push_mod.payload_for(validate_alert(make_alert(summary="w " * 140)), "new"))
     assert len(p["summary"]) <= 200 and len(p["body"]) <= 140
+
+
+# ---- welcome push on NEW subscription (real-device test path; never inject prod alerts) --------
+
+@pytest.fixture
+def welcome_client(tmp_path, monkeypatch):
+    monkeypatch.setenv("CREEKWATCH_VAPID_PRIVATE", vapid_private_b64())
+    s = Settings(data_dir=tmp_path / "d", web_dir=tmp_path / "w", sites_json=tmp_path / "m.json", push_rate_count=1000)
+    app = create_app(s)
+    sent = []
+    app.state.push._send = lambda sub, data, urgency: sent.append((sub["endpoint"], data, urgency)) or 201
+    with TestClient(app) as c:
+        yield c, app, sent
+
+
+def test_welcome_once_on_new_subscription_only(welcome_client):
+    import json as _json
+    c, app, sent = welcome_client
+    ep = "https://fcm.googleapis.com/fcm/send/welcome-1"
+    other = "https://fcm.googleapis.com/fcm/send/other"
+    c.post("/api/push/subscriptions", json=body(other)); app.state.push.drain(); sent.clear()
+    b = body(ep, creek_ids=["deer"], min_severity="watch")
+    assert c.post("/api/push/subscriptions", json=b).status_code == 201
+    app.state.push.drain()
+    assert [s[0] for s in sent] == [ep], "exactly one welcome, to THAT subscription only"
+    p = _json.loads(sent[0][1])
+    assert p["tag"] == "cw-welcome" and "id" not in p and "alert_id" not in p
+    assert p["kind"] == "welcome" and p["url"] == "/#alerts"
+    assert p["title"] == "Creek Watch alerts are on"
+    assert p["body"] == ("You'll get watch-level and higher alerts for Deer Creek. "
+                         "For emergencies: Nevada County Alerts, AwareCA, 911.")
+    assert len(sent[0][1]) <= push_mod.MAX_PAYLOAD
+    assert c.post("/api/push/subscriptions", json=b).status_code == 200      # update
+    app.state.push.drain()
+    assert len(sent) == 1, "no welcome on update"
+    assert app.state.alert_store.query(status=None) == []                     # no alert/claim state touched
+
+
+def test_welcome_all_creeks_wording():
+    import json as _json
+    sub = validate_subscription(body(min_severity="alert"), set())
+    p = _json.loads(push_mod.welcome_payload(sub, {}))
+    assert "alert-level alerts for all creeks" in p["body"] and "911" in p["body"]
+
+
+def test_welcome_failure_never_fails_subscribe(tmp_path, monkeypatch):
+    monkeypatch.setenv("CREEKWATCH_VAPID_PRIVATE", vapid_private_b64())
+    s = Settings(data_dir=tmp_path / "d", web_dir=tmp_path / "w", sites_json=tmp_path / "m.json", push_rate_count=1000)
+    app = create_app(s)
+
+    def boom(*a):
+        raise ConnectionError("push service down")
+    app.state.push._send = boom
+    with TestClient(app) as c:
+        assert c.post("/api/push/subscriptions", json=body()).status_code == 201
+        app.state.push.drain()
+        assert app.state.push.count() == 1                                    # still subscribed
+
+
+def test_welcome_410_prunes_and_backlog_capped(tmp_path, monkeypatch):
+    import threading
+    svc = PushService(tmp_path / "p.db", VapidKeys(vapid_private_b64(), None, "https://x.example"),
+                      sender=lambda *a: 410)
+    sub = validate_subscription(body(), set())
+    svc.upsert(sub)
+    svc.welcome_async(sub).result(timeout=5)
+    assert svc.count() == 0                                                   # gone -> pruned
+    gate = threading.Event()
+    slow = PushService(tmp_path / "q.db", VapidKeys(vapid_private_b64(), None, "https://x.example"),
+                       sender=lambda *a: gate.wait(5) and 201)
+    futs = [slow.welcome_async(validate_subscription(body(f"https://fcm.googleapis.com/fcm/send/{i}"), set()))
+            for i in range(push_mod.WELCOME_MAX_PENDING + 5)]
+    assert sum(f is None for f in futs) == 5, "backlog beyond the cap is skipped, not queued"
+    gate.set(); slow.drain()
+
+
+
+def test_welcome_has_no_alert_id_so_sw_falls_back_to_alerts_page():
+    """sw.js deep-links /#alerts?id=<id>; a welcome id would 404 ("no longer available")."""
+    import json as _json
+    p = _json.loads(push_mod.welcome_payload(validate_subscription(body(), set()), {}))
+    assert "id" not in p and "alert_id" not in p and p["tag"] == "cw-welcome" and p["url"] == "/#alerts"
+    # web/sw.js: id = d.id || d.alert_id || null; deep = url has ?id= ? url : id ? /#alerts?id=… : url
+    sid = p.get("id") or p.get("alert_id")
+    deep = p["url"] if "?id=" in p["url"] else (f"/#alerts?id={sid}" if sid else p["url"])
+    assert deep == "/#alerts"
+    # sw.js appends d.notice to the body; the welcome body already has the emergency line -> no notice
+    assert not p.get("notice") and p["body"].count("911") == 1
+
+
+def test_welcome_queue_failure_never_500s_a_stored_subscription(tmp_path, monkeypatch):
+    monkeypatch.setenv("CREEKWATCH_VAPID_PRIVATE", vapid_private_b64())
+    s = Settings(data_dir=tmp_path / "d", web_dir=tmp_path / "w", sites_json=tmp_path / "m.json", push_rate_count=1000)
+    app = create_app(s)
+
+    def boom(*a, **k):
+        raise RuntimeError("executor shut down")
+    app.state.push.welcome_async = boom
+    with TestClient(app) as c:
+        assert c.post("/api/push/subscriptions", json=body()).status_code == 201
+    assert app.state.push.count() == 1
+
+
+def test_welcome_dedup_24h_lru(tmp_path):
+    sent = []
+    svc = PushService(tmp_path / "p.db", VapidKeys(vapid_private_b64(), None, "https://x.example"),
+                      sender=lambda sub, data, urg: sent.append(sub["endpoint"]) or 201)
+    clock = [1_000_000.0]
+    svc._clock = lambda: clock[0]
+    sub = validate_subscription(body(), set())
+    for _ in range(3):                         # subscribe -> delete -> re-subscribe loop
+        svc.upsert(sub); svc.welcome_async(sub); svc.drain(); svc.delete(sub["endpoint"])
+    assert len(sent) == 1, "one welcome per endpoint per 24 h"
+    clock[0] += push_mod.WELCOME_DEDUP_S + 1
+    svc.upsert(sub); svc.welcome_async(sub); svc.drain()
+    assert len(sent) == 2, "after 24 h a re-subscribe is welcomed again"
+    other = validate_subscription(body("https://fcm.googleapis.com/fcm/send/other"), set())
+    svc.upsert(other); svc.welcome_async(other); svc.drain()
+    assert len(sent) == 3
