@@ -1,5 +1,5 @@
 # Local/any-host run: GIT_SHA=$(git rev-parse --short HEAD) BUILT=$(date -u +%FT%TZ) docker compose up -d --build
-# Then http://localhost:8000. (ubox0 uses deploy/redeploy.sh: same image, 127.0.0.1:8442 -> 8000, volume creekwatch-var.)
+# Then http://localhost:8080. (ubox0 uses deploy/redeploy.sh: same image, 127.0.0.1:8442 -> 8080, volume creekwatch-data.)
 services:
   creekwatch:
     build:
@@ -12,11 +12,11 @@ services:
     container_name: creekwatch
     restart: unless-stopped
     ports:
-      - "${CREEKWATCH_BIND:-127.0.0.1}:${CREEKWATCH_PORT:-8000}:8000"
+      - "${CREEKWATCH_BIND:-127.0.0.1}:${CREEKWATCH_PORT:-8080}:8080"
     volumes:
-      - creekwatch-var:/app/var
+      - creekwatch-data:/srv/creekwatch
     environment:
       CREEKWATCH_LOG_LEVEL: INFO
 
 volumes:
-  creekwatch-var:
+  creekwatch-data:
