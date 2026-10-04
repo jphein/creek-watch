@@ -57,7 +57,7 @@ Everything here is public and keyless. Retrieved 2026-10-03 unless noted.
   - `516NEV101` "Wolf Creek at Wolf Road" (39.05216, −121.10846) → `wolf-wolf-rd` (4.8 m).
   The study also sampled 7 other Wolf Creek watershed sites, which aren't mapped to our sites.
 - **E. coli only:** the builder keeps rows whose `Analyte` is exactly "E. coli". Total coliform rows (same samples) are dropped.
-- **State objective used for comparison:** State Water Resources Control Board, *2019 ISWEBE Bacteria Provisions* (https://www.waterboards.ca.gov/plans_policies/docs/bacteria.pdf). For fresh water: "a six-week rolling geometric mean of E. coli not to exceed 100 cfu/100 mL, calculated weekly, and a statistical threshold value (STV) of 320 cfu/100 mL not to be exceeded by more than 10 percent of the samples collected in a calendar month".
+- **State objective used for comparison:** State Water Resources Control Board, *2019 ISWEBE Bacteria Provisions* (https://www.waterboards.ca.gov/plans_policies/docs/bacteria.pdf). For fresh water (verbatim; the original prints its defined terms in small capitals): "a six-week rolling geometric mean of Escherichia coli (E. coli) not to exceed 100 colony forming units (cfu) per 100 milliliters (mL), calculated weekly, and a statistical threshold value (STV) of 320 cfu/100 mL not to be exceeded by more than 10 percent of the samples collected in a calendar month, calculated in a static manner".
   - The study reports MPN/100 mL while the objective is written in cfu/100 mL. These are commonly treated as comparable, not identical.
   - CEDEN's own `6WeekGeoMean`/`6WeekCount` columns are used, and a 6-week mean is only called "above the objective" when it rests on **at least 5 samples**.
 - **Result:**
