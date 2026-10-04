@@ -153,7 +153,7 @@ const checks = {
   stewardAndHero: R.B_newBadges?.join() === 'Creek Steward,Trash Hero', stripAllEarned: R.B_stripEarned?.length === 3,
   noneHides: R.C_blockGoneOnNone, noneResets: R.C_resetAfterNone,
   storageBlockedStillWorks: R.D_doneShown === 1 && R.D_honestNote && R.D_pageErrors === 0,
-  counterWolf: /^🧤 7 reported cleanups · 12 bags$/.test(R.E_light_wolfCounter.trim()), counterNeverVerified: !/verified/i.test(R.E_light_wolfCounter), counterZeroHidden: R.E_light_deerCounterHidden,
+  counterWolf: /^🧤 7 reported cleanups · 12 bags since [A-Z][a-z]{2} \d+ \(self-reported by volunteers\)$/.test(R.E_light_wolfCounter.trim()), counterNeverVerified: !/verified/i.test(R.E_light_wolfCounter), counterZeroHidden: R.E_light_deerCounterHidden,
   counterErrorHidden: R.E_counterHiddenOnError, cleanedChip: R.F_light_cleanChips >= 1, pinBadge: R.F_light_pinBadges >= 1,
   aboutStrip: R.G_light_aboutStrip && R.G_dark_aboutStrip, lockedHasText: R.G_light_lockedTextNotColourOnly,
 };

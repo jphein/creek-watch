@@ -843,3 +843,4 @@ html[data-save-data] .photo-figure { display: none; }
 .cleanup-count { display: flex; gap: 8px; align-items: center; margin: 12px 0 0; padding: 10px 12px; border-radius: 12px; background: var(--good-tint); border: 1px solid var(--moss); font-size: 0.95rem; }
 .pin-clean { position: absolute; right: -10px; top: -12px; font-size: 14px; line-height: 1; filter: drop-shadow(0 1px 1px rgb(0 0 0 / .5)); }
 #about-badges .badge-strip h3 { margin-top: 1.4em; }
+.cc-note { color: var(--ink-2); font-size: 0.88rem; }
