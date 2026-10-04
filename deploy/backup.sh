@@ -53,6 +53,9 @@ src.backup(dst); dst.close(); src.close()
 PY
 docker cp -q "$NAME:/tmp/creekwatch-snap.db" "$STAGE/snap.db"
 docker exec "$NAME" rm -f /tmp/creekwatch-snap.db
+# Everything docker cp hands us is container-controlled: a compromised app could plant symlinks so host-side
+# tools (sqlite, rsync with a trailing slash) follow them into ubox0's own files. Accept only plain files/dirs.
+[ -f "$STAGE/snap.db" ] && [ ! -L "$STAGE/snap.db" ] || { log "FAIL: snapshot is not a regular file"; exit 1; }
 python3 - "$STAGE/snap.db" <<'PY'
 import sqlite3, sys
 c = sqlite3.connect(sys.argv[1])
@@ -62,11 +65,14 @@ COUNT=$(python3 -c "import sqlite3,sys;print(sqlite3.connect(sys.argv[1]).execut
 
 # 2) Photos.
 docker cp -q "$NAME:$DATADIR/uploads" "$STAGE/uploads"
+[ -d "$STAGE/uploads" ] && [ ! -L "$STAGE/uploads" ] || { log "FAIL: uploads is not a plain directory"; exit 1; }
+links=$(find "$STAGE/uploads" ! -type f ! -type d | wc -l)
+[ "$links" = 0 ] || log "WARN: skipping $links non-regular entries (symlinks/devices) in uploads"
 
 # 3) Ship off-host.
 ssh "$DEST_HOST" "mkdir -p $DEST/db $DEST/uploads"
-rsync -a "$STAGE/snap.db" "$DEST_HOST:$DEST/db/creekwatch-$STAMP.db"
-rsync -a --delete "$STAGE/uploads/" "$DEST_HOST:$DEST/uploads/"
+rsync -a --no-links --no-devices --no-specials "$STAGE/snap.db" "$DEST_HOST:$DEST/db/creekwatch-$STAMP.db"
+rsync -a --no-links --no-devices --no-specials --delete "$STAGE/uploads/" "$DEST_HOST:$DEST/uploads/"
 ssh "$DEST_HOST" "echo '$STAMP reports=$COUNT' > $DEST/LATEST; find $DEST/db -name 'creekwatch-*.db' -mtime +$KEEP_DAYS -delete"
 rm -rf "${STAGE:?}/uploads" "$STAGE"/snap.db
 log "OK $STAMP reports=$COUNT photos=$(ssh "$DEST_HOST" "ls $DEST/uploads | wc -l") -> $DEST_HOST:$DEST"
