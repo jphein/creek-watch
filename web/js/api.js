@@ -175,6 +175,29 @@ export async function getAlertItem(id) {
   catch (e) { if (e.status === 404) return null; throw e; }
 }
 
+/** Source health: {sources:[{source,last_ok,last_error,failures,…}], schedule:{src:{interval_s}}}. */
+export async function getAlertSources() {
+  if (MOCK) {
+    const now = new Date().toISOString().replace(/\.\d{3}Z$/, 'Z');
+    return { sources: ['nws', 'sso', 'hab', 'riverdb', 'usgs', 'creekwatch'].map((source) => ({ source, last_ok: now, last_error: null, failures: 0 })), schedule: {} };
+  }
+  return request('/api/alerts/sources');
+}
+
+/** True only if at least one source succeeded within 2x its poll interval (15 min when unknown). */
+export function sourcesFresh(info, now = Date.now()) {
+  const list = info?.sources || [];
+  let latest = 0, fresh = false;
+  for (const s of list) {
+    const t = Date.parse(s.last_ok || '');
+    if (!t) continue;
+    latest = Math.max(latest, t);
+    const interval = Number(info?.schedule?.[s.source]?.interval_s) || 900;
+    if (now - t <= 2 * interval * 1000) fresh = true;
+  }
+  return { fresh, latest: latest ? new Date(latest).toISOString() : null };
+}
+
 export async function getVapidKey() {
   if (MOCK) return (await mockJson('vapid')).key;
   return (await request('/api/push/vapid-public-key')).key;
@@ -195,7 +218,8 @@ export async function pushSubscribe(subscription, { creek_ids = [], min_severity
 export async function pushUnsubscribe(endpoint) {
   if (MOCK) { sessionStorage.removeItem('cw-mock-push'); return; }
   const res = await fetch('/api/push/subscriptions', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ endpoint }) }).catch(() => null);
-  if (!res) throw new ApiError('Couldn’t reach Creek Watch to stop alerts. Try again.', { offline: true });
+  if (!res) throw new ApiError('Couldn’t reach Creek Watch to stop alerts. Check your connection and try again.', { offline: true });
+  if (!res.ok) throw new ApiError(`Creek Watch couldn’t stop alerts just now (error ${res.status}). Your alerts are still on; try again.`, { status: res.status });
 }
 
 export function feedUrls(creek_id) {

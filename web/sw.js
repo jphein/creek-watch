@@ -1,11 +1,12 @@
 // Creek Watch service worker: app shell cache-first, API network-first with
 // a cached fallback for GETs. POSTs (reports) always go to the network; the
 // page keeps its own offline outbox in IndexedDB.
-const VERSION = 'cw-v4';
+importScripts('js/idb-schema.js');
+const VERSION = 'cw-v5';
 const SHELL = [
   './', 'index.html', 'css/app.css', 'manifest.webmanifest',
   'js/app.js', 'js/api.js', 'js/ui.js', 'js/icons.js', 'js/store.js',
-  'js/report.js', 'js/map.js', 'js/dashboard.js', 'js/alerts.js', 'js/subscribe.js',
+  'js/report.js', 'js/map.js', 'js/dashboard.js', 'js/alerts.js', 'js/subscribe.js', 'js/idb-schema.js',
   'icons/favicon.svg', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/badge-96.png',
 ];
 
@@ -83,7 +84,9 @@ self.addEventListener('push', (e) => {
   const id = d.id || d.alert_id || null;
   const title = String(d.title || 'Creek Watch alert').slice(0, 110);
   let body = String(d.summary || d.body || 'Open Creek Watch for details.').slice(0, 200);
-  if (sev === 'alert') body += OFFICIAL_SUFFIX; // never imply we replace official warnings
+  // Never imply we replace official warnings: use the backend's notice when sent, else our own line (alert level).
+  if (typeof d.notice === 'string' && d.notice) body += ' · ' + d.notice.slice(0, 120);
+  else if (sev === 'alert') body += OFFICIAL_SUFFIX;
   // Backend sends url "/#alerts?id=<id>" (same-origin enforced below); build it from id if it doesn't. source_url is ignored.
   const deep = typeof d.url === 'string' && d.url.includes('?id=') ? d.url : id ? `/#alerts?id=${encodeURIComponent(id)}` : d.url;
   e.waitUntil(self.registration.showNotification(`${SEV_LABEL[sev]}: ${title}`, {
@@ -121,7 +124,8 @@ self.addEventListener('pushsubscriptionchange', (e) => {
     const sub = e.newSubscription || (key ? await self.registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: key }) : null);
     if (!sub) return;
     const filters = await new Promise((res) => {
-      const r = indexedDB.open('creekwatch', 1);
+      const r = indexedDB.open(self.CW_IDB.NAME, self.CW_IDB.VERSION);
+      r.onupgradeneeded = () => self.CW_IDB.upgrade(r.result); // same schema as the page: never an empty DB
       r.onsuccess = () => { try { const g = r.result.transaction('kv').objectStore('kv').get('push-filters'); g.onsuccess = () => res(g.result || null); g.onerror = () => res(null); } catch { res(null); } };
       r.onerror = () => res(null);
     });

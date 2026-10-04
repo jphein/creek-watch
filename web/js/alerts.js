@@ -1,11 +1,16 @@
 // Alerts page: every active water alert (official feeds + Creek Watch early
 // warnings), filterable, deep-linkable (#alerts?id=… / #alerts?creek=…).
-import { getAlerts, getAlertItem, getCreeks, SEVERITIES, feedUrls } from './api.js';
-import { esc, SEV, CATEGORY_LABEL, alertHTML, officialLine } from './ui.js';
+import { getAlerts, getAlertItem, getAlertSources, sourcesFresh, getCreeks, SEVERITIES, feedUrls } from './api.js';
+import { esc, SEV, CATEGORY_LABEL, alertHTML, officialLine, timeAgo } from './ui.js';
 import { mountSubscribe } from './subscribe.js';
 
-let root, all = [], creeks = [];
+let root, all = [], creeks = [], health = { fresh: false, latest: null };
 const f = { creek: '', sev: new Set(SEVERITIES), cat: '' };
+// NWS retired alerts.weather.gov; this is the live official alerts page (verified 200).
+const NWS_ALERTS = 'https://www.weather.gov/alerts';
+const unchecked = (why) => `<div class="banner error" role="alert"><div><strong>We couldn’t check the alert sources${why}</strong>
+  <span>This does <em>not</em> mean all is clear. For official warnings, see the
+  <a href="${NWS_ALERTS}" target="_blank" rel="noopener noreferrer">National Weather Service alerts</a>.</span></div></div>`;
 
 export async function mountAlerts(el, qs) {
   root = el;
@@ -32,12 +37,14 @@ export async function mountAlerts(el, qs) {
     <p class="feeds small">Subscribe via feed: <span class="feed-links"></span></p>`;
   bind();
   try {
-    [all, creeks] = await Promise.all([getAlerts(), getCreeks().catch(() => [])]);
+    let src;
+    [all, creeks, src] = await Promise.all([getAlerts(), getCreeks().catch(() => []), getAlertSources().catch(() => null)]);
+    health = sourcesFresh(src); // unreachable sources endpoint → not fresh → never a ✓ all-clear
   } catch (e) {
     // Never imply "all clear" when we simply couldn't check. Point to the official source instead.
     root.querySelector('.alerts-list').innerHTML = `<div class="banner error" role="alert"><div><strong>Alerts aren’t available right now</strong>
       <span>We couldn’t check the alert sources${e.offline ? ' (no connection)' : ''}. This does <em>not</em> mean all is clear. For official warnings, see the
-      <a href="https://alerts.weather.gov/search?area=CA" target="_blank" rel="noopener noreferrer">National Weather Service alerts for California</a>.</span></div></div>`;
+      <a href="${NWS_ALERTS}" target="_blank" rel="noopener noreferrer">National Weather Service alerts</a>.</span></div></div>`;
     root.querySelector('.alerts-count').textContent = '';
     return;
   }
@@ -86,10 +93,17 @@ function render() {
   root.querySelector('.alerts-count').textContent = all.length
     ? `${n} active alert${n === 1 ? '' : 's'}${n !== all.length ? ` (of ${all.length})` : ''}`
     : '';
-  box.innerHTML = n
-    ? list.map((a) => alertHTML(a)).join('')
+  const stale = !health.fresh
+    ? `<p class="stale-note" role="status">${all.length ? 'These may be out of date: ' : ''}${
+        health.latest ? `alert sources last checked ${esc(timeAgo(health.latest))}.` : 'we couldn’t confirm the alert sources are working.'
+      }</p>`
+    : '';
+  if (!n && !all.length && !health.fresh) {
+    box.innerHTML = unchecked(health.latest ? ` recently (last success ${esc(timeAgo(health.latest))})` : '');
+  } else box.innerHTML = n
+    ? stale + list.map((a) => alertHTML(a)).join('')
     : `<div class="all-clear"><span aria-hidden="true">✓</span><div><strong>${all.length ? 'No alerts match these filters' : 'No active water alerts from the sources we check'}</strong>
-       <p>${all.length ? 'Try “All waters” or turn more severities back on.' : 'We check official sources and Creek Watch reports every few minutes. Always use your own judgement near water.'}</p></div></div>`;
+       <p>${all.length ? 'Try “All waters” or turn more severities back on.' : `Sources last checked ${esc(timeAgo(health.latest))}. We check official sources and Creek Watch reports every few minutes. Always use your own judgement near water.`}</p></div></div>`;
   const feeds = feedUrls(f.creek);
   root.querySelector('.feed-links').innerHTML =
     `<a href="${feeds.atom}">Atom</a> (news readers) · <a href="${feeds.cap}">CAP 1.2</a> (emergency systems)${f.creek ? ' for this creek' : ''}`;

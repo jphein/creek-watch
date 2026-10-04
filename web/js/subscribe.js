@@ -172,6 +172,10 @@ function bind(key, existing) {
     const hint = form.querySelector('.need-hint');
     const filters = readForm(form);
     if (filters._none) { hint.textContent = 'Pick at least one creek.'; return; }
+    if (filters.quiet_hours && filters.quiet_hours.start === filters.quiet_hours.end) {
+      hint.textContent = 'Quiet hours need different start and end times.';
+      return;
+    }
     delete filters._none;
     const btn = form.querySelector('button[type="submit"]');
     btn.disabled = true;

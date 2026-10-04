@@ -796,3 +796,4 @@ html[data-save-data] .photo-figure { display: none; }
 .official-line a { font-weight: 700; }
 .official-line.compact { margin: 8px 0 0; padding: 6px 8px; font-size: 0.82rem; background: color-mix(in srgb, var(--surface) 70%, transparent); }
 .linked-alert { margin: 8px 0 14px; } .linked-note { margin: 0 0 6px; font-weight: 700; color: var(--ink-2); }
+.stale-note { margin: 0 0 4px; padding: 8px 12px; border-radius: 10px; background: var(--fair-tint); border: 1px solid var(--fair); font-weight: 600; }
