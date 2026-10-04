@@ -14,7 +14,7 @@ import json
 import logging
 import threading
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Callable
 
@@ -28,7 +28,7 @@ def utcnow_iso() -> str:
 # Approximate public access points; the data lane's sites.json supersedes these.
 STUB_CREEKS: list[dict[str, Any]] = [
     {
-        "id": "wolf-creek",
+        "id": "wolf",
         "name": "Wolf Creek",
         "town": "Grass Valley",
         "sites": [
@@ -38,7 +38,7 @@ STUB_CREEKS: list[dict[str, Any]] = [
         ],
     },
     {
-        "id": "deer-creek",
+        "id": "deer",
         "name": "Deer Creek",
         "town": "Nevada City",
         "sites": [
@@ -50,9 +50,9 @@ STUB_CREEKS: list[dict[str, Any]] = [
 ]
 
 
-def load_creeks(sites_json: Path) -> list[dict[str, Any]]:
+def load_creeks(sites_json: Path, use_data_package: bool = True) -> list[dict[str, Any]]:
     # Default location: prefer the data lane's loader, which also attaches geojson_line from creeks.geojson.
-    if sites_json.resolve() == (Path(__file__).resolve().parents[2] / "data" / "sites.json"):
+    if use_data_package and sites_json.resolve() == (Path(__file__).resolve().parents[2] / "data" / "sites.json"):
         try:
             from data import sites  # type: ignore
 
@@ -82,6 +82,8 @@ def _stub_get_conditions(creek_id: str) -> dict[str, Any]:
 
 
 def _stub_compute_health(creek_id: str, reports: list[dict], conditions: dict) -> dict[str, Any]:
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=7)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    reports = [r for r in reports if r["observed_at"] >= cutoff]
     score, signals = 85, []
 
     def sig(name, value, weight, explanation):
@@ -109,8 +111,28 @@ def _stub_compute_health(creek_id: str, reports: list[dict], conditions: dict) -
             "last_updated": utcnow_iso(), "stub": True}
 
 
-def _resolve() -> tuple[Callable, Callable]:
-    gc, ch = _stub_get_conditions, _stub_compute_health
+def _stub_report_flags(r: dict[str, Any]) -> list[str]:
+    """Same names as data.score.report_flags, so clients see one vocabulary either way."""
+    flags = []
+    if r["dead_fish"]:
+        flags.append("dead_fish_alert")
+    if r["odor"] in ("sewage", "chemical"):
+        flags.append(f"{r['odor']}_odor_alert")
+    if r["algae"] == "lots":
+        flags.append("algae_heavy")
+    if r["trash"] == "lots":
+        flags.append("trash_heavy")
+    if r["water_color"] == "brown":
+        flags.append("brown_water")
+    if r["flow"] == "flood":
+        flags.append("flood")
+    return flags
+
+
+def _resolve(use_data_package: bool) -> tuple[Callable, Callable, Callable]:
+    gc, ch, rf = _stub_get_conditions, _stub_compute_health, _stub_report_flags
+    if not use_data_package:
+        return gc, ch, rf
     try:
         from data import ingest  # type: ignore
 
@@ -123,14 +145,17 @@ def _resolve() -> tuple[Callable, Callable]:
 
         ch = score.compute_health
         log.info("using data.score.compute_health")
+        if hasattr(score, "report_flags"):
+            rf = score.report_flags
     except Exception as e:
         log.warning("data.score unavailable (%s); health stubbed", e)
-    return gc, ch
+    return gc, ch, rf
 
 
 class DataLayer:
-    def __init__(self, conditions_ttl_s: int):
-        self._get_conditions, self._compute_health = _resolve()
+    def __init__(self, conditions_ttl_s: int, use_data_package: bool = True):
+        self._get_conditions, self._compute_health, self._report_flags = _resolve(use_data_package)
+        self.stubbed = self._get_conditions is _stub_get_conditions or self._compute_health is _stub_compute_health
         self.ttl = conditions_ttl_s
         self._cache: dict[str, tuple[float, dict]] = {}
         self._lock = threading.Lock()
@@ -155,3 +180,10 @@ class DataLayer:
 
     def health(self, creek_id: str, reports: list[dict], conditions: dict) -> dict[str, Any]:
         return self._compute_health(creek_id, reports, conditions)
+
+    def report_flags(self, report: dict[str, Any]) -> list[str]:
+        try:
+            return list(self._report_flags(report))
+        except Exception:
+            log.exception("report_flags failed; using fallback")
+            return _stub_report_flags(report)

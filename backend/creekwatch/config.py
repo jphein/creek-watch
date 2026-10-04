@@ -34,7 +34,11 @@ class Settings:
     # Public API returns coordinates rounded to this many decimals (3 ≈ 110 m) to protect reporters.
     public_coord_decimals: int = int(os.environ.get("CREEKWATCH_COORD_DECIMALS", "3"))
     conditions_ttl_s: int = int(os.environ.get("CREEKWATCH_CONDITIONS_TTL_S", "600"))
-    enable_stubs: bool = _env_bool("CREEKWATCH_STUBS_OK", True)
+    # Use the data lane's `data` package (sites/ingest/score). Tests turn this off for hermetic stubs.
+    use_data_package: bool = field(default_factory=lambda: _env_bool("CREEKWATCH_USE_DATA_PKG", True))
+    # Peers allowed to tell us the client IP (CF-Connecting-IP / X-Forwarded-For): Caddy on the host via docker bridge.
+    trusted_proxies: str = field(default_factory=lambda: os.environ.get(
+        "CREEKWATCH_TRUSTED_PROXIES", "127.0.0.0/8,::1/128,172.16.0.0/12"))
 
     @property
     def db_path(self) -> Path:
