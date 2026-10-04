@@ -17,7 +17,13 @@ const wq = (o) => ({ agency: 'WCCA', site_id: null, source_url: `https://riverdb
 const STATIONS = [
   wq({ station_id: '285873023374516', name: 'WCCA Site 2 (Idaho Maryland Rd at Brunswick Rd)', lat: 39.224505, lon: -121.02629, site_id: 'wolf-loma-rica-trail' }),
   wq({ station_id: '285873023374546', name: 'WCCA Site 15 (above the Bear River)', lat: 39.045784, lon: -121.115951, site_id: 'wolf-wolf-rd', readings: { do_mg_l: 11.22, water_temp_c: 7.6, ph: 7.83, turbidity_ntu: null } }),
-  wq({ station_id: 'pub1', name: 'WCCA Site 8 (Glenn Jones Park)', lat: 39.2078806, lon: -121.0695512, access: 'public' }),
+  wq({ station_id: 'pub1', name: 'Public via API field', lat: 39.2, lon: -121.06, access: 'public' }),
+  // WCCA-confirmed public (2026-10-04), by exact RiverDB id; no access field from the API.
+  wq({ station_id: '285873023374532', name: 'WCCA Site 8 (Glenn Jones Park)', lat: 39.2078806, lon: -121.0695512 }),
+  wq({ station_id: '285873023410886', name: 'WCCA Site 8.5 (above Little Wolf Creek)', lat: 39.2033256, lon: -121.0673974 }),
+  // Same name as Site 8 but a different id: must stay private (match on id, never name).
+  wq({ station_id: '999', name: 'WCCA Site 8 (Glenn Jones Park) decoy', lat: 39.21, lon: -121.07 }),
+  wq({ station_id: '285873023374524', name: 'WCCA Site 5 (Idaho Maryland Rd at Railroad Ave)', lat: 39.222642, lon: -121.049719 }),
   wq({ station_id: 'syrcl1', agency: 'SYRCL', name: 'Other group site', lat: 39.19, lon: -121.05 }),
   wq({ station_id: 'xss', name: '<img src=x onerror="window.__xss=1">Hostile', lat: 39.18, lon: -121.04 }),
   wq({ station_id: 'nullc', name: 'Null coords', lat: null, lon: null }),
@@ -58,7 +64,11 @@ for (const scheme of ['light', 'dark']) {
   if (SHOTS) await p.screenshot({ path: `${SHOTS}/wcca-site2-${scheme}.png` });
   await closePop(p);
   if (scheme === 'light') {
-    r.pub = await popup(p, '.leaflet-marker-icon[title="Volunteer water test: WCCA Site 8 (Glenn Jones Park)"]'); await closePop(p);
+    r.pub = await popup(p, '.leaflet-marker-icon[title="Volunteer water test: Public via API field"]'); await closePop(p);
+    r.wcca = {};
+    for (const st of STATIONS.filter((s) => s.agency === 'WCCA' && !s.access && s.lat != null && !s.name.startsWith('<'))) {
+      r.wcca[st.station_id] = (await popup(p, `.leaflet-marker-icon[title="Volunteer water test: ${st.name}"]`)).t.includes('Private land'); await closePop(p);
+    }
     r.syrcl = await popup(p, '.leaflet-marker-icon[title="Volunteer water test: Other group site"]'); await closePop(p);
     await p.locator('.leaflet-marker-icon[title^="Volunteer water test: <img"]').first().dispatchEvent('click'); await p.waitForTimeout(400);
     r.xss = await p.evaluate(() => window.__xss || 0); r.injected = await p.locator('img[src="x"]').count(); await closePop(p);
@@ -92,12 +102,13 @@ const checks = {
   publicOverrideAndOtherAgency: !L.pub.t.includes('Private land') && !L.syrcl.t.includes('Private land'),
   upstreamEverywhere: [L.s15.t, L.s2.t, L.pin.t, L.card, L.about].every((t) => t.includes(UP)),
   cardScopedAndPrivate: /From anywhere on Wolf Creek; each card names its own spot\./.test(L.card) && L.cardPrivate >= 1,
-  noStationLinkOnPrivate: L.cardStationLinks.map((h) => h.split('/').pop()).sort().join() === 'pub1,syrcl1', // private WCCA sites lose the RiverDB link; public + non-WCCA keep it
+  noStationLinkOnPrivate: L.cardStationLinks.map((h) => h.split('/').pop()).sort().join() === '285873023374532,285873023410886,pub1,syrcl1', // private WCCA sites lose the RiverDB link; public + non-WCCA keep it
+  wccaPublicOnly8And85: Object.entries(L.wcca).length === 6 && Object.entries(L.wcca).every(([id, priv]) => priv === !['285873023374532', '285873023410886'].includes(id)),
   aboutPrivateLand: /private land.*not open to visitors/i.test(L.about),
   escaped: !L.xss && !L.injected,
   noPageErrors: !L.errs.length && !R.dark.errs.length,
 };
-console.log(JSON.stringify({ R: { s15: L.s15.t, s2: L.s2.t, pin: L.pin.t }, checks }, null, 1));
+console.log(JSON.stringify({ R: { s15: L.s15.t, s2: L.s2.t, pin: L.pin.t, wcca: L.wcca }, checks }, null, 1));
 const ok = Object.values(checks).every(Boolean);
 console.log(ok ? 'PASS wcca-sites' : `FAIL wcca-sites: ${Object.entries(checks).filter(([, v]) => !v).map(([k]) => k).join(', ')}`);
 process.exit(ok ? 0 : 1);
