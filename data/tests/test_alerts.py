@@ -18,7 +18,7 @@ from data.alerts.nws import NWS, stable_id
 from data.alerts.others import OEHHA, RiverDBBacteria, creekwatch_alerts
 from data.alerts.sso import SSO
 
-ID_RE = re.compile(r"^[a-z0-9_]+:[A-Za-z0-9._:/#-]{1,200}$")   # backend validation (morpheus)
+ID_RE = re.compile(r"^[a-z0-9_]{1,32}:[A-Za-z0-9._:/#-]{1,200}$")   # backend validate_alert (#39)
 FIX = pathlib.Path(__file__).resolve().parent.parent / "alerts" / "fixtures"
 NOW = datetime(2026, 10, 4, 3, 0, tzinfo=timezone.utc)        # Sat 2026-10-03 20:00 PDT
 NWS_FIX = json.loads((FIX / "nws_active_point.json").read_text())
@@ -55,7 +55,8 @@ def assert_spec_shape(a):
             "instruction", "area", "effective", "expires", "updated", "status", "url", "attribution"}
     cap = {"event", "cap_urgency", "cap_severity", "cap_certainty"}   # optional CAP passthrough (NWS)
     assert core <= set(a) <= core | cap
-    assert ID_RE.match(a["id"]), a["id"]                              # the API's validation regex
+    assert ID_RE.match(a["id"]) and a["id"].startswith(a["source"] + ":"), a["id"]  # API validation
+    assert not any(c in a["url"] for c in '<>"\' '), a["url"]
     assert set(a["area"]) == {"creek_ids", "site_ids", "lat", "lon", "polygon_geojson", "area_desc"}
     assert a["id"].startswith(a["source"] + ":")
     assert a["severity"] in model.SEVERITY_ORDER and a["category"] in model.CATEGORIES
