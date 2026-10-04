@@ -38,15 +38,21 @@ if [ "${1:-}" = --list ]; then
   on_dest "cat $DEST/LATEST; ls -1 $DEST/db | tail -5; echo photos: \$(ls $DEST/uploads | wc -l); du -sh $DEST"; exit
 fi
 
-# Where the volume is mounted in the running container (follows the app's contract: /srv/creekwatch or /app/var).
-DATADIR=$(docker inspect -f "{{range .Mounts}}{{if eq .Name \"$VOLUME\"}}{{.Destination}}{{end}}{{end}}" "$NAME")
-[ -n "$DATADIR" ] || { log "FAIL: $NAME has no $VOLUME mount"; exit 1; }
 
 STAMP=$(date -u +%Y%m%dT%H%MZ)
 mkdir -p "$STAGE"
 # One run at a time: a manual or test run must not race the hourly timer over $STAGE.
 exec 9>"$STAGE/.lock"
-flock -n 9 || { log "another backup is running; skipping"; exit 0; }
+# redeploy.sh takes this same lock around its container swap, so a backup never runs inside the
+# ~3 s window where no container is named $NAME (seen 2026-10-03 18:47: "No such container").
+flock -w "${CW_BACKUP_LOCK_WAIT:-120}" 9 || { log "another backup or a redeploy swap holds the lock; skipping"; exit 0; }
+# Belt and braces: wait for the container to be running (e.g. a manual docker restart).
+for _ in $(seq 1 30); do
+  [ "$(docker inspect -f '{{.State.Running}}' "$NAME" 2>/dev/null)" = true ] && break; sleep 2
+done
+# Where the volume is mounted in the running container (follows the app's contract: /srv/creekwatch or /app/var).
+DATADIR=$(docker inspect -f "{{range .Mounts}}{{if eq .Name \"$VOLUME\"}}{{.Destination}}{{end}}{{end}}" "$NAME")
+[ -n "$DATADIR" ] || { log "FAIL: $NAME has no $VOLUME mount"; exit 1; }
 rm -rf "${STAGE:?}/uploads" "$STAGE"/snap.db "$STAGE"/snap.db-wal "$STAGE"/snap.db-shm "$STAGE"/*.tar "$STAGE"/db.x "$STAGE"/up.x
 
 MAX_DB="${CW_BACKUP_MAX_DB_BYTES:-2000000000}"

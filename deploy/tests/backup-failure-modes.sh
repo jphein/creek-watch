@@ -53,16 +53,23 @@ grep -q "many members=3001" "$SHIM_LOG" || bad "member-flood case not exercised"
 
 latest_before=$(cat "$T/dest/LATEST")
 flock "$T/stage/.lock" sleep 6 & holder=$!; sleep 1
-out=$($B 2>&1); rc=$?
+out=$(CW_BACKUP_LOCK_WAIT=0 $B 2>&1); rc=$?
 wait $holder
-{ [ $rc = 0 ] && grep -q "another backup is running" <<<"$out"; } || bad "lock not honoured (rc=$rc: $out)"
+{ [ $rc = 0 ] && grep -q "holds the lock; skipping" <<<"$out"; } || bad "lock not honoured (rc=$rc: $out)"
+
+# Redeploy swap window: the lock is held ~4 s and the container is renamed away meanwhile (what
+# redeploy.sh does). With the default wait, the backup must wait it out and succeed.
+( flock "$T/stage/.lock" bash -c "docker rename $CTR $CTR-swapping; sleep 4; docker rename $CTR-swapping $CTR" ) & swapper=$!; sleep 1
+out=$($B 2>&1); rc=$?
+wait $swapper
+{ [ $rc = 0 ] && grep -q "backup: OK" <<<"$out"; } || bad "backup did not survive a redeploy swap window (rc=$rc: $out)"
 
 $B >/dev/null 2>&1 || bad "final normal run failed"
 [ "$(mirror)" = "$base" ] || bad "final mirror has $(mirror), expected $base"
 
 echo "shim log: $(tr '\n' ';' < "$SHIM_LOG")"
 if [ $fails = 0 ]; then
-  echo "PASS: $n seeded photos; partial stream, sparse member, member flood all rejected with the mirror unchanged; lock honoured; normal runs OK"
+  echo "PASS: $n seeded photos; partial stream, sparse member, member flood all rejected with the mirror unchanged; lock honoured; swap window survived; normal runs OK"
 else
   echo "$fails case(s) failed"; exit 1
 fi
