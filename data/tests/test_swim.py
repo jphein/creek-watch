@@ -80,8 +80,30 @@ def test_swim_hole_bacteria_alert_is_regional(monkeypatch):
     monkeypatch.setattr(wq, "get_swim_holes", lambda now=None, **kw: hot)
     monkeypatch.setattr(wq, "get_water_quality", lambda creek_id, now=None: {"stations": []})
     (a,) = [a for a in RiverDBBacteria().run(NOW) if a["id"].startswith("riverdb:S:")]
-    assert a["area"]["creek_ids"] == [] and a["severity"] == "watch"
+    assert a["area"]["creek_ids"] == [] and a["severity"] == "advisory"   # regional: never pushes by default
     assert "lowers this creek" not in a["summary"] and "900" in a["summary"]
     low = dict(hot["stations"][0], ecoli_mpn_100ml=5.2)
     monkeypatch.setattr(wq, "get_swim_holes", lambda now=None, **kw: {"stations": [low]})
     assert not [a for a in RiverDBBacteria().run(NOW) if a["id"].startswith("riverdb:S:")]
+
+
+
+def test_regional_swim_alert_capped_at_advisory_even_when_fresh_creek_keeps_watch():
+    from data.alerts.others import ecoli_alert
+    st = {"station_id": "S", "name": "Purdon Crossing", "river": "South Yuba River", "lat": 39.33, "lon": -121.05,
+          "date": "2026-10-03", "age_days": 1, "readings": {"ecoli_mpn_100ml": 1200.0},
+          "credit": wq.SWIM_CREDIT, "source_url": "https://riverdb.org/org/SYRCL", "site_id": None}
+    assert ecoli_alert(None, st, NOW)["severity"] == "advisory"          # region-wide, 1 day old: still advisory
+    assert ecoli_alert("deer", st, NOW)["severity"] == "watch"           # creek alerts unchanged
+
+
+def test_ecoli_alert_never_renders_none_name():
+    from data.alerts.others import ecoli_alert
+    base = {"station_id": "S", "lat": 39.33, "lon": -121.05, "date": "2026-10-03", "age_days": 1,
+            "readings": {"ecoli_mpn_100ml": 900.0}, "credit": wq.SWIM_CREDIT,
+            "source_url": "https://riverdb.org/org/SYRCL", "site_id": None}
+    for st, want in ((dict(base, name=None, river="South Yuba River"), "a South Yuba River swim hole"),
+                     (dict(base, name="  "), "a monitoring site")):
+        a = ecoli_alert(None, st, NOW)
+        blob = a["title"] + a["summary"] + a["area"]["area_desc"]
+        assert "None" not in blob and want in a["title"]
