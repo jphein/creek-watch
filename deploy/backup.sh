@@ -41,7 +41,7 @@ DATADIR=$(docker inspect -f "{{range .Mounts}}{{if eq .Name \"$VOLUME\"}}{{.Dest
 
 STAMP=$(date -u +%Y%m%dT%H%MZ)
 mkdir -p "$STAGE"
-rm -rf "${STAGE:?}/uploads" "$STAGE"/snap.db "$STAGE"/snap.db-wal "$STAGE"/snap.db-shm "$STAGE"/*.tar
+rm -rf "${STAGE:?}/uploads" "$STAGE"/snap.db "$STAGE"/snap.db-wal "$STAGE"/snap.db-shm "$STAGE"/*.tar "$STAGE"/db.x "$STAGE"/up.x
 
 MAX_DB="${CW_BACKUP_MAX_DB_BYTES:-2000000000}"
 MAX_UP="${CW_BACKUP_MAX_UPLOADS_BYTES:-5000000000}"
@@ -56,18 +56,38 @@ free=$(df -B1 --output=avail "$STAGE" | tail -1 | tr -d ' ')
 [ "$free" -gt "$need" ] || { log "FAIL: only $free bytes free on ubox0 for staging (need > $need)"; exit 1; }
 
 # capped_cp <container path> <tar out> <cap>: docker cp streamed through head -c; returns 3 if capped.
+# Returns 3 if over the cap, 4 if docker cp or head failed (a stream cut short can still be a tar that
+# extracts "cleanly" at a member boundary, and rsync --delete would then drop real photos from the mirror).
 capped_cp() {
-  docker cp "$NAME:$1" - | head -c "$(( $3 + 1 ))" > "$2" || true
-  [ "$(stat -c %s "$2")" -le "$3" ] || { rm -f "$2"; return 3; }
+  local rc
+  set +e
+  docker cp "$NAME:$1" - | head -c "$(( $3 + 1 ))" > "$2"
+  rc=("${PIPESTATUS[@]}")
+  set -e
+  if [ "$(stat -c %s "$2")" -gt "$3" ]; then rm -f "$2"; return 3; fi   # (docker cp then dies of SIGPIPE)
+  if [ "${rc[0]}" != 0 ] || [ "${rc[1]}" != 0 ]; then
+    log "docker cp/head failed (rc=${rc[*]}) for $1"; rm -f "$2"; return 4
+  fi
 }
-# safe_extract <tar> <dest dir>: regular files and directories only; nothing absolute, nothing via "..".
+# safe_extract <tar> <dest dir> <byte cap>: regular files and directories only; nothing absolute, nothing
+# via ".."; no sparse members; total extracted bytes <= cap (a sparse member can expand far past the
+# capped stream size).
 safe_extract() {
-  python3 - "$1" "$2" <<'PY'
+  python3 - "$1" "$2" "$3" <<'PY'
 import sys, tarfile
+cap = int(sys.argv[3]); total = 0
 def only_plain(m, path):
+    global total
+    # Keep this type check BEFORE data_filter: links never reach tarfile's link handling at all, which
+    # also sidesteps the 2024-25 CPython tarfile filter-bypass CVEs that affect ubox0's Python 3.12.3.
     if not (m.isreg() or m.isdir()):
         print(f"skipping non-regular member {m.name!r}", file=sys.stderr)   # links, devices, fifos
         return None
+    if m.issparse():
+        raise tarfile.FilterError(f"sparse member {m.name!r} refused")
+    total += m.size
+    if total > cap:
+        raise tarfile.FilterError(f"extracted size {total} exceeds cap {cap}")
     return tarfile.data_filter(m, path)   # rejects absolute paths and "..": raises, which aborts the run
 with tarfile.open(sys.argv[1]) as t:
     t.extractall(sys.argv[2], filter=only_plain)
@@ -85,10 +105,10 @@ src.backup(dst)
 dst.execute("PRAGMA journal_mode=DELETE")
 dst.close(); src.close()
 PY
-capped_cp /tmp/creekwatch-snap.db "$STAGE/snap.tar" "$MAX_DB" || { docker exec "$NAME" rm -f /tmp/creekwatch-snap.db; log "FAIL: DB snapshot exceeds cap $MAX_DB"; exit 1; }
+capped_cp /tmp/creekwatch-snap.db "$STAGE/snap.tar" "$MAX_DB" || { r=$?; docker exec "$NAME" rm -f /tmp/creekwatch-snap.db; [ $r = 3 ] && log "FAIL: DB snapshot exceeds cap $MAX_DB" || log "FAIL: copying the DB snapshot out failed"; exit 1; }
 docker exec "$NAME" rm -f /tmp/creekwatch-snap.db
 mkdir -p "$STAGE/db.x"
-safe_extract "$STAGE/snap.tar" "$STAGE/db.x" || { log "FAIL: unsafe or unreadable DB archive"; exit 1; }
+safe_extract "$STAGE/snap.tar" "$STAGE/db.x" "$MAX_DB" || { log "FAIL: unsafe or unreadable DB archive"; exit 1; }
 rm -f "$STAGE/snap.tar"
 [ -f "$STAGE/db.x/creekwatch-snap.db" ] || { log "FAIL: snapshot missing or not a regular file"; exit 1; }
 mv "$STAGE/db.x/creekwatch-snap.db" "$STAGE/snap.db"; rm -rf "${STAGE:?}/db.x"
@@ -106,9 +126,11 @@ rm -f "$STAGE"/snap.db-wal "$STAGE"/snap.db-shm
 
 # 2) Photos, through the same hard cap. Over the cap -> skip the mirror this run (DB still saved).
 SKIP_UPLOADS=0
-if capped_cp "$DATADIR/uploads" "$STAGE/uploads.tar" "$MAX_UP"; then
+up_rc=0; capped_cp "$DATADIR/uploads" "$STAGE/uploads.tar" "$MAX_UP" || up_rc=$?
+[ "$up_rc" = 0 ] || [ "$up_rc" = 3 ] || { log "FAIL: copying uploads out failed; mirror left untouched"; exit 1; }
+if [ "$up_rc" = 0 ]; then
   mkdir -p "$STAGE/up.x"
-  safe_extract "$STAGE/uploads.tar" "$STAGE/up.x" || { rm -rf "${STAGE:?}/up.x"; log "FAIL: unsafe or unreadable uploads archive"; exit 1; }
+  safe_extract "$STAGE/uploads.tar" "$STAGE/up.x" "$MAX_UP" || { rm -rf "${STAGE:?}/up.x"; log "FAIL: unsafe or unreadable uploads archive"; exit 1; }
   rm -f "$STAGE/uploads.tar"
   [ -d "$STAGE/up.x/uploads" ] || { log "FAIL: uploads missing from the container archive"; exit 1; }
   mv "$STAGE/up.x/uploads" "$STAGE/uploads"; rm -rf "${STAGE:?}/up.x"
@@ -122,7 +144,7 @@ ssh "$DEST_HOST" "mkdir -p $DEST/db $DEST/uploads"
 rsync -a --no-links --no-devices --no-specials "$STAGE/snap.db" "$DEST_HOST:$DEST/db/creekwatch-$STAMP.db"
 [ "$SKIP_UPLOADS" = 1 ] || rsync -a --no-links --no-devices --no-specials --delete "$STAGE/uploads/" "$DEST_HOST:$DEST/uploads/"
 ssh "$DEST_HOST" "echo '$STAMP reports=$COUNT' > $DEST/LATEST; find $DEST/db -name 'creekwatch-*.db' -mtime +$KEEP_DAYS -delete"
-rm -rf "${STAGE:?}/uploads" "$STAGE"/snap.db "$STAGE"/snap.db-wal "$STAGE"/snap.db-shm "$STAGE"/*.tar
+rm -rf "${STAGE:?}/uploads" "$STAGE"/snap.db "$STAGE"/snap.db-wal "$STAGE"/snap.db-shm "$STAGE"/*.tar "$STAGE"/db.x "$STAGE"/up.x
 log "OK $STAMP reports=$COUNT photos=$(ssh "$DEST_HOST" "ls $DEST/uploads | wc -l") -> $DEST_HOST:$DEST"
 }
 main "$@"

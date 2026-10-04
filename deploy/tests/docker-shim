@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# Test shim: passthrough, except "docker cp <ctr>:<...uploads> -" per $SHIM_MODE.
+if [ "$1" = cp ] && [ "${3:-}" = - ] && [[ "$2" == *uploads ]] && [ -n "${SHIM_MODE:-}" ]; then
+  t=$(mktemp); /usr/bin/docker cp "$2" - > "$t"
+  case "$SHIM_MODE" in
+    partial)   # cut exactly at the start of the 2nd file member, then die like a broken stream
+      off=$(python3 -c "import tarfile,sys;f=[m for m in tarfile.open(sys.argv[1]) if m.isfile()];print(f[1].offset)" "$t")
+      head -c "$off" "$t"; rm -f "$t"; exit 1 ;;
+    sparse)    # a valid tar holding a GNU sparse member of 3 GB apparent size
+      d=$(mktemp -d); mkdir "$d/uploads"; truncate -s 3G "$d/uploads/big.jpg"
+      tar -C "$d" --sparse --format=gnu -cf - uploads; rm -rf "$d" "$t"; exit 0 ;;
+  esac
+fi
+exec /usr/bin/docker "$@"
