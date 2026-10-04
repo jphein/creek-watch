@@ -414,3 +414,24 @@ def test_waiters_woken_only_after_result_is_stored(monkeypatch):
     owner.join(3)
     waiter.join(3)
     assert got["v"] == {"v": 1}
+
+
+
+def test_any_job_timeout_sets_cache_ttl_hint(monkeypatch):
+    """A gauge/weather/river job that times out leaves a partial answer: hint like a capped one."""
+    import threading as th
+    monkeypatch.setattr(ingest, "_http_get_text", lambda url, timeout: route(url))
+    release = th.Event()
+
+    def stuck_river(*a, **kw):
+        release.wait(5)                                  # CDEC hanging past the job bound
+        return None
+    from data import cdec
+    monkeypatch.setattr(cdec, "get_river", stuck_river)
+    try:
+        c = ingest.get_conditions("deer", timeout_s=0.1)  # job bound = 0.1*2+2 = 2.2 s
+    finally:
+        release.set()
+    assert c["river"] == {"stations": []} and c["cache_ttl_hint_s"] == ingest.CAPPED_TTL_HINT_S
+    full = ingest.get_conditions("deer")                 # all jobs finish: no hint
+    assert "cache_ttl_hint_s" not in full
