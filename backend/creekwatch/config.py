@@ -55,6 +55,8 @@ class Settings:
     cf_hosts: frozenset = field(default_factory=lambda: frozenset(
         h.strip().lower().rstrip(".") for h in os.environ.get(
             "CREEKWATCH_CF_HOSTS", "creekwatch.realm.watch,creek.realm.watch").split(",") if h.strip()))
+    # Cutover write freeze: report + push-subscription writes return 503 "maintenance"; reads keep working.
+    read_only: bool = field(default_factory=lambda: _env_bool("CREEKWATCH_READ_ONLY", False))
 
     @property
     def db_path(self) -> Path:

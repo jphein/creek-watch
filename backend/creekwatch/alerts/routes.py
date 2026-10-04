@@ -116,6 +116,8 @@ def register(app: FastAPI, store: AlertStore, push: PushService, poller, creek_i
 
     @app.post("/api/push/subscriptions", status_code=201)
     async def subscribe(request: Request) -> JSONResponse:
+        if app.state.settings.read_only:
+            raise app.state.maintenance()
         _limit(request)
         if not push.enabled:
             raise HTTPException(503, "Push notifications are not configured on this server.")
@@ -141,6 +143,8 @@ def register(app: FastAPI, store: AlertStore, push: PushService, poller, creek_i
 
     @app.delete("/api/push/subscriptions", status_code=204)
     async def unsubscribe(request: Request) -> Response:
+        if app.state.settings.read_only:
+            raise app.state.maintenance()
         _limit(request)
         body = await _json_body(request)
         endpoint = (body or {}).get("endpoint") if isinstance(body, dict) else None

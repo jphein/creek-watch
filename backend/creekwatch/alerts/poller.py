@@ -242,6 +242,9 @@ def main() -> int:
     a = ap.parse_args()
     app = create_app(Settings())
     p: Poller = app.state.alert_poller
+    if app.state.settings.read_only:  # cutover freeze: no fetch, claim or push (Fly would re-push otherwise)
+        print(_json.dumps({"skipped": "read_only"}), flush=True)
+        return 0
     if p.load_error or not p.adapters:
         print(_json.dumps({"error": "adapters not loaded", "load_error": p.load_error}), flush=True)
         return 3

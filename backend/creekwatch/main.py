@@ -174,9 +174,18 @@ def make_client_ip(trusted: str, on_fly: bool = False, cf_hosts: frozenset[str] 
 
 # ---- app -------------------------------------------------------------------
 
-async def _poll_forever(poller: "Poller", tick_s: float) -> None:
-    """Background alert polling. Blocking work runs on a worker thread; the loop never dies."""
+async def _poll_forever(poller: "Poller", tick_s: float, read_only=lambda: False) -> None:
+    """Background alert polling. Blocking work runs on a worker thread; the loop never dies.
+    While read_only() (the cutover write freeze) nothing is polled, claimed or pushed."""
+    frozen_logged = False
     while True:
+        if read_only():
+            if not frozen_logged:
+                log.warning("CREEKWATCH_READ_ONLY: alert poller paused (no fetch, claim or push)")
+                frozen_logged = True
+            await asyncio.sleep(tick_s)
+            continue
+        frozen_logged = False
         try:
             await anyio.to_thread.run_sync(poller.run_due)
         except asyncio.CancelledError:
@@ -198,7 +207,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                              daemon=True).start()
         task = None
         if s.poller_enabled and alert_poller.adapters:
-            task = asyncio.create_task(_poll_forever(alert_poller, s.poller_tick_s))
+            task = asyncio.create_task(_poll_forever(alert_poller, s.poller_tick_s, lambda: s.read_only))
         try:
             yield
         finally:
@@ -242,6 +251,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             return await anyio.to_thread.run_sync(process_photo, raw, s.photo_max_px, limiter=gate["threads"])
         finally:
             sem.release()
+    def maintenance() -> HTTPException:
+        return HTTPException(503, "Creek Watch is moving to a new server. Reports are paused for a few minutes; "
+                                  "please try again shortly.", headers={"Retry-After": "120"})
+    app.state.maintenance = maintenance
     limiter = RateLimiter(s.rate_limit_count, s.rate_limit_window_s)
     photo_budget = RateLimiter(s.photo_budget, s.rate_limit_window_s)
     report_budget = RateLimiter(s.report_budget, s.rate_limit_window_s)
@@ -350,6 +363,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         reporter_name: Annotated[str | None, Form(max_length=60)] = None,
         photo: Annotated[UploadFile | None, File()] = None,
     ) -> JSONResponse:
+        if s.read_only:
+            raise maintenance()
         retry = limiter.check(rate_key(client_ip(request)))
         if retry is not None:
             raise HTTPException(429, "Too many reports from this device. Please wait a few minutes.",
