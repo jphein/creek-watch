@@ -4,7 +4,7 @@ import { getAlerts, getAlertItem, getAlertSources, sourcesFresh, getCreeks, SEVE
 import { esc, SEV, CATEGORY_LABEL, alertHTML, officialLine, timeAgo } from './ui.js';
 import { mountSubscribe } from './subscribe.js';
 
-let root, all = [], creeks = [], health = { fresh: false, latest: null };
+let root, all = [], creeks = [], health = { fresh: false, nwsLatest: null };
 const f = { creek: '', sev: new Set(SEVERITIES), cat: '' };
 // NWS retired alerts.weather.gov; this is the live official alerts page (verified 200).
 const NWS_ALERTS = 'https://www.weather.gov/alerts';
@@ -61,7 +61,10 @@ export function showAlerts(qs) {
   if (!root) return;
   if (qs?.get('creek') != null) { f.creek = qs.get('creek'); const s = root.querySelector('select[name="creek"]'); if (s) s.value = f.creek; render(); }
   focusAlert(qs?.get('id'));
-  getAlerts().then((a) => { all = a; render(); focusAlert(qs?.get('id')); }).catch(() => {});
+  // Refresh alerts AND source health together on every visit (never a stale ✓).
+  Promise.all([getAlerts(), getAlertSources().catch(() => null)])
+    .then(([a, src]) => { all = a; health = sourcesFresh(src); render(); focusAlert(qs?.get('id')); })
+    .catch(() => { health = sourcesFresh(null); render(); });
 }
 
 async function focusAlert(id) {
@@ -93,17 +96,16 @@ function render() {
   root.querySelector('.alerts-count').textContent = all.length
     ? `${n} active alert${n === 1 ? '' : 's'}${n !== all.length ? ` (of ${all.length})` : ''}`
     : '';
+  const nwsWhen = health.nwsLatest ? `last checked ${esc(timeAgo(health.nwsLatest))}` : 'not checked yet';
   const stale = !health.fresh
-    ? `<p class="stale-note" role="status">${all.length ? 'These may be out of date: ' : ''}${
-        health.latest ? `alert sources last checked ${esc(timeAgo(health.latest))}.` : 'we couldn’t confirm the alert sources are working.'
-      }</p>`
+    ? `<p class="stale-note" role="status">${all.length ? 'This list may be incomplete: ' : ''}we couldn’t confirm National Weather Service alerts recently (${nwsWhen}).</p>`
     : '';
   if (!n && !all.length && !health.fresh) {
-    box.innerHTML = unchecked(health.latest ? ` recently (last success ${esc(timeAgo(health.latest))})` : '');
+    box.innerHTML = unchecked(` recently (National Weather Service ${nwsWhen})`);
   } else box.innerHTML = n
     ? stale + list.map((a) => alertHTML(a)).join('')
     : `<div class="all-clear"><span aria-hidden="true">✓</span><div><strong>${all.length ? 'No alerts match these filters' : 'No active water alerts from the sources we check'}</strong>
-       <p>${all.length ? 'Try “All waters” or turn more severities back on.' : `Sources last checked ${esc(timeAgo(health.latest))}. We check official sources and Creek Watch reports every few minutes. Always use your own judgement near water.`}</p></div></div>`;
+       <p>${all.length ? 'Try “All waters” or turn more severities back on.' : `National Weather Service checked ${esc(timeAgo(health.nwsLatest))}. We check official sources and Creek Watch reports every few minutes. Always use your own judgement near water.`}</p></div></div>`;
   const feeds = feedUrls(f.creek);
   root.querySelector('.feed-links').innerHTML =
     `<a href="${feeds.atom}">Atom</a> (news readers) · <a href="${feeds.cap}">CAP 1.2</a> (emergency systems)${f.creek ? ' for this creek' : ''}`;

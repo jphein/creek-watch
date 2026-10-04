@@ -184,18 +184,24 @@ export async function getAlertSources() {
   return request('/api/alerts/sources');
 }
 
-/** True only if at least one source succeeded within 2x its poll interval (15 min when unknown). */
+// Freshness for the "no alerts" ✓ (Oracle, #41). Two independent rules:
+//  1. `creekwatch` never counts: it is computed from our own DB and succeeds even when every
+//     upstream fetch is failing (network out), so it says nothing about official warnings.
+//  2. `nws` (the life-safety source) must itself be fresh. Missing or stale nws = couldn't check.
+// A source is fresh if last_ok is within 2x its poll interval (15 min when unknown).
+export const LIFE_SAFETY_SOURCE = 'nws';
+export const LOCAL_SOURCES = new Set(['creekwatch']);
 export function sourcesFresh(info, now = Date.now()) {
-  const list = info?.sources || [];
-  let latest = 0, fresh = false;
-  for (const s of list) {
-    const t = Date.parse(s.last_ok || '');
-    if (!t) continue;
-    latest = Math.max(latest, t);
-    const interval = Number(info?.schedule?.[s.source]?.interval_s) || 900;
-    if (now - t <= 2 * interval * 1000) fresh = true;
-  }
-  return { fresh, latest: latest ? new Date(latest).toISOString() : null };
+  const list = (info?.sources || []).filter((s) => !LOCAL_SOURCES.has(s.source));
+  const isFresh = (s) => {
+    const t = Date.parse(s?.last_ok || '');
+    const interval = Number(info?.schedule?.[s?.source]?.interval_s) || 900;
+    return !!t && now - t <= 2 * interval * 1000;
+  };
+  const nws = list.find((s) => s.source === LIFE_SAFETY_SOURCE);
+  const nwsT = Date.parse(nws?.last_ok || '');
+  const fresh = !!nws && isFresh(nws);
+  return { fresh, nwsLatest: nwsT ? new Date(nwsT).toISOString() : null };
 }
 
 export async function getVapidKey() {
