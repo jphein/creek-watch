@@ -1,7 +1,7 @@
 // Push subscribe flow vs leftover/stale subscriptions (prod 20:35 incident: FCM 410 on the welcome push,
 // one second after a 201). The fake PushManager follows Chrome's rules: subscribe() returns the EXISTING
 // subscription when the key matches, throws InvalidStateError when the key differs; unsubscribe() clears it.
-import { serveWeb, launch, mock } from './harness.mjs';
+import { serveWeb, launch, mock, requireNotifications } from './harness.mjs';
 
 const { base, close } = await serveWeb();
 const b = await launch();
@@ -46,7 +46,7 @@ async function run({ leftover = null, savedFilters = null, failSubscribe = false
     };
   }, { leftover, savedFilters, failSubscribe });
   const p = await ctx.newPage(); const errs = []; p.on('pageerror', (e) => errs.push(e.message));
-  await p.goto(base + '#alerts'); await p.waitForSelector('.alerts-list'); await p.evaluate(() => navigator.serviceWorker.register('sw.js').then(() => navigator.serviceWorker.ready));
+  await p.goto(base + '#alerts'); await p.waitForSelector('.alerts-list'); await requireNotifications(p); await p.evaluate(() => navigator.serviceWorker.register('sw.js').then(() => navigator.serviceWorker.ready));
   const out = await actions(p);
   const push = await p.evaluate(() => ({ log: window.__push.log, current: window.__push.current?.endpoint || null }));
   await ctx.close();
