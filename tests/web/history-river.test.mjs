@@ -62,6 +62,7 @@ for (const scheme of ['light', 'dark']) {
   const st = wolf.bacteria_history.studies[0];
   st.title = '<img src=x onerror="window.__xss=1">2024 study';
   st.stations[0].samples[1].ecoli = null; st.stations[0].samples[2].ecoli = '<1'; st.stations[0].samples[3].ecoli = '12';
+  st.stations[1].samples[4].qual = '<'; st.stations[1].samples[4].ecoli = 10; st.stations[1].samples[5].qual = '>'; st.stations[1].samples[5].ecoli = 2419.6;
   deer.river.stations[0].age_hours = 9;
   deer.bacteria_history = { studies: [{ ...st, is_current: true, id: 'current-should-not-show' }] }; // only dated history renders
   const ctx = await b.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: 'block' });
@@ -78,6 +79,8 @@ for (const scheme of ['light', 'dark']) {
     firstStationBars: await w.locator('.h-station').first().locator('rect.hb').count(),
     notShownNote: (await w.locator('.h-station').first().locator('figcaption').innerText()).includes('2 value(s) not shown'),
     nanInDom: /NaN|undefined/.test(await w.innerText()),
+    qualBars: await w.locator('.h-station').nth(1).locator('rect.hb').count(),
+    qualCaption: await w.locator('.h-station').nth(1).locator('figcaption').innerText(),
     staleNote: (await d.locator('.river .r-st').first().innerText()).includes('older reading'),
     staleClass: await d.locator('.river .r-st.stale').count(),
     currentStudyHidden: (await d.locator('details.history').count()) === 0,
@@ -115,6 +118,7 @@ const checks = {
   aboutLines: R.about.cdec && R.about.ceden && R.about.lag,
   edgeEscaped: !R.edge.xss && !R.edge.injected && R.edge.literalTitle,
   edgeOnlyNumbersPlotted: R.edge.firstStationBars === 11 && R.edge.notShownNote && !R.edge.nanInDom,
+  qualNotExact: R.edge.qualBars === 11 && R.edge.qualCaption.includes('2 result(s) outside the lab’s measuring range (<10, >2419.6) not drawn as exact values'),
   edgeStaleRiver: R.edge.staleNote && R.edge.staleClass === 1,
   onlyDatedHistory: R.edge.currentStudyHidden,
   emptyRendersNothing: R.empty.river === 0 && R.empty.history === 0,

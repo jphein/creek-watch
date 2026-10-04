@@ -115,9 +115,13 @@ function condHTML(c) {
 const num = (v) => (typeof v === 'number' ? v : typeof v === 'string' && /^\s*-?\d+(\.\d+)?\s*$/.test(v) ? Number(v) : NaN);
 
 function historyChart(st, obj, minN) {
-  const pts = (st.samples || []).map((x) => ({ d: String(x.date || ''), v: num(x.ecoli), g: num(x.gm6w), n: Number(x.gm6w_n) || 0 }))
+  // qual (CEDEN ResultQualCode): '=' exact; '<'/'>' means the number is the lab's limit, so never draw it as exact.
+  const pts = (st.samples || []).map((x) => ({ d: String(x.date || ''), v: num(x.ecoli), g: num(x.gm6w), n: Number(x.gm6w_n) || 0,
+    q: x.qual == null || x.qual === '' ? '=' : String(x.qual) }))
     .filter((x) => /^\d{4}-\d{2}-\d{2}$/.test(x.d));
-  const plotted = pts.filter((x) => Number.isFinite(x.v));
+  const exact = (x) => Number.isFinite(x.v) && x.q === '=';
+  const plotted = pts.filter(exact);
+  const limits = pts.filter((x) => Number.isFinite(x.v) && x.q !== '=').map((x) => `${x.q}${x.v}`);
   if (plotted.length < 2) return '';
   const stv = Number(obj?.stv) || 320, gm = Number(obj?.gm_six_week) || 100;
   const W = 300, H = 120, padL = 30, padB = 16, top = 6, plotH = H - padB - top, plotW = W - padL - 4;
@@ -125,7 +129,7 @@ function historyChart(st, obj, minN) {
   const y = (v) => top + plotH - (Math.min(v, yMax) / yMax) * plotH;
   const bw = Math.max(3, plotW / pts.length - 3);
   const x = (i) => padL + i * (plotW / pts.length) + 1.5;
-  const bars = pts.map((p, i) => (Number.isFinite(p.v)
+  const bars = pts.map((p, i) => (exact(p)
     ? `<rect class="hb ${p.v > stv ? 'over' : ''}" x="${x(i).toFixed(1)}" y="${Math.min(y(p.v), top + plotH - 2).toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(2, top + plotH - y(p.v)).toFixed(1)}" rx="2"><title>${esc(p.d)}: ${esc(p.v)}</title></rect>`
     : '')).join('');
   const gpts = pts.map((p, i) => (Number.isFinite(p.g) && p.n >= (minN || 5) ? `${(x(i) + bw / 2).toFixed(1)},${y(p.g).toFixed(1)}` : null)).filter(Boolean);
@@ -142,7 +146,8 @@ function historyChart(st, obj, minN) {
       <text class="ht" x="${padL}" y="${H - 3}">${esc(first)}</text><text class="ht" x="${W - 4}" y="${H - 3}" text-anchor="end">${esc(last)}</text>
     </svg>
     <figcaption class="small muted">Bars: each sample. Line: 6-week geometric mean (only with ${minN || 5}+ samples). Dashed lines: the state objectives.${
-      pts.length - plotted.length ? ` ${pts.length - plotted.length} value(s) not shown (no number reported).` : ''}</figcaption>
+      limits.length ? ` ${limits.length} result(s) outside the lab’s measuring range (${esc(limits.slice(0, 3).join(', '))}) not drawn as exact values.` : ''}${
+      pts.length - plotted.length - limits.length ? ` ${pts.length - plotted.length - limits.length} value(s) not shown (no number reported).` : ''}</figcaption>
   </figure>`;
 }
 
