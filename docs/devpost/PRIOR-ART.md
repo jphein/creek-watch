@@ -111,7 +111,7 @@ The pattern of turning citizen checks into an explained score is crowded here.
 
 **Partner and cite opportunities** (no outreach; contacting anyone is JP's call):
 - **Credit** WCCA's and SSI's decades of monitoring in the Devpost text and the About page, as the scientific baseline Creek Watch is *not* replacing.
-- **Next step:** read their public RiverDB data through its GraphQL API and show their latest lab results next to citizen reports. Our sites already overlap theirs geographically: Glen Jones / North Star, and the Tribute Trail.
+- **Done (PR #14, merged 68cd728):** Creek Watch now reads their public RiverDB data through its GraphQL API and shows the latest volunteer test next to citizen reports, credited by group. Our sites overlap theirs geographically: Glen Jones / North Star, and the Tribute Trail.
 - **Hand-off:** a report of "lots of algae", or of dead fish, could link to the [CA HABs report form](https://mywaterquality.ca.gov/habs/) and to the groups' contact pages.
 
 ---
