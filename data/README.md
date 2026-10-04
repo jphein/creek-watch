@@ -54,7 +54,7 @@ Newer reports count more: a report's weight halves every 3 days. Each condition 
 | Sewage or chemical smell | −30 | A leak, spill or illegal discharge, which is a risk to people and pets too. |
 | Brown water | −15 | Soil and the pollutants that ride on it. Sediment smothers spawning gravel. |
 | Lots of algae | −15 | Uses up oxygen at night. Some blooms are toxic to dogs. |
-| Orange water | −12 | Orange water can be a sign of mine drainage (iron and other metals) from old mine sites. Avoid contact and report it through [CalEPA's environmental complaint form](https://calepa.ca.gov/enforcement/complaints/), which routes it to the Regional Water Board. |
+| Orange water | −12 | Orange water can be a sign of mine drainage (iron and other metals) from old mine sites, or of a natural iron seep. Avoid contact and report it through [CalEPA's environmental complaint form](https://calepa.ca.gov/enforcement/complaints/), which sends it to the appropriate agency (for water quality, the Water Boards). |
 | Green water | −10 | A sign of algae feeding on extra nutrients. |
 | Lots of trash | −10 | Harms wildlife and signals runoff from streets or camps. |
 | Flood flow | −10 | Scours the banks and flushes runoff into the creek. |
