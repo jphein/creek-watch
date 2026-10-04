@@ -589,3 +589,47 @@ def test_sub_tag_and_age():
     assert push_mod.sub_tag(ep) == hashlib.sha256(ep.encode()).hexdigest()[:8]
     assert push_mod.age_s("2026-10-04T00:00:00Z", datetime(2026, 10, 4, 0, 1, 5, tzinfo=timezone.utc)) == 65
     assert push_mod.age_s(None) is None and push_mod.age_s("garbage") is None
+
+
+# ---- no secrets via library DEBUG logs ----------------------------------------------------------
+
+def test_debug_root_logging_does_not_leak_push_tokens(caplog):
+    """CREEKWATCH_LOG_LEVEL=DEBUG sets the ROOT level; urllib3 would then log
+    'POST /fcm/send/<token>'. The push module pins library loggers to WARNING."""
+    import http.server
+    import logging
+    import threading
+    import urllib3
+
+    class H(http.server.BaseHTTPRequestHandler):
+        def do_POST(self):
+            self.send_response(201); self.end_headers()
+
+        def log_message(self, *a):
+            pass
+
+    srv = http.server.HTTPServer(("127.0.0.1", 0), H)
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    try:
+        caplog.set_level(logging.DEBUG)          # root to DEBUG, as CREEKWATCH_LOG_LEVEL=DEBUG would
+        for name in push_mod.SECRET_SAFE_LOGGERS:
+            assert logging.getLogger(name).getEffectiveLevel() >= logging.WARNING, name
+        urllib3.PoolManager().request("POST", f"http://127.0.0.1:{srv.server_address[1]}/fcm/send/SECRETTOKEN123",
+                                      body=b"x")
+        assert "SECRETTOKEN123" not in caplog.text
+    finally:
+        srv.shutdown()
+
+
+def test_welcome_still_sent_when_created_lookup_fails(tmp_path):
+    sent = []
+    svc = PushService(tmp_path / "p.db", VapidKeys(vapid_private_b64(), None, "https://x.example"),
+                      sender=lambda sub, data, urg: sent.append(1) or 201)
+
+    def locked(endpoint):
+        import sqlite3
+        raise sqlite3.OperationalError("database is locked")
+    svc._created = locked
+    sub = validate_subscription(body(), set())
+    svc.upsert(sub)
+    assert svc.welcome_async(sub).result(timeout=5) == 201 and sent == [1]
