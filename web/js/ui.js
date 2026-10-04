@@ -67,7 +67,7 @@ export const humanize = (s) => {
 // Plain-language names + value formatting for score signals (data/score.py).
 const SIGNAL_LABEL = {
   rain_24h: 'Rain, last 24 hours', air_temp: 'Air temperature', stream_flow: 'Stream flow',
-  report_coverage: 'Reports this week', early_warning_cap: 'Early warning',
+  report_coverage: 'Reports this week', early_warning_cap: 'Early warning', volunteer_lab_data: 'Volunteer water test',
   dead_fish: 'Dead fish seen', odor_sewage_chemical: 'Sewage or chemical smell', odor_rotten: 'Rotten-egg smell',
   water_brown: 'Muddy brown water', water_green: 'Green water', water_cloudy: 'Cloudy water',
   algae_lots: 'Lots of algae', algae_some: 'Some algae', trash_lots: 'Lots of trash', trash_some: 'Some trash',
@@ -81,6 +81,8 @@ export function signalLabel(name) {
 }
 export function signalValue(name, v) {
   if (v == null || v === '') return '';
+  if (name === 'volunteer_lab_data' && /^\d{4}-\d{2}-\d{2}/.test(String(v)))
+    return `tested ${new Date(`${String(v).slice(0, 10)}T12:00:00`).toLocaleDateString(undefined, { year: 'numeric', month: 'short' })}`;
   if (typeof v !== 'number') return String(v);
   if (name === 'rain_24h') return `${v.toFixed(2)} in`;
   if (name === 'air_temp') return `${Math.round(v)}°F`;

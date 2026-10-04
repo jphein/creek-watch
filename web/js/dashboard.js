@@ -86,14 +86,100 @@ function condHTML(c) {
     <div class="cond"><h4>Weather</h4>${
       w
         ? `<div class="big">${w.temp_f != null ? `${esc(Math.round(w.temp_f))}°F` : '—'}</div>
-           <p>Rain last 24 h: ${w.precip_24h_in != null ? `${esc(w.precip_24h_in)} in` : '—'}</p>
+           <p>Rain last 24 h: ${w.precip_24h_in != null ? `${esc(w.precip_24h_in)} in` : '—'}${
+             w.precip_next_24h_in != null ? ` · next 24 h: ${esc(w.precip_next_24h_in)} in` : ''
+           }</p>
            ${w.forecast_short ? `<p>${esc(w.forecast_short)}</p>` : ''}
-           ${w.source_url ? `<a href="${esc(w.source_url)}" target="_blank" rel="noopener">NWS forecast</a>` : ''}`
+           <p class="credit">Temperature &amp; forecast: ${
+             w.forecast_url || w.source_url
+               ? `<a href="${esc(w.forecast_url || w.source_url)}" target="_blank" rel="noopener">NWS</a>`
+               : 'NWS'
+           }. Rain: <a href="${esc(w.precip_source_url || 'https://open-meteo.com/')}" target="_blank" rel="noopener">Open-Meteo</a> model estimate (<a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a>).</p>`
         : '<p>Not available right now.</p>'
     }</div>
   </div>
   ${g?.note ? `<p class="cond-note">${esc(g.note)}</p>` : ''}`;
 }
+
+// Volunteer water tests (RiverDB). Thresholds per data/SOURCES.md.
+const WQ = [
+  ['do_mg_l', 'Oxygen (DO)', (v) => `${v} mg/L`, (v) => (v >= 7 ? 'healthy for trout (7 or more)' : 'low for trout (under 7)'), (v) => v >= 7],
+  ['ph', 'pH', (v) => `${v}`, (v) => (v >= 6.5 && v <= 8.5 ? 'in the healthy range (6.5–8.5)' : 'outside 6.5–8.5'), (v) => v >= 6.5 && v <= 8.5],
+  ['water_temp_c', 'Water temperature', (v) => `${Math.round(v * 10) / 10} °C (${Math.round(v * 1.8 + 32)} °F)`, (v) => (v <= 20 ? 'cool enough for fish' : 'warm for fish (over 20 °C)'), (v) => v <= 20],
+  ['turbidity_ntu', 'Cloudiness (turbidity)', (v) => `${v} NTU`, (v) => (v <= 10 ? 'clear' : v <= 25 ? 'a bit cloudy' : 'cloudy'), (v) => v <= 10],
+  ['ecoli_mpn_100ml', 'E. coli bacteria', (v) => `${v} per 100 mL`, (v) => (v <= 320 ? 'under the 320 swim limit' : 'over the 320 swim limit'), (v) => v <= 320],
+  ['conductivity_us_cm', 'Conductivity', (v) => `${Math.round(v)} µS/cm`, () => 'dissolved minerals', null],
+];
+
+function fmtDate(iso) {
+  const d = new Date(`${iso}T12:00:00`);
+  return Number.isNaN(+d) ? iso : d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+}
+function ageText(days) {
+  if (days == null) return '';
+  if (days < 45) return `${days} days ago`;
+  if (days < 730) return `about ${Math.round(days / 30)} months ago`;
+  return `about ${Math.floor(days / 365)} years ago`;
+}
+
+function stationHTML(st, { compact = false } = {}) {
+  const r = st.readings || {};
+  const rows = WQ.filter(([k]) => r[k] != null)
+    .map(([k, label, fmt, say, ok]) => {
+      const good = ok ? ok(r[k]) : null;
+      return `<li><span class="wq-k">${esc(label)}</span><span class="wq-v">${esc(fmt(r[k]))}</span>
+        <span class="wq-say ${good === false ? 'off' : good === null ? 'neutral' : ''}">${good === null ? '' : good ? '✓ ' : '! '}${esc(say(r[k]))}</span></li>`;
+    })
+    .join('');
+  const old = (st.age_days ?? 0) > 365;
+  return `<div class="wq-station">
+    <p class="wq-where"><strong>${esc(st.name)}</strong><br>
+      <span class="${old ? 'wq-old' : ''}">Tested ${esc(fmtDate(st.date))} (${esc(ageText(st.age_days))})${
+        old ? ' — the latest published test here, shown as background only' : ''
+      }</span></p>
+    ${compact ? '' : `<ul class="wq-list">${rows}</ul>`}
+    <p class="credit">${esc(st.credit || st.agency || 'Volunteer monitoring')}${
+      st.source_url ? ` · <a href="${esc(st.source_url)}" target="_blank" rel="noopener">data</a>` : ''
+    }${st.agency_url ? ` · <a href="${esc(st.agency_url)}" target="_blank" rel="noopener">${esc(st.agency || 'group')}</a>` : ''}</p>
+  </div>`;
+}
+
+function wqHTML(cond) {
+  const stations = cond?.water_quality?.stations || [];
+  if (!stations.length) return '';
+  const [first, ...rest] = stations;
+  return `<section class="wq" aria-label="Volunteer water tests">
+    <h4>Volunteer water tests</h4>
+    ${stationHTML(first)}
+    ${
+      rest.length
+        ? `<details class="more"><summary>${rest.length} more test site${rest.length === 1 ? '' : 's'}</summary>${rest
+            .map((x) => stationHTML(x))
+            .join('')}</details>`
+        : ''
+    }
+  </section>`;
+}
+
+const WARN_GLYPH = { alert: '✕', watch: '!', advisory: 'i' };
+function warningsHTML(h) {
+  const ws = h?.warnings || [];
+  if (!ws.length) return '';
+  return `<ul class="warnings" aria-label="Early warnings">${ws
+    .map(
+      (w) => `<li class="warning lvl-${esc(w.level)}" role="${w.level === 'alert' ? 'alert' : 'note'}">
+        <span class="w-glyph" aria-hidden="true">${WARN_GLYPH[w.level] || '!'}</span>
+        <div><strong>${esc(w.title)}</strong><span class="sr-only"> (${esc(w.level)})</span>
+        ${w.explanation ? `<p>${esc(w.explanation)}</p>` : ''}</div></li>`
+    )
+    .join('')}</ul>`;
+}
+
+const CONFIDENCE = {
+  low: 'Low confidence: no reports this week, so this uses public data only.',
+  medium: 'Medium confidence: based on a few reports this week.',
+  high: 'High confidence: plenty of reports this week plus weather data.',
+};
 
 async function creekCard(c) {
   const since = new Date(Date.now() - 7 * 864e5).toISOString().replace(/\.\d{3}Z$/, 'Z');
@@ -119,11 +205,14 @@ async function creekCard(c) {
       health
         ? `<div class="band-line"><span class="band-dot band-${esc(band)}" aria-hidden="true"></span>
              <span><strong>${BAND_GLYPH[band] || ''} ${esc(bandLabel(band))}</strong> — ${esc(BANDS[band]?.blurb || '')}</span></div>
+           ${warningsHTML(health)}
+           ${health.confidence ? `<p class="confidence">${esc(CONFIDENCE[health.confidence] || `Confidence: ${health.confidence}`)}</p>` : ''}
            <h3 class="sr-only">Why this score</h3>
            <ul class="signals">${(health.signals || []).map(signalHTML).join('') || '<li class="signal">No warning signs right now.</li>'}</ul>`
         : `<p class="muted">Score not available right now.</p>`
     }
     ${condHTML(cond)}
+    ${wqHTML(cond)}
     <div class="spark-wrap"><h4>Reports, last 7 days</h4>${spark.svg}<span class="spark-total">${spark.total}</span></div>
     <h3>Latest reports</h3>
     <div class="recent">${
