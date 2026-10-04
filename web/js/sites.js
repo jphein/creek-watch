@@ -6,6 +6,10 @@ import { esc, bandLabel, haversineKm, fmtDistance, timeAgo, VALUE_LABELS } from 
 // Number(null) and Number('') are 0; a missing value must never read as a real 0.
 export const isNum = (x) => x != null && x !== '' && Number.isFinite(Number(x));
 
+// A past-study station that isn't a Creek Watch spot (data #109): the API sends site_id: null. A station
+// without the key at all (older payloads) counts as ours. One rule for the map pins and the Creeks panel.
+export const isStudyOnly = (st) => !!st && typeof st === 'object' && 'site_id' in st && st.site_id == null;
+
 // Some WCCA sites are on private land, visited monthly with the landowner's permission. Until we
 // have WCCA's list, every WCCA site gets the private wording (the safer default); station ids
 // here are known-public overrides. An `access` field from the API ("private" | "public") wins.
