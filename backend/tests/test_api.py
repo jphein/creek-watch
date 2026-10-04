@@ -472,13 +472,14 @@ def test_off_fly_spoofed_fly_header_does_not_split_buckets(tmp_path, monkeypatch
 
 def test_fly_behind_cloudflare_uses_cf_connecting_ip():
     from creekwatch.main import CLOUDFLARE_NETS, make_client_ip
-    fly = make_client_ip("127.0.0.0/8,172.16.0.0/12", on_fly=True)
+    fly = make_client_ip("127.0.0.0/8,172.16.0.0/12", on_fly=True, cf_hosts=frozenset({"creekwatch.realm.watch"}))
     edge4, edge6 = "104.16.0.10", "2606:4700::1"           # inside published CF ranges
+    H = {"host": "creekwatch.realm.watch"}
     assert any(__import__("ipaddress").ip_address(edge4) in n for n in CLOUDFLARE_NETS)
-    assert fly(_req("172.16.5.9", fly_client_ip=edge4, cf_connecting_ip="198.51.100.20")) == "198.51.100.20"
-    assert fly(_req("172.16.5.9", fly_client_ip=edge6, cf_connecting_ip="2001:db8::7")) == "2001:db8::7"
-    assert fly(_req("172.16.5.9", fly_client_ip=edge4, cf_connecting_ip="nope")) == edge4   # unusable: per-edge
-    assert fly(_req("172.16.5.9", fly_client_ip=edge4)) == edge4
+    assert fly(_req("172.16.5.9", **H, fly_client_ip=edge4, cf_connecting_ip="198.51.100.20")) == "198.51.100.20"
+    assert fly(_req("172.16.5.9", **H, fly_client_ip=edge6, cf_connecting_ip="2001:db8::7")) == "2001:db8::7"
+    assert fly(_req("172.16.5.9", **H, fly_client_ip=edge4, cf_connecting_ip="nope")) == edge4   # unusable: per-edge
+    assert fly(_req("172.16.5.9", **H, fly_client_ip=edge4)) == edge4
     # a direct (non-CF) visitor's spoofed CF-Connecting-IP is ignored
     assert fly(_req("172.16.5.9", fly_client_ip="203.0.113.7", cf_connecting_ip="198.51.100.99")) == "203.0.113.7"
 
@@ -486,7 +487,7 @@ def test_fly_behind_cloudflare_uses_cf_connecting_ip():
 def test_fly_behind_cloudflare_separate_buckets_and_spoof_resistance(tmp_path, monkeypatch):
     monkeypatch.setenv("FLY_APP_NAME", "creekwatch")
     s = Settings(data_dir=tmp_path / "d", web_dir=tmp_path / "w", sites_json=tmp_path / "m.json", rate_limit_count=3)
-    edge = {"Fly-Client-IP": "104.16.0.10"}
+    edge = {"Fly-Client-IP": "104.16.0.10", "Host": "creekwatch.realm.watch"}
     with TestClient(create_app(s)) as c:
         a = [c.post("/api/reports", data=REPORT, headers={**edge, "CF-Connecting-IP": "198.51.100.1"}).status_code
              for _ in range(4)]
@@ -505,3 +506,32 @@ def test_cloudflare_list_vendored():
     v6 = [n for n in CLOUDFLARE_NETS if n.version == 6]
     assert len(v4) >= 15 and len(v6) >= 7
     assert __import__("ipaddress").ip_network("173.245.48.0/20") in v4
+
+
+
+def test_fly_no_fallthrough_to_homelab_headers():
+    """On Fly a missing Fly-Client-IP must yield the peer, never the homelab CF/XFF trust (which would let
+    anyone spoof via CF-Connecting-IP if fly-proxy's address happened to be in the trusted ranges)."""
+    from creekwatch.main import make_client_ip
+    fly = make_client_ip("0.0.0.0/0,::/0", on_fly=True, cf_hosts=frozenset({"creekwatch.realm.watch"}))
+    assert fly(_req("172.16.5.9", cf_connecting_ip="198.51.100.1", x_forwarded_for="198.51.100.2")) == "172.16.5.9"
+    assert fly(_req("172.16.5.9", fly_client_ip="bogus", cf_connecting_ip="198.51.100.1")) == "172.16.5.9"
+
+
+def test_fly_cf_header_only_for_our_hosts():
+    """Someone else's Cloudflare zone/Worker in front of our Fly app is a real CF edge too; it must not be
+    able to choose CF-Connecting-IP. Only our CF-proxied hostnames get that trust."""
+    from creekwatch.main import make_client_ip
+    fly = make_client_ip("127.0.0.0/8", on_fly=True, cf_hosts=frozenset({"creekwatch.realm.watch", "creek.realm.watch"}))
+    edge = "104.16.0.10"
+    for host in ("creekwatch.fly.dev", "evil.example", "", "creekwatch.realm.watch.evil.example"):
+        assert fly(_req("172.16.5.9", host=host, fly_client_ip=edge, cf_connecting_ip="198.51.100.1")) == edge, host
+    for host in ("creekwatch.realm.watch", "CREEK.realm.watch", "creekwatch.realm.watch:443", "creekwatch.realm.watch."):
+        assert fly(_req("172.16.5.9", host=host, fly_client_ip=edge, cf_connecting_ip="198.51.100.1")) == "198.51.100.1", host
+
+
+def test_cf_hosts_setting(monkeypatch):
+    monkeypatch.delenv("CREEKWATCH_CF_HOSTS", raising=False)
+    assert Settings().cf_hosts == frozenset({"creekwatch.realm.watch", "creek.realm.watch"})
+    monkeypatch.setenv("CREEKWATCH_CF_HOSTS", "A.example., b.example")
+    assert Settings().cf_hosts == frozenset({"a.example", "b.example"})

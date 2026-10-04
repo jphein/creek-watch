@@ -124,11 +124,14 @@ CLOUDFLARE_NETS = tuple(ipaddress.ip_network(n) for n in (
 ))
 
 
-def make_client_ip(trusted: str, on_fly: bool = False):
+def make_client_ip(trusted: str, on_fly: bool = False, cf_hosts: frozenset[str] = frozenset()):
     """Real client IP.
     On Fly.io (on_fly, i.e. FLY_APP_NAME is set): every request arrives through fly-proxy, which sets
     Fly-Client-IP to its immediate client. If that is a Cloudflare edge (CF proxy in front of Fly), the
-    edge-set CF-Connecting-IP is used; otherwise Fly-Client-IP. Off Fly both are IGNORED here.
+    edge-set CF-Connecting-IP is used, but ONLY for our own CF-proxied hostnames (cf_hosts): anyone can put
+    their own Cloudflare zone/Worker in front of the Fly app, and Cloudflare routes a hostname only through
+    the zone that owns it, so Host=creekwatch.realm.watch proves the request came through OUR zone.
+    Otherwise Fly-Client-IP. On Fly nothing ever falls through to the homelab rules below.
     Homelab: only a trusted peer (Caddy via loopback/docker bridge) may vouch for the client, preferring
     Cloudflare's CF-Connecting-IP (set at the edge, so unspoofable through the tunnel), then the first
     X-Forwarded-For hop. Anyone else is identified by the TCP peer address."""
@@ -140,16 +143,17 @@ def make_client_ip(trusted: str, on_fly: bool = False):
                 fly_ip = ipaddress.ip_address(request.headers.get("fly-client-ip", "").strip())
             except ValueError:
                 fly_ip = None  # missing/garbage: fall back to the peer below
-            if fly_ip is not None:
-                # Cloudflare in front of Fly: Fly-Client-IP is the CF edge; only then is CF-Connecting-IP
-                # (set by that edge) trusted. A non-CF Fly-Client-IP means a direct visitor: any
-                # CF-Connecting-IP they send is spoofed and ignored.
-                if any(fly_ip in n for n in CLOUDFLARE_NETS):
-                    try:
-                        return str(ipaddress.ip_address(request.headers.get("cf-connecting-ip", "").strip()))
-                    except ValueError:
-                        pass  # edge without a usable CF-Connecting-IP: per-edge bucket
-                return str(fly_ip)
+            if fly_ip is None:
+                # fly-proxy always sets it; never fall through to the homelab header rules on Fly
+                return request.client.host if request.client else "unknown"
+            host = request.headers.get("host", "").split(":")[0].strip().lower().rstrip(".")
+            if host in cf_hosts and any(fly_ip in n for n in CLOUDFLARE_NETS):
+                try:
+                    return str(ipaddress.ip_address(request.headers.get("cf-connecting-ip", "").strip()))
+                except ValueError:
+                    pass  # our edge without a usable CF-Connecting-IP: per-edge bucket
+            # direct visitor, or someone else's Cloudflare in front of us: CF-Connecting-IP is not trusted
+            return str(fly_ip)
         peer = request.client.host if request.client else "unknown"
         try:
             peer_ip = ipaddress.ip_address(peer)
@@ -207,7 +211,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     creeks = load_creeks(s.sites_json, s.use_data_package)
     creek_by_id = {c["id"]: c for c in creeks}
     data = DataLayer(s.conditions_ttl_s, s.use_data_package)
-    client_ip = make_client_ip(s.trusted_proxies, on_fly=s.on_fly)
+    client_ip = make_client_ip(s.trusted_proxies, on_fly=s.on_fly, cf_hosts=s.cf_hosts)
     if s.on_fly:
         log.info("running on Fly.io: client IP from Fly-Client-IP")
     # Photo decode gate. Uploads WAIT here in the event loop (no thread held) and decode on a

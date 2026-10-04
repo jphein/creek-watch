@@ -51,6 +51,10 @@ class Settings:
 
     # Fly.io injects FLY_APP_NAME into every machine; only then is Fly-Client-IP trusted (fly-proxy sets it).
     on_fly: bool = field(default_factory=lambda: bool(os.environ.get("FLY_APP_NAME")))
+    # Our own Cloudflare-proxied hostnames: only for these is CF-Connecting-IP trusted on Fly.
+    cf_hosts: frozenset = field(default_factory=lambda: frozenset(
+        h.strip().lower().rstrip(".") for h in os.environ.get(
+            "CREEKWATCH_CF_HOSTS", "creekwatch.realm.watch,creek.realm.watch").split(",") if h.strip()))
 
     @property
     def db_path(self) -> Path:
