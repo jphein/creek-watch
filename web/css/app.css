@@ -528,3 +528,5 @@ details.more summary { cursor: pointer; font-weight: 700; color: var(--brand); p
 .pin-glyph { transform: rotate(45deg); color: #fff; font: 800 13px/1 var(--font); }
 .pin.band-fair .pin-glyph { color: #1d1600; }
 .cond-note { margin: 8px 0 0; font-size: 0.85rem; color: var(--muted); }
+.site-access { display: block; margin: -2px 0 0; padding: 8px 14px 10px 44px; font-size: 0.9rem; color: var(--ink-2); background: var(--brand-tint); border: 2px solid var(--brand); border-top: 0; border-radius: 0 0 14px 14px; }
+.site:has(.site-access) .site-face { border-radius: 14px 14px 0 0; border-bottom-width: 0; }

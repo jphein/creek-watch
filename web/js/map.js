@@ -60,8 +60,14 @@ export async function mountMap(el, qs) {
 
   for (const c of creeks) {
     if (c.geojson_line) {
-      const layer = L.geoJSON(c.geojson_line, { style: { color: water, weight: 6, opacity: 0.75, lineCap: 'round' } })
-        .bindTooltip(esc(c.name), { sticky: true })
+      // Main stem solid; tributaries (properties.main_stem === false) thinner + dashed.
+      const layer = L.geoJSON(c.geojson_line, {
+        style: (f) =>
+          f?.properties?.main_stem === false
+            ? { color: water, weight: 4, opacity: 0.65, dashArray: '2 8', lineCap: 'round' }
+            : { color: water, weight: 6, opacity: 0.8, lineCap: 'round' },
+        onEachFeature: (f, l) => l.bindTooltip(esc(f?.properties?.name || c.name), { sticky: true }),
+      })
         .addTo(map);
       bounds.push(layer.getBounds());
     }
