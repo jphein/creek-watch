@@ -1,7 +1,7 @@
 [
  {
   "id": 3,
-  "creek_id": "wolf-creek",
+  "creek_id": "wolf",
   "site_id": "wolf-downtown",
   "lat": 39.2172,
   "lon": -121.0603,
@@ -20,7 +20,7 @@
  },
  {
   "id": 2,
-  "creek_id": "wolf-creek",
+  "creek_id": "wolf",
   "site_id": "wolf-south",
   "lat": 39.199,
   "lon": -121.0755,
@@ -41,7 +41,7 @@
  },
  {
   "id": 9,
-  "creek_id": "wolf-creek",
+  "creek_id": "wolf",
   "site_id": "wolf-downtown",
   "lat": 39.2172,
   "lon": -121.0603,
@@ -60,7 +60,7 @@
  },
  {
   "id": 8,
-  "creek_id": "wolf-creek",
+  "creek_id": "wolf",
   "site_id": "wolf-south",
   "lat": 39.199,
   "lon": -121.0755,
@@ -81,7 +81,7 @@
  },
  {
   "id": 5,
-  "creek_id": "wolf-creek",
+  "creek_id": "wolf",
   "site_id": "wolf-south",
   "lat": 39.199,
   "lon": -121.0755,
@@ -100,7 +100,7 @@
  },
  {
   "id": 7,
-  "creek_id": "wolf-creek",
+  "creek_id": "wolf",
   "site_id": "wolf-south",
   "lat": 39.199,
   "lon": -121.0755,
@@ -119,7 +119,7 @@
  },
  {
   "id": 1,
-  "creek_id": "wolf-creek",
+  "creek_id": "wolf",
   "site_id": "wolf-trail-north",
   "lat": 39.2245,
   "lon": -121.0528,
@@ -138,7 +138,7 @@
  },
  {
   "id": 13,
-  "creek_id": "deer-creek",
+  "creek_id": "deer",
   "site_id": "deer-tribute-trail",
   "lat": 39.2598,
   "lon": -121.0335,
@@ -159,7 +159,7 @@
  },
  {
   "id": 4,
-  "creek_id": "wolf-creek",
+  "creek_id": "wolf",
   "site_id": "wolf-memorial-park",
   "lat": 39.2127,
   "lon": -121.0648,
@@ -180,7 +180,7 @@
  },
  {
   "id": 15,
-  "creek_id": "deer-creek",
+  "creek_id": "deer",
   "site_id": "deer-champion-mine",
   "lat": 39.256,
   "lon": -121.048,
@@ -201,7 +201,7 @@
  },
  {
   "id": 18,
-  "creek_id": "deer-creek",
+  "creek_id": "deer",
   "site_id": "deer-upper",
   "lat": 39.269,
   "lon": -121.009,
@@ -220,7 +220,7 @@
  },
  {
   "id": 6,
-  "creek_id": "wolf-creek",
+  "creek_id": "wolf",
   "site_id": "wolf-south",
   "lat": 39.199,
   "lon": -121.0755,
@@ -241,7 +241,7 @@
  },
  {
   "id": 16,
-  "creek_id": "deer-creek",
+  "creek_id": "deer",
   "site_id": "deer-upper",
   "lat": 39.269,
   "lon": -121.009,
@@ -260,7 +260,7 @@
  },
  {
   "id": 17,
-  "creek_id": "deer-creek",
+  "creek_id": "deer",
   "site_id": "deer-champion-mine",
   "lat": 39.256,
   "lon": -121.048,
@@ -281,7 +281,7 @@
  },
  {
   "id": 11,
-  "creek_id": "deer-creek",
+  "creek_id": "deer",
   "site_id": "deer-tribute-trail",
   "lat": 39.2598,
   "lon": -121.0335,
@@ -302,7 +302,7 @@
  },
  {
   "id": 14,
-  "creek_id": "deer-creek",
+  "creek_id": "deer",
   "site_id": "deer-broad-st",
   "lat": 39.2617,
   "lon": -121.0236,
@@ -321,7 +321,7 @@
  },
  {
   "id": 10,
-  "creek_id": "deer-creek",
+  "creek_id": "deer",
   "site_id": "deer-pioneer-park",
   "lat": 39.2626,
   "lon": -121.0196,
@@ -340,7 +340,7 @@
  },
  {
   "id": 12,
-  "creek_id": "deer-creek",
+  "creek_id": "deer",
   "site_id": "deer-champion-mine",
   "lat": 39.256,
   "lon": -121.048,

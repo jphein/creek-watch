@@ -41,16 +41,53 @@ export const BANDS = {
 export const bandLabel = (b) => BANDS[b]?.label || 'Unknown';
 
 const FLAG_TEXT = {
-  alert: 'Alert: dead fish or a sewage/chemical smell. This is flagged for follow-up.',
-  runoff_watch: 'Runoff watch: muddy water can mean soil or street runoff is washing in.',
-  sediment_watch: 'Runoff watch: muddy water can mean soil or street runoff is washing in.',
-  algal_bloom_watch: 'Algae watch: thick algae can turn into a harmful bloom in warm weather.',
-  algae_watch: 'Algae watch: thick algae can turn into a harmful bloom in warm weather.',
-  trash: 'Lots of trash noted. It can harm wildlife and block the flow.',
+  dead_fish: 'Alert: dead fish. This is flagged for follow-up. Please avoid touching the water.',
+  sewage_odor: 'Alert: a sewage smell can mean a leak. This is flagged for follow-up.',
+  chemical_odor: 'Alert: a chemical smell can mean a spill. This is flagged for follow-up.',
+  brown_water: 'Runoff watch: muddy water can mean soil or street runoff is washing in.',
+  heavy_algae: 'Algae watch: thick algae can turn into a harmful bloom in warm weather.',
+  flood: 'Flood: stay back from the banks. Fast water is dangerous.',
+  heavy_trash: 'Lots of trash noted. It can harm wildlife and block the flow.',
 };
+const FLAG_ALIAS = {
+  dead_fish_alert: 'dead_fish', sewage_odor_alert: 'sewage_odor', chemical_odor_alert: 'chemical_odor',
+  algae_heavy: 'heavy_algae', trash_heavy: 'heavy_trash', flood_flow: 'flood',
+};
+FLAG_TEXT.green_water = 'Green water often means algae growing on extra nutrients.';
 export function flagText(f) {
   if (typeof f === 'object' && f) return f.explanation || f.message || f.name || '';
-  return FLAG_TEXT[f] || String(f).replace(/_/g, ' ');
+  return FLAG_TEXT[f] || FLAG_TEXT[FLAG_ALIAS[f]] || humanize(f);
+}
+
+export const humanize = (s) => {
+  const t = String(s ?? '').replace(/_/g, ' ').trim();
+  return t.charAt(0).toUpperCase() + t.slice(1);
+};
+
+// Plain-language names + value formatting for score signals (data/score.py).
+const SIGNAL_LABEL = {
+  rain_24h: 'Rain, last 24 hours', air_temp: 'Air temperature', stream_flow: 'Stream flow',
+  report_coverage: 'Reports this week', early_warning_cap: 'Early warning',
+  dead_fish: 'Dead fish seen', odor_sewage_chemical: 'Sewage or chemical smell', odor_rotten: 'Rotten-egg smell',
+  water_brown: 'Muddy brown water', water_green: 'Green water', water_cloudy: 'Cloudy water',
+  algae_lots: 'Lots of algae', algae_some: 'Some algae', trash_lots: 'Lots of trash', trash_some: 'Some trash',
+  flow_flood: 'Flooding', flow_dry: 'Dry creek bed',
+};
+const REPORT_SHARE = new Set(['dead_fish', 'odor_sewage_chemical', 'odor_rotten', 'water_brown', 'water_green', 'water_cloudy',
+  'algae_lots', 'algae_some', 'trash_lots', 'trash_some', 'flow_flood', 'flow_dry']);
+
+export function signalLabel(name) {
+  return SIGNAL_LABEL[name] || (/[A-Z ]/.test(String(name)) ? String(name) : humanize(name));
+}
+export function signalValue(name, v) {
+  if (v == null || v === '') return '';
+  if (typeof v !== 'number') return String(v);
+  if (name === 'rain_24h') return `${v.toFixed(2)} in`;
+  if (name === 'air_temp') return `${Math.round(v)}°F`;
+  if (name === 'stream_flow') return `${Math.round(v)}% of normal`;
+  if (name === 'report_coverage') return `${v} report${v === 1 ? '' : 's'}`;
+  if (REPORT_SHARE.has(name)) return `${Math.round(v * 100)}% of reports`;
+  return String(Math.round(v * 10) / 10);
 }
 
 let toastTimer;

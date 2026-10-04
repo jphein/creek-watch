@@ -4,6 +4,8 @@ import { esc, bandLabel, reportCardHTML } from './ui.js';
 
 const LEAFLET_CSS = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css';
 const LEAFLET_JS = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js';
+const LEAFLET_JS_SRI = 'sha512-puJW3E/qXDqYp9IfhAI54BJEaWIfloJ7JWs7OeD5i6ruC9JZL1gERT1wjtwXFlh7CjE7ZJ+/vcRZRkIYIb6p4g==';
+const LEAFLET_CSS_SRI = 'sha512-h9FcoyWjHcOcmEVkxOfTLnmZFWIH0iZhZT1H2TbOq55xssQGEJHEaIm+PgoUaZbRvQTNTluNOEfb1ZRy6D3BOw==';
 const BAND_GLYPH = { good: '✓', fair: '~', watch: '!', alert: '✕' };
 
 let map, L, pinsById = new Map(), creeksCache = [];
@@ -14,9 +16,15 @@ function loadLeaflet() {
     const css = document.createElement('link');
     css.rel = 'stylesheet';
     css.href = LEAFLET_CSS;
+    css.integrity = LEAFLET_CSS_SRI;
+    css.crossOrigin = 'anonymous';
+    css.referrerPolicy = 'no-referrer';
     document.head.appendChild(css);
     const s = document.createElement('script');
     s.src = LEAFLET_JS;
+    s.integrity = LEAFLET_JS_SRI;
+    s.crossOrigin = 'anonymous';
+    s.referrerPolicy = 'no-referrer';
     s.onload = () => resolve(window.L);
     s.onerror = () => reject(new Error('Map library could not load. Check your connection.'));
     document.head.appendChild(s);

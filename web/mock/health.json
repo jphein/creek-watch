@@ -1,5 +1,5 @@
 {
- "wolf-creek": {
+ "wolf": {
   "score": 72,
   "band": "fair",
   "signals": [
@@ -35,7 +35,7 @@
   "recent_report_count": 9,
   "last_updated": "2026-10-03T22:50:00Z"
  },
- "deer-creek": {
+ "deer": {
   "score": 41,
   "band": "watch",
   "signals": [

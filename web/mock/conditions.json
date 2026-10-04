@@ -1,5 +1,5 @@
 {
- "wolf-creek": {
+ "wolf": {
   "gauge": null,
   "weather": {
    "temp_f": 78,
@@ -10,7 +10,7 @@
   },
   "fetched_at": "2026-10-03T22:50:00Z"
  },
- "deer-creek": {
+ "deer": {
   "gauge": {
    "site_no": "11418500",
    "name": "DEER C NR SMARTSVILLE CA",

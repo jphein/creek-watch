@@ -1,7 +1,7 @@
 // Dashboard — one card per creek: score gauge, band, explained signals,
 // gauge + weather, 7-day report sparkline, recent reports.
 import { getCreeks, getHealth, getConditions, getReports, reportBand } from './api.js';
-import { esc, BANDS, bandLabel, timeAgo, reportCardHTML } from './ui.js';
+import { esc, BANDS, bandLabel, timeAgo, reportCardHTML, signalLabel, signalValue } from './ui.js';
 
 const BAND_GLYPH = { good: '✓', fair: '~', watch: '!', alert: '✕' };
 
@@ -59,10 +59,13 @@ function sparkSVG(reports) {
 
 function signalHTML(s) {
   const w = Number(s.weight);
-  const wTxt = Number.isFinite(w) && w !== 0 ? `<span class="s-w ${w < 0 ? 'neg' : 'pos'}">${w > 0 ? '+' : '−'}${Math.abs(w)}</span>` : '';
+  const wr = Math.round(Math.abs(w) * 10) / 10;
+  const wTxt = Number.isFinite(w) && wr !== 0
+    ? `<span class="s-w ${w < 0 ? 'neg' : 'pos'}" title="${w < 0 ? 'Points taken off the score' : 'Points added'}">${w > 0 ? '+' : '−'}${wr}</span>`
+    : '';
   return `<li class="signal">
-    <span class="s-name">${esc(s.name)}</span>
-    <span class="s-val">${esc(s.value ?? '')} ${wTxt}</span>
+    <span class="s-name">${esc(signalLabel(s.name))}</span>
+    <span class="s-val">${esc(signalValue(s.name, s.value))} ${wTxt}</span>
     ${s.explanation ? `<span class="s-exp">${esc(s.explanation)}</span>` : ''}
     ${s.source ? `<span class="s-src">Source: ${esc(s.source)}</span>` : ''}
   </li>`;
@@ -76,6 +79,7 @@ function condHTML(c) {
       g
         ? `<div class="big">${g.discharge_cfs != null ? `${esc(g.discharge_cfs)} <small>cfs</small>` : '—'}</div>
            <p>${g.gage_height_ft != null ? `Water height ${esc(g.gage_height_ft)} ft · ` : ''}${esc(timeAgo(g.observed_at))}</p>
+           ${g.pct_of_median != null ? `<p>${esc(Math.round(g.pct_of_median))}% of normal for today</p>` : ''}
            ${g.source_url ? `<a href="${esc(g.source_url)}" target="_blank" rel="noopener">USGS ${esc(g.site_no || '')}</a>` : ''}`
         : `<p>No live USGS gauge on this creek. Reports and weather fill the gap.</p>`
     }</div>
@@ -87,7 +91,8 @@ function condHTML(c) {
            ${w.source_url ? `<a href="${esc(w.source_url)}" target="_blank" rel="noopener">NWS forecast</a>` : ''}`
         : '<p>Not available right now.</p>'
     }</div>
-  </div>`;
+  </div>
+  ${g?.note ? `<p class="cond-note">${esc(g.note)}</p>` : ''}`;
 }
 
 async function creekCard(c) {

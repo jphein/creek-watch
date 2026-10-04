@@ -114,24 +114,29 @@ export async function postReport(form) {
   return request('/api/reports', { method: 'POST', body: form });
 }
 
-// Client-side mirror of the SPEC's early-warning rules — used for mock mode
-// and to colour a report when the server sends no band.
+// Client-side mirror of the backend's compute_flags() — used in mock mode.
 export function deriveFlags(r) {
   const f = [];
-  if (r.dead_fish === true || r.dead_fish === 'true' || ['sewage', 'chemical'].includes(r.odor)) f.push('alert');
-  if (r.water_color === 'brown') f.push('runoff_watch');
-  if (r.algae === 'lots') f.push('algal_bloom_watch');
-  if (r.trash === 'lots') f.push('trash');
+  if (r.dead_fish === true || r.dead_fish === 'true') f.push('dead_fish');
+  if (['sewage', 'chemical'].includes(r.odor)) f.push(`${r.odor}_odor`);
+  if (r.algae === 'lots') f.push('heavy_algae');
+  if (r.water_color === 'brown') f.push('brown_water');
+  if (r.flow === 'flood') f.push('flood');
+  if (r.trash === 'lots') f.push('heavy_trash');
   return f;
 }
 
+// Matched by substring: the API (dead_fish, sewage_odor) and data lane
+// (dead_fish_alert, chemical_odor_alert) name flags slightly differently.
+const ALERT_HINTS = ['dead_fish', 'sewage', 'chemical', 'alert'];
+
+// Per-report band for map pins (the API gives bands per creek, not per report).
 export function reportBand(r) {
   if (r.band) return r.band;
-  const flags = r.flags && r.flags.length ? r.flags : deriveFlags(r);
-  const has = (s) => flags.some((x) => String(x).includes(s));
-  if (has('alert')) return 'alert';
-  if (has('watch') || flags.length) return 'watch';
-  if (r.algae === 'some' || r.trash === 'some' || ['cloudy', 'green', 'other'].includes(r.water_color) || r.odor === 'rotten')
+  const flags = (r.flags && r.flags.length ? r.flags : deriveFlags(r)).map(String);
+  if (flags.some((x) => ALERT_HINTS.some((h) => x.includes(h)))) return 'alert';
+  if (flags.length) return 'watch';
+  if (r.algae === 'some' || r.trash === 'some' || ['cloudy', 'green', 'other'].includes(r.water_color) || ['rotten', 'other'].includes(r.odor))
     return 'fair';
   return 'good';
 }

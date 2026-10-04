@@ -376,6 +376,7 @@ function errorBanner() {
     <div class="banner-actions">
       <button type="button" class="btn primary" data-act="send">Try again</button>
       ${offline ? `<button type="button" class="btn secondary" data-act="queue">Send later automatically</button>` : ''}
+      ${photo && [413, 415, 503].includes(lastError.status) ? `<button type="button" class="btn secondary" data-act="send-nophoto">Send without the photo</button>` : ''}
     </div>
   </div>`;
 }
@@ -503,6 +504,7 @@ export function bindReport(el) {
     if (act === 'photo-clear') { setPhoto(null); persist(); return render(); }
     if (act === 'no-photo') { st.noPhoto = true; persist(); return go(1); }
     if (act === 'send') return send();
+    if (act === 'send-nophoto') { setPhoto(null); st.noPhoto = true; persist(); return send(); }
     if (act === 'queue') return queue();
     if (act === 'again') return reset();
   });
