@@ -287,3 +287,33 @@ def test_sources_endpoint_contract_frozen(tmp_path):
     assert j["sources"][0]["last_ok"].endswith("Z") and "last_error" in j["sources"][0]
     assert j["schedule"]["nws"]["interval_s"] == 300
     p.shutdown()
+
+
+def test_new_incident_after_long_gap_notifies_again(tmp_path):
+    """Same id, same severity: flapping (short gap) stays quiet; a new incident after REARM_AFTER_S
+    notifies again (else a deploy test alert would silence the real one forever)."""
+    from creekwatch.alerts import store as store_mod
+    st = AlertStore(tmp_path / "r.db")
+    a = validate_alert(make_alert(id="creekwatch:deer:contamination_alert", source="creekwatch", severity="alert",
+                                  expires=None))
+    st.apply_fetch("creekwatch", [a], now="2026-10-04T00:00:00Z")
+    assert st.claim_push(a["id"], "alert") is True
+    st.apply_fetch("creekwatch", [], now="2026-10-04T01:00:00Z")            # cleared
+    assert [c.kind for c in st.apply_fetch("creekwatch", [a], now="2026-10-04T02:00:00Z")] == ["new"]
+    assert st.claim_push(a["id"], "alert") is False                          # 1 h gap: flapping, quiet
+    st.apply_fetch("creekwatch", [], now="2026-10-04T03:00:00Z")            # cleared again
+    later = f"2026-10-04T{3 + store_mod.REARM_AFTER_S // 3600:02d}:00:00Z"
+    assert [c.kind for c in st.apply_fetch("creekwatch", [a], now=later)] == ["new"]
+    assert st.claim_push(a["id"], "alert") is True                           # new incident: announce
+
+
+def test_inactive_since_migration(tmp_path):
+    import sqlite3
+    db = tmp_path / "old.db"
+    c = sqlite3.connect(db)
+    c.executescript("CREATE TABLE alerts (id TEXT PRIMARY KEY, source TEXT NOT NULL, payload TEXT NOT NULL, "
+                    "status TEXT NOT NULL, severity TEXT NOT NULL, category TEXT NOT NULL, first_seen TEXT NOT NULL, "
+                    "updated TEXT NOT NULL, expires TEXT, last_pushed_severity TEXT);")
+    c.close()
+    AlertStore(db)
+    assert "inactive_since" in {r[1] for r in sqlite3.connect(db).execute("PRAGMA table_info(alerts)")}
