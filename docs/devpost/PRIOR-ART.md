@@ -97,6 +97,35 @@ The pattern of turning citizen checks into an explained score is crowded here.
 
 ---
 
+## 2b. Existing water-alert services for California and Nevada County
+
+Checked 2026-10-03 (web search plus page fetches). Facts come from the linked pages.
+
+| Service | Who | What it alerts on | Delivery | Covers our creeks? | Relation |
+|---|---|---|---|---|---|
+| [Nevada County Alerts](https://www.nevadacountyca.gov/3780/Emergency-Alerts) (replaced CodeRED; evacuation zones on [Genasys Protect](https://protect.genasys.com)) | Nevada County OES | Emergencies: wildfire, severe weather, other public-safety events ([launch notice](https://www.nevadacountyca.gov/m/newsflash/Home/Detail/8687)) | Opt-in text, email and phone, by address | County-wide emergencies; not creek water quality | **The authority for emergencies.** Creek Watch links it and never replaces it |
+| [AwareCA](https://pressdemocrat.com/2026/10/02/awareca-app-cal-fire-emergency-alerts) | Cal Fire with Intterra, launched Oct 2026 | Fires, **floods**, earthquakes, severe weather, hazmat; evacuation zones | iOS and Android app, location-aware push | Statewide emergencies; the article doesn't mention water quality | Adjacent. Official emergency push |
+| [USGS WaterAlert](https://waterdata.usgs.gov/blog/wateralert-post-rollout) | USGS | User-set thresholds on USGS gauges (for example, flow too high) | Email and text | Only where a USGS gauge exists: **none on Wolf Creek**, and Deer Creek's is 22 km downstream | Prior art for threshold alerts; can't see our creeks in town |
+| [WaterVerge alerts](https://www.waterverge.com/alerts/) | Independent site, "not affiliated with the EPA or any government agency" | NWS and FEMA IPAWS water-related alerts, refreshed every 5 minutes; grades public drinking-water systems | Web, plus a weekly ZIP-code email | National, federal feeds only. The page doesn't mention HABs or sewage spills | **The closest "all water alerts in one place" analogue**, but national and federal-only. No local creek, citizen or volunteer data |
+| [CA HABs Portal and reports map](https://mywaterquality.ca.gov/habs/where/freshwater_events.html) | CA Water Boards | Harmful algal bloom reports and advisory levels | Web map and report form; no push found | Statewide, including the reservoirs if reported | Source and destination: link and hand off |
+| [Safe to Swim map](https://mywaterquality.ca.gov/safe-to-swim/content/interactive_map/) | CA Water Quality Monitoring Council | Bacteria results against state E. coli and enterococci objectives (from CEDEN and BeachWatch) | Web map, updated on weekdays | Sites with submitted data | Context source |
+| [Swim Guide](https://www.theswimguide.org/get-the-app/) | Swim Drink Fish (Waterkeeper) | Green/red swim status for more than 7,000 beaches, lakes and rivers | iOS, Android and web | Mostly beaches; we didn't confirm Nevada County sites | Adjacent prior art (swim status) |
+| SYRCL and Sierra Streams Institute swim-safety posts ([SYRCL](https://yubariver.org/posts/river-monitoring-collect-data-on-e-coli-and-total-coliform/), [SSI](https://sierrastreamsinstitute.org/2025/07/29/theres-bacteria-in-the-creek-is-it-safe-to-swim-right-now/)) | Local nonprofits | Summer E. coli results at popular swimming spots | Blog posts and RiverDB | **Yes:** the Yuba and Deer Creek | Data we credit via RiverDB; not a push service |
+| [Watch Duty](https://pressdemocrat.com/2026/10/02/awareca-app-cal-fire-emergency-alerts) | Watch Duty (nonprofit) | Wildfire | App push | Wildfire only | Not water. Mentioned only because the press compares AwareCA to it |
+
+**Honest read:**
+- Official emergency alerts (flood, evacuation) already have authoritative channels: Nevada County Alerts, AwareCA, and the NWS through Wireless Emergency Alerts.
+- Creek Watch must link to and defer to them, never compete on life-safety warnings.
+- What we found **no** existing service doing is putting, in one place and per creek:
+  - official NWS flood and weather alerts;
+  - state algal-bloom and sewage-spill records;
+  - volunteer bacteria tests;
+  - citizen reports from the bank,
+
+  as open feeds and opt-in push for two small creeks that have no gauge in town.
+- That niche is real but narrow. WaterVerge is the nearest analogue at national scale.
+- *Not verified:* whether any local agency publishes its own creek-advisory feed that we didn't find.
+
 ## 3. Local: is anyone already watching Wolf Creek and Deer Creek?
 
 **Yes, with serious, long-running volunteer science. We should cite it, not compete with it.**
