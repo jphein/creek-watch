@@ -63,7 +63,7 @@
 ## 7. The data (3:50 – 4:10)
 **SHOW:** the About the data page with its source list and links.
 **SAY:**
-> We combine three kinds of data: / reports from people at the creek, / stream-gauge data from the U.S. Geological Survey, / where a gauge exists, / and weather from the National Weather Service. / The map uses OpenStreetMap. / All the code is open source, / on GitHub.
+> We combine three kinds of data: / reports from people at the creek, / stream-gauge data from the U.S. Geological Survey, / where a gauge exists, / and weather from the National Weather Service / and Open-Meteo. / The map uses OpenStreetMap. / All the code is open source, / on GitHub.
 
 ## 8. Impact and close (4:10 – 4:40)
 **SHOW:** your best creek photo, then the title card with the URL and team names.
@@ -76,7 +76,7 @@
 
 ---
 
-**Timing check (counted):** the narration is 564 words. At 140 words a minute that's about 4:00 of speech; the pauses at each `/` and the on-screen moments bring it to about 4:20–4:40. **That's close to the 5:00 limit. If a take runs over 4:50, first cut the *(optional)* lines (20 words), then cut "The map uses OpenStreetMap. / All the code is open source, / on GitHub." in section 7.** It must land between 3:00 and 5:00.
+**Timing check (counted):** the narration is 566 words. At 140 words a minute that's about 4:00 of speech; the pauses at each `/` and the on-screen moments bring it to about 4:20–4:40. **That's close to the 5:00 limit. If a take runs over 4:50, first cut the *(optional)* lines (20 words), then cut "The map uses OpenStreetMap. / All the code is open source, / on GitHub." in section 7.** It must land between 3:00 and 5:00.
 
 **Before you record, check with JP:**
 - the real report count `[N]`, and today's `[score]` and `[band]`;
