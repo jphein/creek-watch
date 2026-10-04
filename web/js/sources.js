@@ -81,7 +81,7 @@ export const SOURCE_LAYERS = [
     toggle: false,
     glyph: '',
     description: 'Map tiles, creek lines and the named report spots’ locations.',
-    license: 'ODbL.',
+    license: 'Data: ODbL; map tiles: CC BY-SA 2.0.',
     attribution: '© OpenStreetMap contributors',
     attributionUrl: 'https://www.openstreetmap.org/copyright',
   },

@@ -80,6 +80,8 @@ for (const scheme of ['light', 'dark']) {
       links: [...document.querySelectorAll('#ml-panel .ml-credit a')].map((a) => ({ href: a.getAttribute('href'), target: a.target, rel: a.rel })),
       terms: items.every((li) => /Terms:/.test(li.textContent) && /Credit:/.test(li.textContent)),
       osmAlways: /always on/.test(document.querySelector('#ml-panel .ml-src[data-src="osm"]')?.textContent || ''),
+      osmTerms: document.querySelector('#ml-panel .ml-src[data-src="osm"] .ml-terms')?.textContent.replace(/\s+/g, ' ').trim(),
+      osmCredit: document.querySelector('#ml-panel .ml-src[data-src="osm"] .ml-credit')?.textContent.replace(/\s+/g, ' ').trim(),
       bandsInReports: document.querySelectorAll('#ml-panel .ml-src[data-src="reports"] .band-dot').length,
       clearOfZoom: lg.top > z.bottom, noHScroll: document.scrollingElement.scrollWidth <= innerWidth,
     };
@@ -136,6 +138,7 @@ const checks = {
     && KEYS.every((k) => D.toggles[k].hid && D.toggles[k].restored),
   layoutMobile: [L, D].every((x) => x.layout.noHScroll && x.layout.clearOfZoom && x.layout.insideW && x.layout.legendH <= 110),
   panelListsEverySource: L.panel.visible && L.panel.expanded === 'true' && L.panel.keys.join() === [...KEYS, 'osm'].join() && L.panel.terms && L.panel.osmAlways && L.panel.bandsInReports === 4,
+  osmTermsTilesVsData: L.panel.osmTerms === 'Terms: Data: ODbL; map tiles: CC BY-SA 2.0.' && L.panel.osmCredit === 'Credit: © OpenStreetMap contributors',
   panelLinksHttpsNewTab: L.panel.links.length === 8 && L.panel.links.every((a) => a.href.startsWith('https://') && a.target === '_blank' && /noopener/.test(a.rel)),
   panelClearOfZoomAndCloses: L.panel.clearOfZoom && L.panel.noHScroll && D.panel.clearOfZoom && L.panelClosed,
   chipNameContainsVisibleText: L.names.length === 7 && L.names.every((n, i) => n.startsWith(L.chips[i][2].split(' (')[0])) && L.names.some((n) => n.includes('(2024 Regional Board bacteria study)')),
