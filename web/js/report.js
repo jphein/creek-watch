@@ -390,7 +390,9 @@ function renderDone() {
   const r = done;
   const creek = creeks.find((c) => c.id === r.creek_id);
   const band = reportBand(r);
-  const flags = (r.flags || []).map(flagText).filter(Boolean);
+  const flags = (r.flags || [])
+    .map((f) => ({ text: flagText(f), alert: /dead_fish|sewage|chemical|alert/.test(String(f)) }))
+    .filter((f) => f.text);
   root.innerHTML = `
   <section class="done" aria-labelledby="done-h">
     <div class="done-mark" aria-hidden="true">${icon.check}</div>
@@ -406,7 +408,7 @@ function renderDone() {
         ? `<div class="band-chip band-${band}"><span class="dot"></span>This report reads as <strong>${bandLabel(band)}</strong></div>`
         : ''
     }
-    ${flags.length ? `<ul class="flag-list">${flags.map((f) => `<li>${esc(f)}</li>`).join('')}</ul>` : ''}
+    ${flags.length ? `<ul class="flag-list">${flags.map((f) => `<li class="${f.alert ? 'alert' : ''}">${esc(f.text)}</li>`).join('')}</ul>` : ''}
     <h3>What happens next</h3>
     <ol class="next-steps">
       <li><strong>It shows on the map</strong> for anyone to see, with your photo.</li>

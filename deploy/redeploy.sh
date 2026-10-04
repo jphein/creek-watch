@@ -20,6 +20,11 @@ if [ "$(hostname -s)" != "$DEPLOY_HOST" ]; then
   exec ssh "$DEPLOY_HOST" "env $fwd bash -s -- $(printf '%q ' "$@")" < "${BASH_SOURCE[0]}"
 fi
 
+# Everything below runs inside main(): bash parses the whole function before running it, and
+# stdin is then detached, so when this script arrives as `ssh host bash -s < script`, an inner
+# ssh/docker/git that reads stdin can't swallow the rest of the script.
+main() {
+exec </dev/null
 BASE="${CW_BASE:-$HOME/creekwatch}"
 SRC="$BASE/src"
 REPO="${CW_REPO:-github-creekwatch:jphein/creek-watch.git}"
@@ -28,11 +33,18 @@ PREV=creekwatch-prev
 CW_PORT="${CW_PORT:-8442}"
 CW_STAGE_PORT="${CW_STAGE_PORT:-8443}"
 STAGE=creekwatch-stage
+# Fallback contract; backend/tests/test_deploy_contract.py asserts the Dockerfile + compose.yaml match
+# these three defaults. Change them together with the Dockerfile, in the same PR.
 CW_APP_PORT="${CW_APP_PORT:-8080}"
 CW_VAR="${CW_VAR:-/srv/creekwatch}"
 VOLUME="${CW_VOLUME:-creekwatch-data}"
 HOSTNAME_PUBLIC=creekwatch.realm.watch
 HEALTH_TIMEOUT="${CW_HEALTH_TIMEOUT:-60}"
+# Resource caps so a hostile/huge upload OOM-kills the container (restart: unless-stopped), not ubox0.
+# Idle ~60 MB; one worst-case image decode measured ~600 MB maxrss (Oracle gate-13-17), so 1.5 GB fits two
+# concurrent worst cases. pids: ~14 in use.
+CW_MEMORY="${CW_MEMORY:-1536m}"
+CW_PIDS="${CW_PIDS:-256}"
 
 log() { printf '%s redeploy: %s\n' "$(date '+%F %T %Z')" "$*"; }
 die() { log "FAIL: $*"; exit 1; }
@@ -60,6 +72,8 @@ run_app() {  # $1 = container name, $2 = host port, $3 = image, $4 = restart pol
     -e "GIT_SHA=$SHA" -e "CREEKWATCH_PUBLIC_URL=https://${HOSTNAME_PUBLIC}" \
     "${envfile[@]}" \
     --log-opt max-size=10m --log-opt max-file=3 \
+    --memory "$CW_MEMORY" --memory-swap "$CW_MEMORY" --pids-limit "$CW_PIDS" \
+    --security-opt no-new-privileges --cap-drop ALL \
     "$3" >/dev/null
 }
 
@@ -68,7 +82,20 @@ status() {
   log "deployed.sha=$(cat "$BASE/deployed.sha" 2>/dev/null || echo none)"
 }
 
+# take_backup_lock: hold backup.sh's stage lock (fd 8) until this script exits, so a backup never runs
+# while no container is named $NAME (swap or rollback). Idempotent. Waits for an in-flight backup, but at
+# most CW_SWAP_LOCK_WAIT (default 300 s) so build + wait + swap stays inside the unit's TimeoutStartSec=900.
+take_backup_lock() {
+  [ -n "${BACKUP_LOCK_HELD:-}" ] && return 0
+  local stage="${CW_BACKUP_STAGE:-$HOME/creekwatch/backup-stage}"
+  mkdir -p "$stage"
+  exec 8>"$stage/.lock"
+  flock -w "${CW_SWAP_LOCK_WAIT:-300}" 8 || log "WARN: backup lock still busy after ${CW_SWAP_LOCK_WAIT:-300}s; proceeding anyway"
+  BACKUP_LOCK_HELD=1
+}
+
 rollback() {
+  take_backup_lock
   docker inspect "$PREV" >/dev/null 2>&1 || die "no $PREV container to roll back to"
   log "rolling back to $(docker inspect -f '{{.Config.Image}}' "$PREV")"
   docker rm -f "$NAME" >/dev/null 2>&1 || true
@@ -92,8 +119,11 @@ case "${1:-}" in
 esac
 
 mkdir -p "$BASE"
-[ -d "$SRC/.git" ] || git clone -q "$REPO" "$SRC"
-git -C "$SRC" fetch -q --prune origin
+# A stalled GitHub connection once hung `git fetch` for 12+ min, and a hung run blocks the timer
+# (OnUnitActiveSec never re-arms). Bound it; a network failure is NOT recorded as a failed sha.
+export GIT_SSH_COMMAND="ssh -o BatchMode=yes -o ConnectTimeout=15 -o ServerAliveInterval=15 -o ServerAliveCountMax=3"
+[ -d "$SRC/.git" ] || timeout 120 git clone -q "$REPO" "$SRC" || die "git clone failed or timed out"
+timeout 90 git -C "$SRC" fetch -q --prune origin || die "git fetch failed or timed out (network?); will retry next tick"
 SHA=$(git -C "$SRC" rev-parse --verify "${REF}^{commit}" 2>/dev/null || git -C "$SRC" rev-parse --verify "origin/${REF}^{commit}")
 SHORT=${SHA:0:12}
 
@@ -115,6 +145,14 @@ log "built $IMAGE"
 
 docker volume inspect "$VOLUME" >/dev/null 2>&1 || docker volume create "$VOLUME" >/dev/null
 
+# Follow the image's own contract (EXPOSE / VOLUME) so an app-side port or data-dir change can't strand
+# deploys; the SAME named volume is always mounted, so reports and photos carry across contract changes.
+img_port=$(docker image inspect -f '{{range $p, $_ := .Config.ExposedPorts}}{{$p}} {{end}}' "$IMAGE" | tr ' ' '\n' | grep -m1 /tcp | cut -d/ -f1 || true)
+img_vol=$(docker image inspect -f '{{range $v, $_ := .Config.Volumes}}{{$v}} {{end}}' "$IMAGE" | xargs -n1 2>/dev/null | head -1 || true)
+[ -n "$img_port" ] && CW_APP_PORT="$img_port"
+[ -n "$img_vol" ] && CW_VAR="$img_vol"
+log "contract: app port $CW_APP_PORT, volume $VOLUME at $CW_VAR"
+
 # 1) Stage: boot the new image on a side port (same volume) while the old one keeps serving.
 docker rm -f "$STAGE" >/dev/null 2>&1 || true
 run_app "$STAGE" "$CW_STAGE_PORT" "$IMAGE" no || fail "docker run (stage) failed; live container untouched"
@@ -127,6 +165,9 @@ fi
 docker rm -f "$STAGE" >/dev/null
 log "staged OK; swapping"
 
+# Hold the backup lock across the swap (released when this script exits) so backup.sh never runs while
+# no container is named $NAME.
+take_backup_lock
 # 2) Swap: keep the old container (stopped) as $PREV so rollback is one `docker start`. Gap is ~1-2 s.
 docker rm -f "$PREV" >/dev/null 2>&1 || true
 if docker inspect "$NAME" >/dev/null 2>&1; then
@@ -154,3 +195,5 @@ else
   rollback
   fail "post-swap health check failed for $SHORT (rolled back)"
 fi
+}
+main "$@"

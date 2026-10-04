@@ -1,0 +1,10 @@
+[Unit]
+Description=Creek Watch: back up reports DB + photos to disks
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=jp
+ExecStart=/home/jp/creekwatch/bin/backup.sh
+TimeoutStartSec=600
