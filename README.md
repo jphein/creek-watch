@@ -78,10 +78,10 @@ Creek Watch gathers water-related alerts for Wolf Creek, Deer Creek and nearby w
 | RiverDB volunteer tests | daily | E. coli above California's recreational threshold of 320 per 100 mL (a statistical threshold, not a single-sample limit) |
 | OEHHA fish-consumption advisories | daily | Standing advisories, linked to OEHHA |
 
-Not live sources: EPA CyAN (too coarse for these waters), boil-water notices (no public feed; see [waterboards.ca.gov/drinking_water](https://www.waterboards.ca.gov/drinking_water/)) and Cal OES spill reports (no public feed). The app links to these instead.
+Not live sources: EPA CyAN (too coarse for these waters), boil-water notices (no public feed; see [waterboards.ca.gov/drinking_water](https://www.waterboards.ca.gov/drinking_water/)) and Cal OES spill reports (no machine-readable feed). The app links to these instead.
 
 - **Feeds:** `/alerts.atom` and `/alerts.cap.xml` (CAP 1.2 inside Atom), both filterable with `?creek_id=`.
-- **Push:** opt-in Web Push with per-creek, per-severity and quiet-hours filters. No account is needed. The server stores only the push endpoint, its keys and your filters. Push hosts are restricted to the known push services.
+- **Push:** opt-in Web Push with per-creek, per-severity and quiet-hours filters. No account is needed. The server stores only the push endpoint, its keys and your filters, plus timestamps and a delivery-failure counter. Push hosts are restricted to the known push services.
 - **Not an emergency service.** Official alerts are linked to their source. For emergencies and evacuations, use Nevada County Alerts, AwareCA and 911.
 
 Source details: [data/alerts/SOURCES.md](data/alerts/SOURCES.md).
