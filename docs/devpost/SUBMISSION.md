@@ -23,7 +23,15 @@ Anyone at the creek files a 2-minute photo report; Creek Watch fuses it with liv
 
 **Also addresses:**
 - **Track 1, Citizen Science UX:** a guided six-step report flow with big tap targets, picture icons and everyday words ("cloudy", "smells like sewage") instead of lab terminology. Location is filled from the phone, and the nearest monitoring spot is picked automatically.
-- **Track 6, Resilience Informatics:** rule-based early-warning signals that combine citizen reports with environmental data. Heavy rain in the last 24 h plus brown-water reports raises a *runoff/sediment watch*. Heavy algae plus warm temperatures raises an *algal-bloom watch*. Any dead fish, or a chemical or sewage odour, raises an *alert*.
+- **Track 6, Resilience Informatics:** one place for water-related warnings on these creeks. Creek Watch checks eight live sources on a schedule:
+  - National Weather Service alerts and Creek Watch's own early-warning rules, every 5 minutes;
+  - USGS high- and low-flow signals and NOAA river flood categories, every 15 minutes;
+  - state harmful-algal-bloom advisories, hourly;
+  - State Water Board sewage-spill reports, every 12 hours;
+  - volunteer bacteria tests and California's fish-consumption advisories, daily.
+
+  It shows them on an **Alerts** page, and anyone can opt in to **push notifications** filtered by creek and severity. Creek Watch's own rules turn citizen reports into warnings: heavy rain plus brown-water reports raises a *runoff watch*; lots of algae in warm weather raises an *algal-bloom watch*; any dead fish, or a chemical or sewage smell, raises an *alert*. Every official alert links its source. For emergencies and evacuations, the app points people to Nevada County Alerts, AwareCA and 911; it doesn't replace them.
+- **Also Track 7, Digital Health Standards (interoperability):** every alert is also published in **CAP 1.2**, the OASIS Common Alerting Protocol used by public alerting systems, inside an Atom feed (`/alerts.cap.xml`). There's a plain Atom feed too (`/alerts.atom`), and both can be filtered per creek. Any system can read them without an account. We checked each CAP alert in the live feed against the official OASIS CAP 1.2 schema. We don't claim FHIR or any formal integration with other systems.
 
 ## Inspiration
 Wolf Creek runs through downtown Grass Valley, and Deer Creek runs through downtown Nevada City, in California's Sierra foothills. Both pass parks, trails, streets and homes, and people walk beside them every day. Yet neither is monitored live where people are. **Wolf Creek has no real-time USGS stream gauge at all.** **Deer Creek's only real-time gauge (USGS 11418500, near Smartsville) is about 22 km downstream of Nevada City, below Lake Wildwood, whose regulation damps and delays what happens in town.** Those walkers see things an instrument can't: trash, algae, foam, an odd smell, a dead fish. But there's no simple way to record what they saw or to connect it with the stream-gauge and weather data that already exist. We wanted the people who notice first to become part of the early-warning system.
@@ -45,6 +53,8 @@ Each of these lives on a different government website, in a different format. So
 - **Map:** creek lines, named monitoring spots and recent-report pins coloured by health band. Tap a pin to see the photo and the report.
 - **Dashboard:** one card per creek with the health score (0–100) and band (good, fair, watch or alert). Each signal comes with its explanation and source. The card also shows the latest USGS stream-gauge reading, current weather and 24-hour rainfall, recent reports, and a 7-day report sparkline.
 - **Early warning:** the rules above raise a *watch* or an *alert*, each with a plain-language reason.
+- **Alerts:** one list of active water-related alerts for the area, from official sources and Creek Watch's own rules. Each alert has a plain-language summary, a severity (alert, watch, advisory or info) and a link to the official source. Open feeds: Atom and CAP 1.2.
+- **Push notifications (opt-in):** choose creeks, a minimum severity and optional quiet hours. A welcome notification confirms it worked, and you can turn it off at any time. No account is needed. The server stores only the browser's push address with its encryption keys and your filters.
 - **About the data:** every source with a link, how the score works, its limitations, privacy, and the One Health framing.
 
 ## Prior art and what's new
@@ -80,6 +90,11 @@ All code was written new for this hackathon on October 3–4, 2026, during the e
 | **National Weather Service API** ([api.weather.gov](https://www.weather.gov/documentation/services-web-api)) | Temperature, short forecast, chance of precipitation | Public domain ([NWS disclaimer](https://www.weather.gov/disclaimer)) |
 | **Open-Meteo** ([open-meteo.com](https://open-meteo.com/)) | Rain in the past and next 24 h: gridded model estimates, not a rain gauge | [CC BY 4.0](https://open-meteo.com/en/terms); free API for non-commercial use, and this project is non-commercial |
 | **Volunteer water tests via [RiverDB](https://riverdb.org)** | Latest dissolved oxygen, pH, temperature, turbidity, conductivity and *E. coli* from local monitoring groups: **South Yuba River Citizens League** (Deer Creek above and below Nevada City, monthly, 2022 to 2026-08-08; fetched live, cached 24 h), **Sierra Streams Institute** (19 Deer Creek sites, 2000–2023), **Wolf Creek Community Alliance** (Wolf Creek, 2017–2019, background only) | The groups' own publicly published data, credited by name on every reading. These are periodic samples, not live sensors |
+| **NWS alerts** ([api.weather.gov/alerts](https://www.weather.gov/documentation/services-web-api)) | Active water- and weather-related alerts at our sites | Public domain; linked, never reworded in meaning |
+| **NOAA National Water Prediction Service** ([api.water.noaa.gov/nwps](https://api.water.noaa.gov/nwps/v1/docs/)) | River flood categories at forecast gauges in range (few have flood stages near us) | NOAA, public domain |
+| **State Water Board sewage spills** ([spill data file](https://www.waterboards.ca.gov/water_issues/programs/sso/docs/data_files/Cat1-2-3-Spills.txt)) | Spills reported near our creeks | Public data, self-reported by the sewer agencies; linked |
+| **CA freshwater harmful algal blooms** ([data.ca.gov](https://data.ca.gov/dataset/surface-water-freshwater-harmful-algal-blooms), [HABs portal](https://mywaterquality.ca.gov/habs/)) | Caution/Warning/Danger advisories | State Water Board, public domain |
+| **OEHHA fish-consumption advisories** ([data.ca.gov](https://data.ca.gov/dataset/fish-consumption-advisory-serving-recommendations)) | Standing advisories for local waters, each linked to OEHHA | Public domain; text not reproduced, link only |
 | **OpenStreetMap** ([openstreetmap.org](https://www.openstreetmap.org/copyright)) | Base map tiles; creek lines and access sites (via Overpass API) | © OpenStreetMap contributors, ODbL. Attribution shown on the map |
 
 Details and retrieval URLs: [`data/SOURCES.md`](https://github.com/jphein/creek-watch/blob/main/data/SOURCES.md).
@@ -98,6 +113,7 @@ Details and retrieval URLs: [`data/SOURCES.md`](https://github.com/jphein/creek-
 - **Ready for the field.** The report flow has passed an end-to-end test at phone size over the public Cloudflare path, the same path a phone on cellular uses, and our teammate's first real field reports from Wolf Creek and Deer Creek begin on the morning of Sunday, October 4, 2026. The live map shows every report filed so far.
 - **A health score that explains every point it gives or takes**, built from simple fixed rules and covered by 56 automated tests.
 - **Honest about what we can't measure:** the gauge gap and the model-based rain estimates are stated in the app, not hidden.
+- **A working water-alert hub:** on the evening of October 3, 2026, all eight alert sources were loaded and reporting successfully on the live site, and every CAP alert in the live feed passed validation against the OASIS CAP 1.2 schema.
 - **Credit where it's due:** more than 20 years of local volunteer water tests (South Yuba River Citizens League, Sierra Streams Institute, Wolf Creek Community Alliance) appear next to citizen reports, credited by name.
 
 ## What we learned
@@ -120,7 +136,7 @@ Details and retrieval URLs: [`data/SOURCES.md`](https://github.com/jphein/creek-
 - **Alec:** student. Field reports, writing, and testing.
 
 ## Built with
-`python` · `fastapi` · `sqlite` · `uv` · `pillow` · `javascript` · `html5` · `css3` · `leaflet` · `openstreetmap` · `usgs-water-services` · `national-weather-service-api` · `open-meteo` · `pwa` · `docker` · `caddy` · `cloudflare` · `claude-code`
+`python` · `fastapi` · `sqlite` · `uv` · `pillow` · `javascript` · `html5` · `css3` · `leaflet` · `openstreetmap` · `usgs-water-services` · `national-weather-service-api` · `open-meteo` · `pwa` · `web-push` · `cap-1.2` · `atom` · `docker` · `caddy` · `cloudflare` · `claude-code`
 
 ---
 

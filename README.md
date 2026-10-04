@@ -54,10 +54,37 @@ No environment variables are required. The SQLite database (`data/creekwatch.db`
 | `GET /api/reports/{id}` | One report |
 | `GET /api/conditions?creek_id=` | Latest USGS gauge, NWS weather and Open-Meteo rainfall |
 | `GET /api/health?creek_id=` | Health score, band and explained signals |
+| `GET /api/alerts?creek_id=&severity=&category=&status=` | Water-related alerts (official sources plus Creek Watch rules) |
+| `GET /api/alerts/sources` | Each alert source's status and polling schedule |
+| `GET /alerts.atom` · `GET /alerts.cap.xml` (`?creek_id=`) | Open feeds: Atom, and CAP 1.2 alerts inside Atom |
+| `GET /api/push/vapid-public-key` · `POST`/`DELETE /api/push/subscriptions` | Opt-in Web Push (filters by creek, severity and quiet hours) |
 | `GET /api/version` | Build info |
 | `GET /healthz` | Liveness |
 
 Full contract: [docs/SPEC.md](docs/SPEC.md).
+
+## Alerts
+
+Creek Watch gathers water-related alerts for Wolf Creek, Deer Creek and nearby waters in one place: the **Alerts** page, open feeds, and opt-in push notifications.
+
+| Source | Checked every | What becomes an alert |
+|---|---|---|
+| National Weather Service alerts | 5 min | Flood, flash-flood, hydrologic-outlook, heavy-rain and heat alerts at our sites |
+| Creek Watch rules (citizen reports plus data) | 5 min | Runoff watch, algal-bloom watch, and alerts for dead fish or chemical/sewage odour |
+| USGS stream gauges | 15 min | High- and low-flow signals |
+| NOAA National Water Prediction Service | 15 min | River flood categories at forecast points in range |
+| CA freshwater harmful algal blooms | 1 h | State Caution/Warning/Danger advisories |
+| State Water Board sewage spills | 12 h | Reported spills near our creeks |
+| RiverDB volunteer tests | daily | E. coli above California's recreational threshold of 320 per 100 mL (a statistical threshold, not a single-sample limit) |
+| OEHHA fish-consumption advisories | daily | Standing advisories, linked to OEHHA |
+
+Not live sources: EPA CyAN (too coarse for these waters), boil-water notices (no public feed; see [waterboards.ca.gov/drinking_water](https://www.waterboards.ca.gov/drinking_water/)) and Cal OES spill reports (no public feed). The app links to these instead.
+
+- **Feeds:** `/alerts.atom` and `/alerts.cap.xml` (CAP 1.2 inside Atom), both filterable with `?creek_id=`.
+- **Push:** opt-in Web Push with per-creek, per-severity and quiet-hours filters. No account is needed. The server stores only the push endpoint, its keys and your filters. Push hosts are restricted to the known push services.
+- **Not an emergency service.** Official alerts are linked to their source. For emergencies and evacuations, use Nevada County Alerts, AwareCA and 911.
+
+Source details: [data/alerts/SOURCES.md](data/alerts/SOURCES.md).
 
 ## Layout
 
