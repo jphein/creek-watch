@@ -1,5 +1,11 @@
 """Hard network block for data tests (installed at import, never restored).
 
+NOTE (cross-tree): pytest imports this conftest for the whole run whenever data/tests is
+collected, and the blockers are module attributes, so they ALSO apply to backend tests in the
+same run that use the real data package. That is intended: no test anywhere should reach
+RiverDB/NWS/USGS/CDEC. A backend test that needs data must monkeypatch these (or
+ingest.get_conditions), exactly as the data tests do.
+
 monkeypatch restores the real functions when a test ends, but background jobs (the ingest
 thread pool, capped RiverDB fetches) can run AFTER that and would hit the real network, e.g.
 RiverDB, which must not be queried from tests. Tests that need data monkeypatch over these

@@ -76,3 +76,36 @@ def test_warmup_and_first_visitor_one_fetch_per_station_no_false_failure(monkeyp
     later = ingest.get_conditions("deer")                              # next uncached request: live
     assert all(s["live"] for s in later["water_quality"]["stations"] if s["agency"] == "SYRCL")
     assert all(n == 1 for n in calls.values())                         # ...still served from cache
+
+
+def test_cold_concurrent_creeks_sharing_obs_kgoo_never_cache_a_none(monkeypatch):
+    """Oracle #81: #80's lock is per creek, but obs:KGOO (and cdec:river) are shared. On a cold
+    process, deer's request while wolf is fetching KGOO must get the real temperature, not a
+    temp_f=None answer that DataLayer would cache for 600 s."""
+    obs = (FIX / "nws_obs_KGOO.json").read_text()
+    release = threading.Event()
+    kgoo_calls = collections.Counter()
+
+    def http(url, timeout):
+        if "/observations/latest" in url:
+            kgoo_calls["n"] += 1
+            release.wait(5)                     # NWS slow on a cold start
+            return obs
+        raise OSError("offline")
+    monkeypatch.setattr(ingest, "_http_get_text", http)
+    dl = DataLayer(600, use_data_package=True)
+    out = {}
+    wolf = threading.Thread(target=lambda: out.setdefault("wolf", dl.conditions("wolf")), daemon=True)
+    wolf.start()
+    deadline = time.monotonic() + 3
+    while "obs:KGOO" not in ingest._inflight and time.monotonic() < deadline:
+        release.wait(0.01)
+    deer = threading.Thread(target=lambda: out.setdefault("deer", dl.conditions("deer")), daemon=True)
+    deer.start()
+    release.wait(0.2)
+    release.set()
+    wolf.join(10)
+    deer.join(10)
+    assert kgoo_calls["n"] == 1                                   # one NWS call for both creeks
+    for cid in ("wolf", "deer"):
+        assert out[cid]["weather"] and out[cid]["weather"]["temp_f"] is not None, cid

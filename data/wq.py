@@ -130,7 +130,7 @@ def get_water_quality(creek_id: str, *, timeout_s: float = 10, now: datetime | N
         if st.get("live"):
             key = f"riverdb:{st['id']}"
             if cached_only:   # no network: whatever a previous (or still-running) fetch cached
-                data = ingest._peek(key)
+                data = ingest._peek(key, ttl=86400)   # expired -> flagged stale -> live: false
             else:
                 data = ingest._cached(key, 86400, lambda ref=st["id"]: fetch(ref))
             # A stale value served during back-off is NOT live (it's the last good fetch).

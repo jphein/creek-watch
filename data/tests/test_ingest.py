@@ -289,11 +289,15 @@ def test_concurrent_fetches_for_same_key_are_not_duplicated():
     deadline = _t.monotonic() + 2
     while "riverdb:dup" not in ingest._inflight and _t.monotonic() < deadline:
         release.wait(0.01)
-    t0 = _t.monotonic()
-    assert ingest._cached("riverdb:dup", 60, slow) is None      # no duplicate call; answers at once
-    assert _t.monotonic() - t0 < 0.1 and calls["n"] == 1
+    got = {}
+    waiter = th.Thread(target=lambda: got.setdefault("v", ingest._cached("riverdb:dup", 60, slow)))
+    waiter.start()                                               # cold key: waits for the owner...
+    release.wait(0.1)
+    assert waiter.is_alive() and calls["n"] == 1                 # ...without a duplicate call
     release.set()
     t.join(3)
+    waiter.join(3)
+    assert got["v"] == {"v": 1} and calls["n"] == 1              # gets the owner's fresh value
     assert ingest._cached("riverdb:dup", 60, slow) == {"v": 1} and calls["n"] == 1
     assert "riverdb:dup" not in ingest._inflight
 
@@ -329,3 +333,84 @@ def test_shared_key_inflight_returns_last_good_not_none(monkeypatch):
     assert other == {"stations": ["JBR"], "stale": True}             # last good, not None, no 2nd fetch
     release.set()
     t.join(3)
+
+
+def test_cold_shared_key_waits_for_inflight_fetch_instead_of_none():
+    """Oracle #81: cold process, obs:KGOO shared by both creeks. While wolf's fetch is in flight,
+    a concurrent deer caller must get the fresh value, not None (which the API caches 600 s)."""
+    import threading as th
+    import time as _t
+    release, calls = th.Event(), {"n": 0}
+
+    def slow_kgoo():
+        calls["n"] += 1
+        release.wait(3)
+        return {"temp_f": 61.0}
+    wolf = th.Thread(target=lambda: ingest._cached("obs:KGOO-cold", 900, slow_kgoo))
+    wolf.start()
+    deadline = _t.monotonic() + 2
+    while "obs:KGOO-cold" not in ingest._inflight and _t.monotonic() < deadline:
+        release.wait(0.01)
+    got = {}
+    deer = th.Thread(target=lambda: got.setdefault("v", ingest._cached("obs:KGOO-cold", 900, slow_kgoo)))
+    deer.start()
+    release.wait(0.2)
+    assert deer.is_alive()                                   # cold: waiting, not answering None
+    release.set()
+    wolf.join(3)
+    deer.join(3)
+    assert got["v"] == {"temp_f": 61.0} and calls["n"] == 1  # fresh value, still one upstream call
+
+
+def test_cold_shared_key_waiter_gets_none_if_owner_fails():
+    import threading as th
+    release = th.Event()
+
+    def failing():
+        release.wait(3)
+        raise OSError("upstream down")
+    owner = th.Thread(target=lambda: ingest._cached("cold-fail", 900, failing))
+    owner.start()
+    while "cold-fail" not in ingest._inflight:
+        release.wait(0.01)
+    got = {}
+    waiter = th.Thread(target=lambda: got.setdefault("v", ingest._cached("cold-fail", 900, lambda: {"dup": 1})))
+    waiter.start()
+    release.set()
+    owner.join(3)
+    waiter.join(3)
+    assert got["v"] is None and "cold-fail" in ingest._failed   # honest None, no duplicate fetch
+
+
+def test_peek_respects_ttl():
+    ingest._cached("peek-k", 60, lambda: {"v": 1})
+    assert ingest._peek("peek-k", ttl=60) == {"v": 1}
+    assert ingest._peek("peek-k", ttl=0) == {"v": 1, "stale": True}    # expired -> flagged stale
+    assert ingest._peek("never") is None
+
+
+def test_waiters_woken_only_after_result_is_stored(monkeypatch):
+    """Store-then-wake ordering. The race window is between waking waiters (ev.set) and storing
+    the result; a set() that pauses after waking widens exactly that gap, so a wake-before-store
+    implementation deterministically hands the waiter None."""
+    import threading as th
+    import types
+
+    class PausingEvent(th.Event):
+        def set(self):
+            super().set()
+            th.Event().wait(0.3)             # owner lingers after waking waiters
+    monkeypatch.setattr(ingest, "threading", types.SimpleNamespace(Event=PausingEvent))
+    release = th.Event()
+    owner = th.Thread(target=lambda: ingest._cached("race-k", 60, lambda: release.wait(3) and {"v": 1}))
+    owner.start()
+    while "race-k" not in ingest._inflight:
+        release.wait(0.01)
+    got = {}
+    waiter = th.Thread(target=lambda: got.setdefault("v", ingest._cached("race-k", 60, lambda: {"dup": 1})))
+    waiter.start()
+    release.wait(0.05)
+    release.set()
+    owner.join(3)
+    waiter.join(3)
+    assert got["v"] == {"v": 1}

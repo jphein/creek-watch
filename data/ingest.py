@@ -54,8 +54,10 @@ SOURCES = {
 
 GAUGE_NAMES = {"11424000": "BEAR R NR WHEATLAND CA", "11418500": "DEER C NR SMARTSVILLE CA"}
 
-WQ_WAIT_S = 3.0
-CAPPED_TTL_HINT_S = 30   # a capped answer is good for ~30 s; the live fetch is still running   # don't hold a request longer than this for RiverDB; answer from the snapshot
+WQ_WAIT_S = 3.0          # don't hold a request longer than this for RiverDB; answer from the snapshot
+CAPPED_TTL_HINT_S = 30   # a capped answer is good for ~30 s; the live fetch is still running
+INFLIGHT_WAIT_S = 20.0   # a COLD key's concurrent caller waits this long for the in-flight fetch
+                         # (> the 2x8 s + 2 s job bound in get_conditions; then gives up -> None)
 
 TTL = {"gauge": 900, "weather": 900, "stats": 86400}
 
@@ -83,7 +85,7 @@ def _retry_once(fn):
 # -------------------------------------------------------------------------- cache
 _cache: dict[str, tuple[float, object]] = {}
 _failed: dict[str, float] = {}
-_inflight: set[str] = set()   # keys with a fetch running right now (never start a duplicate)
+_inflight: dict[str, threading.Event] = {}   # key -> set when its running fetch finishes
 _lock = threading.Lock()
 
 
@@ -111,26 +113,41 @@ def _cached(key: str, ttl: float, fn):
     if failed_at is not None and now - failed_at < FAIL_BACKOFF_S:
         return _stale(hit)
     with _lock:
-        if key in _inflight:      # another request/prewarm is already fetching this: don't pile on
-            return _stale(hit)
-        _inflight.add(key)
-    err = None
+        ev = _inflight.get(key)
+        if ev is None:
+            ev = _inflight[key] = threading.Event()
+            owner = True
+        else:
+            owner = False
+    if not owner:
+        # Another caller is already fetching this key: never start a duplicate upstream call.
+        if hit is not None:
+            return _stale(hit)        # warm: last good value at once (flagged stale)
+        # Cold (no last good value): wait for that fetch rather than answer None, because None
+        # would become a partial answer the API caches (shared keys like obs:KGOO, cdec:river).
+        ev.wait(INFLIGHT_WAIT_S)
+        with _lock:
+            done = _cache.get(key)
+        return done[1] if done else None
+    val, err, failed = None, None, False
     try:
         val = fn()
+        failed = val is None
     except Exception as e:  # noqa: BLE001 - any upstream failure degrades to stale/None
-        val, err = None, e
+        val, err, failed = None, e, True
     finally:
-        # Always release the in-flight marker, even on BaseException (SystemExit, thread
-        # teardown); otherwise the key would serve stale/None forever and never refetch.
+        # Order matters: store the result, THEN release the in-flight marker, THEN wake waiters,
+        # so a woken waiter always sees this fetch's outcome. Runs even on BaseException
+        # (SystemExit, thread teardown), so a key can never be wedged in-flight.
         with _lock:
-            _inflight.discard(key)
-    with _lock:
-        if val is not None:
-            _cache[key] = (now, val)
-            _failed.pop(key, None)
-        else:
-            _failed[key] = now
-    if val is None:
+            if val is not None:
+                _cache[key] = (now, val)
+                _failed.pop(key, None)
+            elif failed:          # a real upstream failure starts the back-off; a BaseException
+                _failed[key] = now    # (teardown) is not the upstream's fault and doesn't
+            _inflight.pop(key, None)
+        ev.set()
+    if failed:
         # At most one line per upstream per FAIL_BACKOFF_S: the back-off above stops re-calls.
         log.warning("upstream %s failed (%s); serving %s for %d min", key,
                     f"{type(err).__name__}: {err}"[:200] if err else "no data",
@@ -138,11 +155,16 @@ def _cached(key: str, ttl: float, fn):
     return val if val is not None else _stale(hit)
 
 
-def _peek(key: str):
-    """Cached value for key without fetching (fresh, or flagged stale), else None."""
+def _peek(key: str, ttl: float | None = None):
+    """Cached value for key without fetching. If ttl is given and the value is older,
+    it's returned flagged stale (like _cached would). None if nothing was ever cached."""
     with _lock:
         hit = _cache.get(key)
-    return hit[1] if hit else None
+    if not hit:
+        return None
+    if ttl is not None and time.time() - hit[0] >= ttl:
+        return _stale(hit)
+    return hit[1]
 
 
 def clear_cache():
