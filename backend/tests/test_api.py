@@ -440,6 +440,12 @@ def test_client_ip_header_xff_ignores_forged_cf():
                x_forwarded_for="6.6.6.6, 203.0.113.7")
     assert ip(r) == "203.0.113.7"
     assert ip(_ipreq("172.18.0.2", x_forwarded_for="203.0.113.7")) == "203.0.113.7"
+    # Two XFF header lines (client's first, proxy's appended as a separate line) → the proxy's last hop.
+    from starlette.requests import Request
+    two = Request({"type": "http", "client": ("172.18.0.2", 1), "headers": [
+        (b"x-forwarded-for", b"6.6.6.6"), (b"x-forwarded-for", b"203.0.113.9")]})
+    assert ip(two) == "203.0.113.9"
+    assert ip(_ipreq("172.18.0.2", x_forwarded_for="6.6.6.6, 203.0.113.7,")) == "172.18.0.2"  # trailing comma
     # An invalid last hop → the peer; never the client-supplied prefix, never another header.
     assert ip(_ipreq("172.18.0.2", cf_connecting_ip="9.9.9.9", x_forwarded_for="6.6.6.6, junk")) == "172.18.0.2"
     # Only the forged header, no XFF → the peer, never the forgery.
@@ -448,14 +454,11 @@ def test_client_ip_header_xff_ignores_forged_cf():
     assert ip(_ipreq("198.51.100.4", x_forwarded_for="203.0.113.7")) == "198.51.100.4"
 
 
-def test_client_ip_header_other_values_and_default():
+def test_client_ip_header_only_xff_and_default():
     from creekwatch.main import make_client_ip
-    cf = make_client_ip("172.16.0.0/12", "cf-connecting-ip")
-    assert cf(_ipreq("172.18.0.2", cf_connecting_ip="9.9.9.9", x_forwarded_for="203.0.113.7")) == "9.9.9.9"
-    assert cf(_ipreq("172.18.0.2", x_forwarded_for="203.0.113.7")) == "172.18.0.2"
-    assert cf(_ipreq("172.18.0.2", cf_connecting_ip="9.9.9.9, 1.2.3.4")) == "172.18.0.2"  # multi-valued → peer
-    fly = make_client_ip("172.16.0.0/12", "fly-client-ip")
-    assert fly(_ipreq("172.18.0.2", fly_client_ip="2001:db8::5", cf_connecting_ip="9.9.9.9")) == "2001:db8::5"
+    for bad in ("cf-connecting-ip", "x-real-ip", "fly-client-ip", "X-Forwarded-For", ""):
+        with pytest.raises(ValueError, match="CREEKWATCH_CLIENT_IP_HEADER"):
+            make_client_ip("172.16.0.0/12", bad)
     # Default (unset) is unchanged: CF-Connecting-IP first, then the FIRST XFF hop.
     d = make_client_ip("172.16.0.0/12")
     assert d(_ipreq("172.18.0.2", cf_connecting_ip="9.9.9.9", x_forwarded_for="203.0.113.7")) == "9.9.9.9"
