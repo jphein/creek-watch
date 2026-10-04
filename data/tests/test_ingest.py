@@ -24,8 +24,13 @@ def route(url: str) -> str:
     raise AssertionError(f"unexpected URL {url}")
 
 
+CDEC_FIX = json.loads((FIX / "cdec_jbr_eng.json").read_text())
+
+
 @pytest.fixture(autouse=True)
 def fresh_cache(monkeypatch):
+    from data import cdec
+    monkeypatch.setattr(cdec, "_get_json", lambda url, timeout: CDEC_FIX)   # no network in tests
     ingest.clear_cache()
     monkeypatch.setattr(ingest.time, "sleep", lambda s: None)
     yield
