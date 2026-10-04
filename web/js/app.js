@@ -37,6 +37,9 @@ export function route() {
   } else if (page === 'alerts') {
     const first = !mounted.has('alerts');
     import('./alerts.js').then((m) => (first ? m.mountAlerts(el, qs) : m.showAlerts(qs)));
+  } else if (page === 'about') {
+    // Device-local cleanup badges (no account); re-render on each visit.
+    import('./badges.js').then((m) => { const host = document.getElementById('about-badges'); if (host) host.innerHTML = m.badgesStripHTML(m.loadStats()); });
   } else if (page === 'dashboard') {
     // Refresh on every visit so a just-sent report shows up (no stale scores).
     const first = !mounted.has('dashboard');

@@ -1,6 +1,6 @@
 // Dashboard — one card per creek: score gauge, band, explained signals,
 // gauge + weather, 7-day report sparkline, recent reports.
-import { getCreeks, getHealth, getConditions, getReports, getAlerts, reportBand } from './api.js';
+import { getCreeks, getHealth, getConditions, getReports, getAlerts, getCleanupStats, reportBand } from './api.js';
 import { esc, BANDS, bandLabel, timeAgo, reportCardHTML, signalLabel, signalValue, safeUrl, alertHTML } from './ui.js';
 
 const BAND_GLYPH = { good: '✓', fair: '~', watch: '!', alert: '✕' };
@@ -190,13 +190,23 @@ const CONFIDENCE = {
   high: 'High confidence: plenty of reports this week plus weather data.',
 };
 
+// "N cleanups · B bags removed by volunteers": hidden when zero or unavailable.
+function cleanupCountHTML(cs) {
+  const n = Number(cs?.cleanups) | 0, bags = Number(cs?.bags) | 0;
+  if (!(n > 0)) return '';
+  // Honour system (Oracle): always "reported", never presented as verified.
+  return `<p class="cleanup-count" title="Reported by volunteers in Creek Watch reports; not independently verified."><span aria-hidden="true">🧤</span> <span><strong>${n} reported cleanup${n === 1 ? '' : 's'}</strong>${
+    bags > 0 ? ` · <strong>${bags} bag${bags === 1 ? '' : 's'}</strong>` : ''}</span></p>`;
+}
+
 async function creekCard(c) {
   const since = new Date(Date.now() - 7 * 864e5).toISOString().replace(/\.\d{3}Z$/, 'Z');
-  const [health, cond, reports, alerts] = await Promise.all([
+  const [health, cond, reports, alerts, cleanups] = await Promise.all([
     getHealth(c.id).catch(() => null),
     getConditions(c.id).catch(() => null),
     getReports({ creek_id: c.id, since, limit: 200 }).catch(() => []),
     getAlerts({ creek_id: c.id }).catch(() => []),
+    getCleanupStats(c.id).catch(() => null),
   ]);
   const band = health?.band || 'fair';
   const spark = sparkSVG(reports);
@@ -223,6 +233,7 @@ async function creekCard(c) {
     }
     ${condHTML(cond)}
     ${wqHTML(cond)}
+    ${cleanupCountHTML(cleanups)}
     <div class="spark-wrap"><h4>Reports, last 7 days</h4>${spark.svg}<span class="spark-total">${spark.total}</span></div>
     <h3>Latest reports</h3>
     <div class="recent">${

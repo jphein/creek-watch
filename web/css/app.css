@@ -797,3 +797,49 @@ html[data-save-data] .photo-figure { display: none; }
 .official-line.compact { margin: 8px 0 0; padding: 6px 8px; font-size: 0.82rem; background: color-mix(in srgb, var(--surface) 70%, transparent); }
 .linked-alert { margin: 8px 0 14px; } .linked-note { margin: 0 0 6px; font-weight: 700; color: var(--ink-2); }
 .stale-note { margin: 0 0 4px; padding: 8px 12px; border-radius: 10px; background: var(--fair-tint); border: 1px solid var(--fair); font-weight: 600; }
+
+/* ---------- cleanups + badges ---------- */
+.cleanup { margin: -8px 0 22px; display: grid; gap: 10px; }
+.safety { margin: 0; padding: 10px 12px; border-radius: 12px; background: var(--fair-tint); border: 1px solid var(--fair); color: var(--ink); font-size: 0.95rem; font-weight: 600; }
+.cleanup-toggle {
+  display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 12px; text-align: left;
+  min-height: 72px; padding: 12px 14px; border-radius: var(--radius); cursor: pointer;
+  background: var(--surface); color: var(--ink); border: 2px solid var(--line); box-shadow: var(--shadow); font: inherit;
+}
+.cleanup-toggle[aria-pressed='true'] { border: 3px solid var(--moss); background: var(--good-tint); padding: 11px 13px; }
+.ct-icon { font-size: 2rem; line-height: 1; }
+.ct-label { display: block; font-weight: 800; font-size: 1.15rem; }
+.ct-sub { display: block; font-size: 0.88rem; color: var(--muted); }
+.ct-check { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; border: 2px solid var(--line); font-weight: 900; }
+.cleanup-toggle[aria-pressed='true'] .ct-check { background: var(--moss); border-color: var(--moss); color: #fff; }
+.bags { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 10px 14px; border-radius: 14px; background: var(--surface-2); border: 1px solid var(--line); }
+.bags-label { font-weight: 700; }
+.bags-label em { font-weight: 500; font-style: normal; color: var(--muted); font-size: 0.9rem; }
+.stepper { display: flex; align-items: center; gap: 6px; }
+.step-btn { width: 52px; height: 52px; border-radius: 14px; border: 2px solid var(--brand); background: var(--surface); color: var(--brand); font: 800 1.6rem/1 var(--font); cursor: pointer; }
+.step-btn[disabled] { opacity: 0.4; cursor: default; }
+.bags-n { min-width: 2.2ch; text-align: center; font: 800 1.6rem var(--font); font-variant-numeric: tabular-nums; }
+.badge-art { display: block; flex: none; }
+.badge-art.locked { filter: grayscale(1) opacity(0.45); }
+.celebrate { margin: 18px 0; padding: 16px; border-radius: 20px; text-align: center; background: linear-gradient(160deg, var(--good-tint), var(--surface)); border: 2px solid var(--moss); }
+.celebrate h3 { margin-top: 4px; }
+.cel-burst { font-size: 2.6rem; line-height: 1; animation: pop 0.5s cubic-bezier(.2,1.4,.4,1) both; }
+@media (prefers-reduced-motion: reduce) { .cel-burst { animation: none; } }
+.new-badge { display: flex; align-items: center; gap: 14px; text-align: left; margin: 12px auto; padding: 12px; max-width: 360px; border-radius: 16px; background: var(--surface); border: 2px solid var(--moss); box-shadow: var(--shadow); }
+.new-badge div { display: flex; flex-direction: column; }
+.nb-kicker { font-size: 0.78rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--moss); }
+.new-badge strong { font-family: var(--font-display); font-size: 1.35rem; }
+.nb-rule { color: var(--muted); font-size: 0.9rem; }
+.badge-strip { margin: 14px 0 0; text-align: left; }
+.badge-strip h3 { margin: 0 0 8px; font-size: 1.1rem; }
+.badge-strip ul { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.badge-strip li { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 4px; padding: 10px 4px; border-radius: 14px; background: var(--surface-2); border: 1px solid var(--line); }
+.badge-strip li.got { border-color: var(--moss); }
+.b-name { font-weight: 800; font-size: 0.92rem; line-height: 1.2; }
+.b-rule { font-size: 0.78rem; color: var(--muted); line-height: 1.2; }
+.badge-strip li.got .b-rule { color: var(--good); font-weight: 700; }
+.b-note { margin: 10px 0 0; font-size: 0.85rem; color: var(--ink-2); }
+.rep-tags .tag-clean { background: var(--good-tint); border-color: var(--moss); font-weight: 700; }
+.cleanup-count { display: flex; gap: 8px; align-items: center; margin: 12px 0 0; padding: 10px 12px; border-radius: 12px; background: var(--good-tint); border: 1px solid var(--moss); font-size: 0.95rem; }
+.pin-clean { position: absolute; right: -10px; top: -12px; font-size: 14px; line-height: 1; filter: drop-shadow(0 1px 1px rgb(0 0 0 / .5)); }
+#about-badges .badge-strip h3 { margin-top: 1.4em; }

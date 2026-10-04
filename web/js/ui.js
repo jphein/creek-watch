@@ -151,7 +151,9 @@ export function reportCardHTML(r, creekName = '', siteName = '', { band } = {}) 
       <p class="rep-tags">${[v('water_color'), `${v('flow')} flow`, v('algae'), v('trash'), v('odor')]
         .filter(Boolean)
         .map((t) => `<span>${esc(t)}</span>`)
-        .join('')}${r.dead_fish ? '<span class="tag-alert">Dead fish</span>' : ''}</p>
+        .join('')}${r.dead_fish ? '<span class="tag-alert">Dead fish</span>' : ''}${
+        r.trash_removed ? `<span class="tag-clean"><span aria-hidden="true">🧤</span> Cleaned up${Number(r.trash_bags) > 0 ? ` · ${Number(r.trash_bags) | 0} bag${Number(r.trash_bags) === 1 ? '' : 's'}` : ''}</span>` : ''
+      }</p>
       ${r.wildlife_seen ? `<p class="rep-note">Saw: ${esc(r.wildlife_seen)}</p>` : ''}
       ${r.notes ? `<p class="rep-note">“${esc(r.notes)}”</p>` : ''}
       ${r.reporter_name ? `<p class="rep-by">— ${esc(r.reporter_name)}</p>` : ''}

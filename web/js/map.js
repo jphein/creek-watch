@@ -132,12 +132,12 @@ export async function mountMap(el, qs) {
     const m = L.marker([r.lat, r.lon], {
       icon: L.divIcon({
         className: '',
-        html: `<div class="pin band-${band}"><span class="pin-glyph">${BAND_GLYPH[band]}</span></div>`,
+        html: `<div class="pin band-${band}"><span class="pin-glyph">${BAND_GLYPH[band]}</span></div>${r.trash_removed ? '<span class="pin-clean" aria-hidden="true">🧤</span>' : ''}`,
         iconSize: [26, 26],
         iconAnchor: [13, 30],
         popupAnchor: [0, -28],
       }),
-      title: `${bandLabel(band)} report${site ? ' at ' + site.name : ''}`,
+      title: `${bandLabel(band)} report${site ? ' at ' + site.name : ''}${r.trash_removed ? ' · cleaned up' : ''}`,
       alt: `${bandLabel(band)} report`,
       keyboard: true,
       riseOnHover: true,

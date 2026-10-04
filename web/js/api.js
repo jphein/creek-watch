@@ -15,6 +15,7 @@ export class ApiError extends Error {
 }
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const mockPosted = () => { try { return JSON.parse(sessionStorage.getItem('cw-mock-posted') || '[]'); } catch { return []; } };
 const mockCache = new Map();
 async function mockJson(name) {
   if (!mockCache.has(name)) {
@@ -67,8 +68,7 @@ export async function getCreeks() {
 export async function getReports({ creek_id, since, limit } = {}) {
   if (MOCK) {
     let list = await mockJson('reports');
-    const extra = JSON.parse(sessionStorage.getItem('cw-mock-posted') || '[]');
-    list = [...extra, ...list];
+    list = [...mockPosted(), ...list];
     if (creek_id) list = list.filter((r) => r.creek_id === creek_id);
     if (since) list = list.filter((r) => r.observed_at >= since);
     return limit ? list.slice(0, limit) : list;
@@ -83,6 +83,12 @@ export async function getReports({ creek_id, since, limit } = {}) {
 export async function getReport(id) {
   if (MOCK) return (await getReports()).find((r) => String(r.id) === String(id)) || null;
   return request(`/api/reports/${encodeURIComponent(id)}`);
+}
+
+/** Volunteer cleanups for a creek: {cleanups, bags, since}. */
+export async function getCleanupStats(creek_id) {
+  if (MOCK) return (await mockJson('cleanups'))[creek_id] || { cleanups: 0, bags: 0, since: null };
+  return request(`/api/stats/cleanups?creek_id=${encodeURIComponent(creek_id)}`);
 }
 
 export async function getConditions(creek_id) {
@@ -106,9 +112,10 @@ export async function postReport(form) {
     rep.lat = Number(rep.lat);
     rep.lon = Number(rep.lon);
     rep.photo_url = form.get('photo') ? 'mock/photo-1.svg' : null;
+    rep.trash_removed = rep.trash_removed === 'true';
+    rep.trash_bags = rep.trash_bags != null ? Number(rep.trash_bags) : null;
     rep.flags = deriveFlags(rep);
-    const extra = JSON.parse(sessionStorage.getItem('cw-mock-posted') || '[]');
-    sessionStorage.setItem('cw-mock-posted', JSON.stringify([rep, ...extra]));
+    try { sessionStorage.setItem('cw-mock-posted', JSON.stringify([rep, ...mockPosted()])); } catch { /* storage blocked: mock just forgets */ }
     return rep;
   }
   return request('/api/reports', { method: 'POST', body: form });
@@ -131,9 +138,13 @@ export function deriveFlags(r) {
 const ALERT_HINTS = ['dead_fish', 'sewage', 'chemical', 'alert'];
 
 // Per-report band for map pins (the API gives bands per creek, not per report).
+// Flags that are good news (data #60 adds "trash_removed"): never a warning, never raise the band.
+export const POSITIVE_FLAGS = new Set(['trash_removed']);
+export const warningFlags = (flags) => (flags || []).map(String).filter((f) => !POSITIVE_FLAGS.has(f));
+
 export function reportBand(r) {
   if (r.band) return r.band;
-  const flags = (r.flags && r.flags.length ? r.flags : deriveFlags(r)).map(String);
+  const flags = r.flags && r.flags.length ? warningFlags(r.flags) : deriveFlags(r);
   if (flags.some((x) => ALERT_HINTS.some((h) => x.includes(h)))) return 'alert';
   if (flags.length) return 'watch';
   if (r.algae === 'some' || r.trash === 'some' || ['cloudy', 'green', 'other'].includes(r.water_color) || ['rotten', 'other'].includes(r.odor))
@@ -217,15 +228,15 @@ export async function pushSubscribe(subscription, { creek_ids = [], min_severity
   const body = { subscription, creek_ids, min_severity, quiet_hours };
   if (MOCK) {
     await sleep(300);
-    const created = !sessionStorage.getItem('cw-mock-push');
-    sessionStorage.setItem('cw-mock-push', JSON.stringify(body));
+    let created = true;
+    try { created = !sessionStorage.getItem('cw-mock-push'); sessionStorage.setItem('cw-mock-push', JSON.stringify(body)); } catch { /* soft */ }
     return { status: created ? 'created' : 'updated', creek_ids, min_severity, quiet_hours }; // backend response shape
   }
   return request('/api/push/subscriptions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
 }
 
 export async function pushUnsubscribe(endpoint) {
-  if (MOCK) { sessionStorage.removeItem('cw-mock-push'); return; }
+  if (MOCK) { try { sessionStorage.removeItem('cw-mock-push'); } catch { /* soft */ } return; }
   const res = await fetch('/api/push/subscriptions', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ endpoint }) }).catch(() => null);
   if (!res) throw new ApiError('Couldn’t reach Creek Watch to stop alerts. Check your connection and try again.', { offline: true });
   if (!res.ok) throw new ApiError(`Creek Watch couldn’t stop alerts just now (error ${res.status}). Your alerts are still on; try again.`, { status: res.status });
