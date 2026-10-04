@@ -174,3 +174,84 @@ def test_app_without_lifespan_has_reports_table(tmp_path):
     app = create_app(Settings(data_dir=tmp_path / "d", web_dir=tmp_path / "w", sites_json=tmp_path / "m.json"))
     ctx = app.state.alert_poller.ctx_factory()
     assert ctx.reports(ctx.creek_ids[0], 14) == []
+
+
+
+# ---- Oracle should-fix + notes -----------------------------------------------------------------
+
+def test_lone_surrogates_stripped_api_and_xml_survive(tmp_path):
+    from fastapi.testclient import TestClient
+    from lxml import etree
+    from creekwatch.config import Settings
+    from creekwatch.main import create_app
+    a = validate_alert(make_alert(title="Flood \ud800 Watch", summary="bad \udfff surrogate", instruction="x\ud83d"))
+    assert "\ud800" not in a["title"] and "\udfff" not in a["summary"] and "\ud83d" not in a["instruction"]
+    app = create_app(Settings(data_dir=tmp_path / "d", web_dir=tmp_path / "w", sites_json=tmp_path / "m.json"))
+    with TestClient(app) as c:
+        app.state.alert_store.apply_fetch("nws", [a])
+        assert c.get("/api/alerts").status_code == 200
+        etree.fromstring(c.get("/alerts.atom").content)
+        etree.fromstring(c.get("/alerts.cap.xml").content)
+
+
+@pytest.mark.parametrize("url", ["https://evil.example\\@forecast.weather.gov/x", "https://u:p@forecast.weather.gov/",
+                                 "https://forecast.weather.gov:8443/", "https://fórecast.weather.gov/",
+                                 "https://forecast.weather.gov./x", "https://x.gov/a\\b"])
+def test_alert_url_parser_differentials_rejected(url):
+    with pytest.raises(AlertInvalid):
+        validate_alert(make_alert(url=url))
+
+
+def test_one_crashing_source_cannot_abort_cycle(store, monkeypatch):
+    good, bad = FakeAdapter("nws", [make_alert()]), FakeAdapter("sso", [make_alert(id="sso:1", source="sso")])
+    p = Poller([bad, good], store, ctx_factory)
+    real = store.apply_fetch
+    monkeypatch.setattr(store, "apply_fetch", lambda src, al, now=None: (_ for _ in ()).throw(RuntimeError("db"))
+                        if src == "sso" else real(src, al, now))
+    expired = []
+    monkeypatch.setattr(store, "expire_due", lambda now=None: expired.append(1) or 0)
+    summary = p.run_due(force=True)
+    assert summary["ran"] == ["nws"] and "sso" in summary["failed"] and expired == [1]
+    p.shutdown()
+
+
+def test_load_adapters_fails_loud(monkeypatch, caplog, tmp_path):
+    import logging
+    from fastapi.testclient import TestClient
+    from creekwatch.alerts.poller import load_adapters
+    from creekwatch.config import Settings
+    from creekwatch.main import create_app
+    monkeypatch.setenv("CREEKWATCH_ALERT_ADAPTERS", "no_such_module_xyz:ADAPTERS")
+    with caplog.at_level(logging.ERROR):
+        adapters, err = load_adapters(True)
+    assert adapters == [] and "ModuleNotFoundError" in err and "FAILED TO LOAD" in caplog.text
+    with TestClient(create_app(Settings(data_dir=tmp_path / "d", web_dir=tmp_path / "w",
+                                        sites_json=tmp_path / "m.json"))) as c:
+        j = c.get("/api/alerts/sources").json()
+    assert j["adapters_loaded"] == 0 and "ModuleNotFoundError" in j["load_error"]
+
+
+def test_schedule_persists_across_poller_instances(store):
+    clock = [1_000_000.0]
+    src = FakeAdapter("sso", [make_alert(id="sso:1", source="sso")], interval_s=43200)
+    p1 = Poller([src], store, ctx_factory, clock=lambda: clock[0])
+    p1.run_due(); p1.shutdown()
+    assert src.calls == 1
+    clock[0] += 600                                   # 10 min later: a NEW process (fresh Poller)
+    p2 = Poller([src], store, ctx_factory, clock=lambda: clock[0])
+    s2 = p2.run_due(); p2.shutdown()
+    assert src.calls == 1 and s2["skipped_not_due"] == ["sso"], "12 h source must not refetch inside its interval"
+    clock[0] += 43200
+    p3 = Poller([src], store, ctx_factory, clock=lambda: clock[0]); p3.run_due(); p3.shutdown()
+    assert src.calls == 2
+    boom = FakeAdapter("nws", exc=RuntimeError("down"), interval_s=300)
+    q1 = Poller([boom], store, ctx_factory, clock=lambda: clock[0]); q1.run_due(); q1.shutdown()
+    q2 = Poller([boom], store, ctx_factory, clock=lambda: clock[0] + 400)   # past interval, inside backoff
+    q2.run_due(); q2.shutdown()
+    assert boom.calls == 1 and q2.state["nws"].failures == 1, "backoff must survive a process restart"
+
+
+def test_long_intervals_not_clamped(store):
+    p = Poller([FakeAdapter("riverdb", interval_s=86400), FakeAdapter("sso", interval_s=43200)], store, ctx_factory)
+    assert p.interval("riverdb") == 86400 and p.interval("sso") == 43200 and p.fetch_timeout_s > 60
+    p.shutdown()

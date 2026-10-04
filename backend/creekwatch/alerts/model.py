@@ -22,7 +22,7 @@ CAP_CERTAINTY = {"Observed", "Likely", "Possible", "Unlikely", "Unknown"}
 ID_RE = re.compile(r"^[a-z0-9_]{1,32}:[A-Za-z0-9._:/#-]{1,200}$")
 SOURCE_RE = re.compile(r"^[a-z0-9_]{1,32}$")
 # Control chars (except \t \n) break XML 1.0 and terminals; strip them from every string.
-_CTRL = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f￾￿]")
+_CTRL = re.compile("[\x00-\x08\x0b\x0c\x0e-\x1f\x7f\ufffe\uffff\ud800-\udfff]")  # + lone surrogates: they 500 JSONResponse and make XML ill-formed
 LIMITS = {"title": 200, "summary": 280, "instruction": 1000, "source_name": 120, "attribution": 300,
           "area_desc": 300, "event": 120}
 
@@ -70,10 +70,18 @@ def _time(v: Any, field: str, required: bool = True) -> str | None:
     return dt.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
+# Host characters only in the authority: no userinfo "@", backslash, "%", non-ASCII; port 443 only.
+_SAFE_URL = re.compile(
+    r"^https://[A-Za-z0-9](?:[A-Za-z0-9-]{0,62}[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,62}[A-Za-z0-9])?)+"
+    r"(?::443)?(?:[/?#][A-Za-z0-9\-._~!$&'()*+,;=:@%/?#]*)?$")
+
+
 def _https(v: Any, field: str) -> str:
+    """Links rendered to browsers and feed readers. WHATWG parsers treat a backslash as "/", so
+    https://evil.example<backslash>@official.gov/ would pass a urlsplit-based check yet open evil."""
     v = _text(v, field)
-    if not re.match(r"^https://[^\s<>\"']{3,500}$", v):
-        raise AlertInvalid(f"{field} must be an https URL")
+    if len(v) > 500 or not v.isascii() or "\\" in v or not _SAFE_URL.match(v):
+        raise AlertInvalid(f"{field} must be a plain https URL (no credentials, escapes or non-default port)")
     return v
 
 

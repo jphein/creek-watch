@@ -23,8 +23,9 @@ from .store import AlertStore
 log = logging.getLogger("creekwatch.alerts")
 
 MAX_ALERTS_PER_SOURCE = 500
-MIN_INTERVAL_S, MAX_INTERVAL_S = 60, 6 * 3600
-MAX_BACKOFF_S = 3600
+MIN_INTERVAL_S, MAX_INTERVAL_S = 60, 7 * 86400   # honour the data lane's daily / 12 h sources
+MAX_BACKOFF_S = 6 * 3600
+FETCH_TIMEOUT_S = 90.0                            # SSO's 10 MB download needs > 60 s
 
 
 @dataclass
@@ -56,7 +57,8 @@ class SourceState:
 
 class Poller:
     def __init__(self, adapters: list[Any], store: AlertStore, ctx_factory: Callable[[], AlertContext],
-                 push=None, fetch_timeout_s: float = 60.0, clock: Callable[[], float] = time.monotonic):
+                 push=None, fetch_timeout_s: float = FETCH_TIMEOUT_S, clock: Callable[[], float] = time.time,
+                 load_error: str | None = None):
         self.adapters = {}
         for a in adapters:
             src = getattr(a, "source", None)
@@ -66,7 +68,13 @@ class Poller:
             self.adapters[src] = a
         self.store, self.ctx_factory, self.push = store, ctx_factory, push
         self.fetch_timeout_s, self.clock = fetch_timeout_s, clock
+        self.load_error = load_error
         self.state = {s: SourceState() for s in self.adapters}
+        # Persisted schedule (wall clock): a fresh `--once` process resumes intervals and backoff.
+        for src, (next_due, failures) in store.schedule().items():
+            if src in self.state:
+                self.state[src].next_run = next_due or 0.0
+                self.state[src].failures = failures or 0
         self._pool = ThreadPoolExecutor(max_workers=max(2, len(self.adapters)), thread_name_prefix="alert-src")
         self._lock = threading.Lock()
 
@@ -101,9 +109,9 @@ class Poller:
     def _fail(self, src: str, why: str) -> None:
         st = self.state[src]
         st.failures += 1
-        delay = min(MAX_BACKOFF_S, self.interval(src) * (2 ** min(st.failures, 6)))
+        delay = min(max(MAX_BACKOFF_S, self.interval(src)), self.interval(src) * (2 ** min(st.failures, 6)))
         st.next_run = self.clock() + delay
-        self.store.record_failure(src, why, st.failures)
+        self.store.record_failure(src, why, st.failures, st.next_run)
         log.warning("alert source %s failed (%s); retry in %.0f s", src, why, delay)
 
     def run_due(self, force: bool = False) -> dict[str, Any]:
@@ -122,75 +130,124 @@ class Poller:
                     fut = self._pool.submit(self._fetch, src, ctx)
                     fut.add_done_callback(lambda f, s=src: setattr(self.state[s], "running", False))
                     launched[src] = fut
-        summary: dict[str, Any] = {"ran": [], "failed": {}, "new": [], "escalated": [], "pushed": 0}
+        summary: dict[str, Any] = {"ran": [], "failed": {}, "new": [], "escalated": [], "pushed": 0,
+                                   "skipped_not_due": sorted(set(self.state) - set(launched))}
         deadline = time.monotonic() + self.fetch_timeout_s
         for src, fut in launched.items():
-            try:
-                alerts = fut.result(timeout=max(0.01, deadline - time.monotonic()))
-            except TimeoutError:
-                self._fail(src, f"timeout after {self.fetch_timeout_s:.0f}s")  # thread finishes on its own
-                summary["failed"][src] = "timeout"
-                continue
+            try:  # everything per source is isolated: no exception can abort the cycle or expire_due
+                self._process(src, fut, deadline, summary)
             except Exception as e:
-                self._fail(src, f"{type(e).__name__}: {str(e)[:200]}")
+                log.exception("alert source %s: processing crashed", src)
                 summary["failed"][src] = type(e).__name__
-                continue
-            st = self.state[src]
-            st.failures, st.next_run = 0, self.clock() + self.interval(src)
-            summary["ran"].append(src)
-            for ch in self.store.apply_fetch(src, alerts):
-                if ch.kind in ("new", "escalated") and ch.alert["status"] == "active":
-                    summary[ch.kind].append(ch.alert["id"])
-                    # Claim first (atomic, DB-level): at most one process announces each (id, severity),
-                    # even during the redeploy overlap. Claimed even with push off, so a later
-                    # subscriber never receives a backlog.
-                    if self.store.claim_push(ch.alert["id"], ch.alert["severity"]) and self.push is not None:
-                        try:
-                            summary["pushed"] += self.push.notify(ch.alert, ch.kind).get("sent", 0)
-                        except Exception:
-                            log.exception("push fan-out failed for %s", ch.alert["id"])
-        self.store.expire_due()
+                try:
+                    self._fail(src, f"processing {type(e).__name__}")
+                except Exception:
+                    log.exception("could not record failure for %s", src)
+        try:
+            self.store.expire_due()
+        except Exception:
+            log.exception("expire_due failed")
         return summary
+
+    def _process(self, src: str, fut: Future, deadline: float, summary: dict[str, Any]) -> None:
+        try:
+            alerts = fut.result(timeout=max(0.01, deadline - time.monotonic()))
+        except TimeoutError:
+            self._fail(src, f"timeout after {self.fetch_timeout_s:.0f}s")  # thread finishes on its own
+            summary["failed"][src] = "timeout"
+            return
+        except Exception as e:
+            self._fail(src, f"{type(e).__name__}: {str(e)[:200]}")
+            summary["failed"][src] = type(e).__name__
+            return
+        st = self.state[src]
+        changes = self.store.apply_fetch(src, alerts)
+        st.failures, st.next_run = 0, self.clock() + self.interval(src)
+        self.store.set_next_due(src, st.next_run)
+        summary["ran"].append(src)
+        for ch in changes:
+            if ch.kind in ("new", "escalated") and ch.alert["status"] == "active":
+                summary[ch.kind].append(ch.alert["id"])
+                # Claim first (atomic, DB-level): at most one process announces each (id, severity),
+                # even during the redeploy overlap. Claimed even with push off, so a later
+                # subscriber never receives a backlog.
+                if self.store.claim_push(ch.alert["id"], ch.alert["severity"]) and self.push is not None:
+                    try:
+                        summary["pushed"] += self.push.notify(ch.alert, ch.kind).get("sent", 0)
+                    except Exception:
+                        log.exception("push fan-out failed for %s", ch.alert["id"])
 
     def status(self) -> dict[str, Any]:
         now = self.clock()
-        return {src: {"interval_s": self.interval(src), "failures": st.failures, "running": st.running,
-                      "next_run_in_s": max(0, round(st.next_run - now))} for src, st in self.state.items()}
+        return {"adapters_loaded": len(self.adapters), "load_error": self.load_error,
+                "sources": {src: {"interval_s": self.interval(src), "failures": st.failures, "running": st.running,
+                                  "next_run_in_s": max(0, round(st.next_run - now))}
+                            for src, st in self.state.items()}}
 
     def shutdown(self) -> None:
         self._pool.shutdown(wait=False, cancel_futures=True)
 
 
-def load_adapters(use_data_package: bool) -> list[Any]:
-    """The data lane's registry, or nothing (the app runs fine with zero sources)."""
-    if not use_data_package:
-        return []
+def load_adapters(use_data_package: bool) -> tuple[list[Any], str | None]:
+    """(adapters, load_error). Fails LOUD: a broken import is logged at ERROR and surfaced in
+    /api/alerts/sources (adapters_loaded: 0, load_error), so a bad deploy is visible.
+    CREEKWATCH_ALERT_ADAPTERS="module:attr" overrides the registry (tests/ops)."""
+    import importlib
+    import os
+
+    spec = os.environ.get("CREEKWATCH_ALERT_ADAPTERS")
+    if not use_data_package and not spec:
+        return [], None
+    mod_name, _, attr = (spec or "data.alerts:ADAPTERS").partition(":")
     try:
-        from data.alerts import ADAPTERS  # type: ignore
-
-        log.info("alert adapters: %s", [getattr(a, "source", "?") for a in ADAPTERS])
-        return list(ADAPTERS)
+        adapters = list(getattr(importlib.import_module(mod_name), attr or "ADAPTERS"))
     except Exception as e:
-        log.warning("data.alerts unavailable (%s); no alert sources", e)
-        return []
+        err = f"{type(e).__name__}: {str(e)[:200]}"
+        log.error("ALERT ADAPTERS FAILED TO LOAD from %s:%s (%s); no alert sources", mod_name, attr, err)
+        return [], err
+    if not adapters:
+        log.error("alert adapter registry %s is empty", spec or "data.alerts:ADAPTERS")
+        return [], "empty adapter registry"
+    log.info("alert adapters: %s", [getattr(a, "source", "?") for a in adapters])
+    return adapters, None
 
 
-def main() -> None:  # CLI: python -m creekwatch.alerts.poller --once   (ops / systemd timer option)
+def main() -> int:
+    """CLI for the systemd timer: `python -m creekwatch.alerts.poller --once`.
+    --once  runs only the sources that are DUE per the persisted schedule (intervals + backoff).
+    --force runs every source now (manual/debug).
+    Exit 0 if anything ran OK or nothing was due; 2 if every source that ran failed; 3 if adapters failed to load."""
     import argparse
     import json as _json
+    import sys
 
     from ..config import Settings
     from ..main import create_app
 
     ap = argparse.ArgumentParser()
-    ap.add_argument("--once", action="store_true", help="run every source once and exit")
+    g = ap.add_mutually_exclusive_group(required=True)
+    g.add_argument("--once", action="store_true", help="run the sources that are due, then exit")
+    g.add_argument("--force", action="store_true", help="run every source now, then exit")
     a = ap.parse_args()
     app = create_app(Settings())
     p: Poller = app.state.alert_poller
-    print(_json.dumps(p.run_due(force=a.once), indent=1))
-    p.shutdown()
+    if p.load_error or not p.adapters:
+        print(_json.dumps({"error": "adapters not loaded", "load_error": p.load_error}), flush=True)
+        return 3
+    summary = p.run_due(force=a.force)
+    print(_json.dumps(summary, indent=1), flush=True)
+    if summary["failed"] and not summary["ran"]:
+        return 2
+    return 0
 
 
 if __name__ == "__main__":
+    import os as _os
+    import sys as _sys
+
     logging.basicConfig(level="INFO", format="%(asctime)s %(levelname)s %(name)s: %(message)s")
-    main()
+    code = main()
+    _sys.stdout.flush(); _sys.stderr.flush()
+    # os._exit: a hung adapter thread must not keep the timer's process alive (executor threads are
+    # joined at normal interpreter exit). All DB writes are already committed at this point.
+    _os._exit(code)

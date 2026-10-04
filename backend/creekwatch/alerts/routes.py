@@ -44,7 +44,9 @@ def register(app: FastAPI, store: AlertStore, push: PushService, poller, creek_i
 
     @app.get("/api/alerts/sources")
     def alert_sources() -> dict[str, Any]:
-        return {"sources": store.sources(), "schedule": poller.status() if poller else {}}
+        st = poller.status() if poller else {"adapters_loaded": 0, "load_error": "no poller", "sources": {}}
+        return {"adapters_loaded": st["adapters_loaded"], "load_error": st["load_error"],
+                "sources": store.sources(), "schedule": st["sources"]}
 
     @app.get("/api/alerts/item")
     def get_alert(id: str = Query(..., max_length=240)) -> dict[str, Any]:  # ids contain ':' and '/'
@@ -110,7 +112,6 @@ def register(app: FastAPI, store: AlertStore, push: PushService, poller, creek_i
         return {"key": push.vapid.public}
 
     @app.post("/api/push/subscriptions", status_code=201)
-    @app.post("/api/push/subscribe", status_code=201, include_in_schema=False)  # web lane's name
     async def subscribe(request: Request) -> JSONResponse:
         _limit(request)
         if not push.enabled:
@@ -131,7 +132,6 @@ def register(app: FastAPI, store: AlertStore, push: PushService, poller, creek_i
                             status_code=201 if result == "created" else 200)
 
     @app.delete("/api/push/subscriptions", status_code=204)
-    @app.post("/api/push/unsubscribe", status_code=204, include_in_schema=False)  # web lane's name
     async def unsubscribe(request: Request) -> Response:
         _limit(request)
         body = await _json_body(request)

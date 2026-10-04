@@ -11,10 +11,12 @@ Threat model (Oracle gate): a subscription endpoint is an attacker-chosen URL we
 from __future__ import annotations
 
 import base64
+import ipaddress
 import json
 import logging
 import os
 import re
+import socket
 import sqlite3
 import threading
 from concurrent.futures import ThreadPoolExecutor, wait
@@ -70,29 +72,87 @@ def _b64url_decode(s: str) -> bytes:
 
 
 def push_host_allowed(host: str) -> bool:
-    host = (host or "").lower().rstrip(".")
+    host = (host or "").lower()
     return host in PUSH_HOSTS_EXACT or any(host.endswith(sfx) and len(host) > len(sfx) for sfx in PUSH_HOST_SUFFIXES)
 
 
-def validate_endpoint(endpoint: Any) -> str:
+# Strict syntax: the authority may contain ONLY host characters (no userinfo '@', no '\\', no '%',
+# no non-ASCII/IDNA, no whitespace) plus an optional :443; path/query are RFC 3986 characters only.
+# This is what closes the urlsplit-vs-urllib3 parser differential ("https://10.0.6.1\\.push.apple.com/").
+_ENDPOINT_RE = re.compile(
+    r"^https://(?P<host>[A-Za-z0-9](?:[A-Za-z0-9-]{0,62}[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,62}[A-Za-z0-9])?)+)"
+    r"(?::443)?(?P<rest>/[A-Za-z0-9\-._~!$&'()*+,;=:@%/?]*)?$")
+
+
+def endpoint_host(endpoint: Any) -> str:
+    """Return the allowlisted host for a push endpoint, or raise SubscriptionInvalid.
+
+    The same URL is parsed by the stdlib AND by the exact parser that will send it
+    (requests -> urllib3); both must agree on host and port before the allowlist applies."""
+    host = _syntax_host(endpoint)          # layer 1: strict charset/shape
+    _same_parser_host(endpoint, host)      # layer 2: stdlib and the sending parser must agree
+    if not push_host_allowed(host):        # layer 3: allowlist (DNS/IP vetting happens at send)
+        raise SubscriptionInvalid("endpoint is not a recognised push service (FCM, Mozilla, Apple, Windows)")
+    return host
+
+
+def _syntax_host(endpoint: Any) -> str:
     if not isinstance(endpoint, str) or not endpoint or len(endpoint) > MAX_ENDPOINT_LEN:
         raise SubscriptionInvalid("endpoint missing or too long")
-    if any(ch.isspace() or ord(ch) < 0x21 for ch in endpoint):
-        raise SubscriptionInvalid("endpoint contains whitespace/control characters")
+    if not endpoint.isascii() or any(ch.isspace() or ord(ch) < 0x21 or ord(ch) == 0x7F for ch in endpoint):
+        raise SubscriptionInvalid("endpoint must be plain ASCII without spaces or control characters")
+    if "\\" in endpoint:
+        raise SubscriptionInvalid("endpoint must not contain a backslash")
+    m = _ENDPOINT_RE.match(endpoint)
+    if not m:
+        raise SubscriptionInvalid("endpoint must be https://<push service host>/... (no credentials, "
+                                  "no port other than 443, no escapes in the host)")
+    return m.group("host").lower()
+
+
+def _same_parser_host(endpoint: str, host: str) -> None:
     try:
+        import requests
+        from urllib3.util import parse_url
+
         u = urlsplit(endpoint)
-        port = u.port
-    except ValueError:
+        sent = parse_url(requests.Request("POST", endpoint).prepare().url)
+    except Exception:
         raise SubscriptionInvalid("endpoint is not a valid URL")
-    if u.scheme != "https":
-        raise SubscriptionInvalid("endpoint must be https")
-    if u.username is not None or u.password is not None or "@" in u.netloc:
-        raise SubscriptionInvalid("endpoint must not contain credentials")
-    if port not in (None, 443):
-        raise SubscriptionInvalid("endpoint must use the default https port")
-    if not push_host_allowed(u.hostname or ""):
-        raise SubscriptionInvalid("endpoint is not a recognised push service (FCM, Mozilla, Apple, Windows)")
+    if (u.hostname or "") != host or (sent.host or "").lower() != host:
+        raise SubscriptionInvalid("endpoint host is ambiguous")      # parser differential: refuse
+    if u.port not in (None, 443) or sent.port not in (None, 443) or u.username or u.password or sent.auth:
+        raise SubscriptionInvalid("endpoint must use the default https port and no credentials")
+
+
+def validate_endpoint(endpoint: Any) -> str:
+    endpoint_host(endpoint)
     return endpoint
+
+
+_getaddrinfo = socket.getaddrinfo  # indirection so tests can fake DNS
+
+
+def _public_ip(addr: str) -> bool:
+    ip = ipaddress.ip_address(addr.split("%", 1)[0])
+    if isinstance(ip, ipaddress.IPv6Address) and ip.ipv4_mapped:
+        ip = ip.ipv4_mapped
+    return (ip.is_global and not ip.is_multicast and not ip.is_reserved and not ip.is_unspecified
+            and not ip.is_loopback and not ip.is_link_local and not ip.is_private
+            and ip not in ipaddress.ip_network("100.64.0.0/10"))
+
+
+def resolve_public(host: str) -> str:
+    """Resolve and return an IP to connect to; refuse if ANY address is non-public (private, loopback,
+    link-local, CGNAT, multicast, ULA...). Guards an allowlisted name resolving (or rebinding) inward."""
+    try:
+        infos = _getaddrinfo(host, 443, type=socket.SOCK_STREAM)
+    except OSError as e:
+        raise PermissionError(f"push host did not resolve ({type(e).__name__})")
+    addrs = [i[4][0] for i in infos]
+    if not addrs or not all(_public_ip(a) for a in addrs):
+        raise PermissionError("push host resolves to a non-public address")
+    return addrs[0]
 
 
 def _hhmm(v: Any) -> str | None:
@@ -149,6 +209,8 @@ def validate_subscription(body: Any, known_creeks: set[str]) -> dict[str, Any]:
     start, end = _hhmm(qh.get("start")), _hhmm(qh.get("end"))
     if (start is None) != (end is None):
         raise SubscriptionInvalid("quiet_hours needs both start and end")
+    if start is not None and start == end:
+        raise SubscriptionInvalid("quiet_hours start and end must differ")
     return {"endpoint": endpoint, "p256dh": p256dh, "auth": auth, "creek_ids": sorted(set(creek_ids)),
             "min_severity": min_sev, "severities": severities, "quiet_start": start, "quiet_end": end, "tz": tz}
 
@@ -179,9 +241,10 @@ def matches(sub: dict, alert: dict, when: datetime) -> bool:
 
 def payload_for(alert: dict, kind: str) -> bytes:
     short = alert["summary"] if len(alert["summary"]) <= 140 else alert["summary"][:139].rstrip() + "…"
+    summary200 = alert["summary"] if len(alert["summary"]) <= 200 else alert["summary"][:199].rstrip() + "…"
     body = {"id": alert["id"], "alert_id": alert["id"], "tag": alert["id"], "kind": kind,
             "severity": alert["severity"], "category": alert["category"], "title": alert["title"],
-            "body": short, "summary": alert["summary"], "source_name": alert["source_name"],
+            "body": short, "summary": summary200, "source_name": alert["source_name"],
             "official": alert["source"] != "creekwatch", "notice": DEFER_SHORT,
             "url": "/#alerts?id=" + quote(alert["id"], safe=""), "source_url": alert["url"],
             "creek_ids": alert["area"]["creek_ids"]}
@@ -237,15 +300,34 @@ class VapidKeys:
 
 def hardened_session():
     import requests
+    from requests.adapters import HTTPAdapter
+    from urllib3.util import parse_url
+
+    class _PinnedAdapter(HTTPAdapter):
+        """Connects to the vetted IP while TLS (SNI + certificate) is verified against the hostname."""
+
+        def send(self, request, **kw):
+            host = endpoint_host(request.url)          # same-parser + allowlist, at send time
+            ip = resolve_public(host)                  # no inward resolution / rebinding
+            u = parse_url(request.url)
+            self._host = host
+            request.url = u._replace(host=f"[{ip}]" if ":" in ip else ip).url
+            request.headers["Host"] = host
+            return super().send(request, **kw)
+
+        def build_connection_pool_key_attributes(self, request, verify, cert=None):
+            host_params, pool_kwargs = super().build_connection_pool_key_attributes(request, verify, cert)
+            pool_kwargs["server_hostname"] = self._host
+            pool_kwargs["assert_hostname"] = self._host
+            return host_params, pool_kwargs
 
     class _Session(requests.Session):
         def request(self, method, url, *a, **kw):
-            u = urlsplit(url)
-            if u.scheme != "https" or not push_host_allowed(u.hostname or "") or u.port not in (None, 443):
-                raise PermissionError("push endpoint not allowed")  # defence in depth at send time
+            endpoint_host(url)  # refuse before anything else touches the URL
             kw["allow_redirects"] = False
             kw["timeout"] = SEND_TIMEOUT
             kw["stream"] = True
+            kw["verify"] = True
             kw.pop("proxies", None)
             resp = super().request(method, url, *a, **kw)
             try:
@@ -257,6 +339,8 @@ def hardened_session():
     s = _Session()
     s.trust_env = False   # ignore HTTP(S)_PROXY / netrc from the environment
     s.max_redirects = 0
+    s.mount("https://", _PinnedAdapter(max_retries=0))
+    s.mount("http://", _PinnedAdapter(max_retries=0))  # endpoint_host refuses http anyway
     return s
 
 

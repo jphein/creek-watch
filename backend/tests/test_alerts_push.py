@@ -166,7 +166,7 @@ def test_hardened_session_forces_safe_kwargs(monkeypatch):
     assert seen["allow_redirects"] is False and seen["timeout"] == push_mod.SEND_TIMEOUT
     assert seen["stream"] is True and "proxies" not in seen and seen["trust_env"] is False
     assert seen["read_cap"] == push_mod.MAX_RESPONSE
-    with pytest.raises(PermissionError):
+    with pytest.raises((PermissionError, SubscriptionInvalid)):
         s.request("POST", "https://169.254.169.254/x")
 
 
@@ -290,16 +290,13 @@ def test_severities_list_filter():
     assert not matches(sub, validate_alert(make_alert(severity="watch")), now)
 
 
-def test_web_alias_routes(push_client):
+def test_single_contract_no_alias_routes(push_client):
+    """One push contract only (aliases doubled the attack surface)."""
     c = push_client
-    b = {"subscription": body()["subscription"],
-         "filters": {"creek_ids": ["deer"], "severities": ["alert", "watch"], "quiet_hours": None}}
-    r = c.post("/api/push/subscribe", json=b)
-    assert r.status_code == 201
-    j = r.json()
-    assert len(j["id"]) == 16 and j["filters"]["severities"] == ["watch", "alert"] and j["filters"]["quiet_hours"] is None
-    assert b["subscription"]["endpoint"] not in r.text
-    assert c.post("/api/push/unsubscribe", json={"endpoint": b["subscription"]["endpoint"]}).status_code == 204
+    assert c.post("/api/push/subscribe", json=body()).status_code in (404, 405)
+    assert c.post("/api/push/unsubscribe", json={"endpoint": "https://fcm.googleapis.com/x"}).status_code in (404, 405)
+    r = c.post("/api/push/subscriptions", json=body(creek_ids=["deer"], min_severity="watch"))
+    assert r.status_code == 201 and len(r.json()["id"]) == 16 and "fcm.googleapis.com" not in r.text
 
 
 def test_vapid_key_never_in_repr_or_api(tmp_path, monkeypatch):
@@ -314,3 +311,96 @@ def test_vapid_key_never_in_repr_or_api(tmp_path, monkeypatch):
         for path in ("/api/version", "/api/meta", "/api/push/vapid-public-key", "/api/alerts/sources"):
             assert priv not in c.get(path).text
         assert priv not in repr(app.state.push.vapid)
+
+
+
+# ---- SSRF: parser differentials (Oracle BLOCKER on fe854b9) -----------------------------------
+
+SSRF_VARIANTS = [
+    "https://10.0.6.1\\.push.apple.com/x",          # urlsplit host ends .push.apple.com; urllib3 connects 10.0.6.1
+    "https://127.0.0.1\\@x.push.apple.com/",        # urlsplit host x.push.apple.com; urllib3 connects 127.0.0.1
+    "https://evil.example\\.notify.windows.com/a",
+    "https://10.0.6.1%5C.push.apple.com/x", "https://10.0.6.1%5c.push.apple.com/x",
+    "https://u@fcm.googleapis.com/x", "https://fcm.googleapis.com@evil.example/x",
+    "https://fcm.googleapis.com./fcm/send/x",       # trailing dot
+    "https://fcm.googleapís.com/fcm/send/x",         # IDNA homoglyph (non-ASCII)
+    "https://xn--fcm-googleapis-6qb.com/x",          # punycode lookalike, not allowlisted
+    "https://fcm.googleapis.com:444/x", "https://fcm.googleapis.com:0443/x",
+    "https://fcm.googleapis.com/x\t", "https://fcm.googleapis.com/\x7f",
+]
+
+
+@pytest.mark.parametrize("bad", SSRF_VARIANTS)
+def test_ssrf_variants_rejected_at_subscribe(bad):
+    with pytest.raises(SubscriptionInvalid):
+        validate_endpoint(bad)
+
+
+@pytest.mark.parametrize("bad", SSRF_VARIANTS[:7])
+def test_ssrf_variants_rejected_at_send(bad):
+    s = push_mod.hardened_session()
+    with pytest.raises((SubscriptionInvalid, PermissionError)):
+        s.request("POST", bad, data=b"x")
+
+
+def test_same_parser_check_is_what_blocks_the_differential(monkeypatch):
+    """Layer 2 alone: with the syntax layer neutralised (returns urlsplit's view of the host, as the
+    original fe854b9 code did), the urlsplit-vs-urllib3 comparison must still refuse every differential."""
+    from urllib.parse import urlsplit
+    monkeypatch.setattr(push_mod, "_syntax_host", lambda ep: (urlsplit(ep).hostname or "").lower())
+    for bad in ("https://10.0.6.1\\.push.apple.com/x", "https://127.0.0.1\\@x.push.apple.com/",
+                "https://evil.example\\.notify.windows.com/a"):
+        with pytest.raises(SubscriptionInvalid, match="ambiguous"):
+            push_mod.endpoint_host(bad)
+    assert push_mod.endpoint_host("https://fcm.googleapis.com/fcm/send/x") == "fcm.googleapis.com"
+
+
+@pytest.mark.parametrize("addr", ["10.0.6.1", "127.0.0.1", "169.254.169.254", "100.64.1.1", "192.168.1.5",
+                                  "224.0.0.1", "0.0.0.0", "::1", "fd00::1", "fe80::1", "::ffff:10.0.0.1"])
+def test_dns_to_internal_refused(monkeypatch, addr):
+    fam = 10 if ":" in addr else 2
+    monkeypatch.setattr(push_mod, "_getaddrinfo", lambda h, p, type=0: [(fam, 1, 6, "", (addr, 443))])
+    with pytest.raises(PermissionError):
+        push_mod.resolve_public("fcm.googleapis.com")
+
+
+def test_dns_mixed_public_and_private_refused(monkeypatch):
+    monkeypatch.setattr(push_mod, "_getaddrinfo", lambda h, p, type=0: [(2, 1, 6, "", ("142.250.1.1", 443)),
+                                                                        (2, 1, 6, "", ("10.0.0.9", 443))])
+    with pytest.raises(PermissionError):
+        push_mod.resolve_public("fcm.googleapis.com")
+
+
+def test_pinned_adapter_connects_to_vetted_ip_with_tls_hostname(monkeypatch):
+    from requests.adapters import HTTPAdapter
+    monkeypatch.setattr(push_mod, "_getaddrinfo", lambda h, p, type=0: [(2, 1, 6, "", ("142.250.72.10", 443))])
+    seen = {}
+
+    def fake_send(self, request, **kw):
+        seen["url"], seen["host_header"] = request.url, request.headers.get("Host")
+        seen["pool"] = self.build_connection_pool_key_attributes(request, True)[1]
+        import requests as _rq
+
+        class _Raw:
+            def read(self, n=-1, decode_content=True): return b""
+            def close(self): pass
+        r = _rq.models.Response()
+        r.status_code, r.raw, r.request, r.url = 201, _Raw(), request, request.url
+        return r
+
+    monkeypatch.setattr(HTTPAdapter, "send", fake_send)
+    push_mod.hardened_session().request("POST", "https://fcm.googleapis.com/fcm/send/abc", data=b"x")
+    assert seen["url"].startswith("https://142.250.72.10/fcm/send/abc")
+    assert seen["host_header"] == "fcm.googleapis.com"
+    assert seen["pool"]["server_hostname"] == "fcm.googleapis.com" == seen["pool"]["assert_hostname"]
+
+
+def test_quiet_hours_start_equal_end_rejected():
+    with pytest.raises(SubscriptionInvalid):
+        validate_subscription(body(quiet_hours={"start": "22:00", "end": "22:00"}), set())
+
+
+def test_payload_summary_capped_for_web():
+    import json as _json
+    p = _json.loads(push_mod.payload_for(validate_alert(make_alert(summary="w " * 140)), "new"))
+    assert len(p["summary"]) <= 200 and len(p["body"]) <= 140

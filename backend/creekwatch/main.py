@@ -226,7 +226,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             return fetch_reports(cid, since, 500)
         return AlertContext(creeks=creeks, reports_fn=reports, conditions_fn=data.conditions)
 
-    alert_poller = Poller(load_adapters(s.use_data_package), alert_store, _ctx, push=push_service)
+    adapters, adapters_error = load_adapters(s.use_data_package)
+    alert_poller = Poller(adapters, alert_store, _ctx, push=push_service, load_error=adapters_error)
     app.state.alert_store, app.state.alert_poller, app.state.push = alert_store, alert_poller, push_service
     register_alerts(app, alert_store, push_service, alert_poller, set(creek_by_id), client_ip, s.public_url,
                     RateLimiter(s.push_rate_count, s.rate_limit_window_s))

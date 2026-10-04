@@ -37,7 +37,8 @@ CREATE TABLE IF NOT EXISTS alert_sources (
     last_ok     TEXT,
     last_error  TEXT,
     failures    INTEGER NOT NULL DEFAULT 0,
-    alert_count INTEGER NOT NULL DEFAULT 0
+    alert_count INTEGER NOT NULL DEFAULT 0,
+    next_due    REAL
 );
 """
 
@@ -58,6 +59,9 @@ class AlertStore:
         db_path.parent.mkdir(parents=True, exist_ok=True)
         with self._conn() as c:
             c.executescript(SCHEMA)
+            cols = {r[1] for r in c.execute("PRAGMA table_info(alert_sources)")}
+            if "next_due" not in cols:  # DBs created before the persisted schedule
+                c.execute("ALTER TABLE alert_sources ADD COLUMN next_due REAL")
 
     def _conn(self) -> sqlite3.Connection:
         c = sqlite3.connect(self.db_path, timeout=10)
@@ -123,13 +127,25 @@ class AlertStore:
                       (source, now, now, len(seen)))
         return changes
 
-    def record_failure(self, source: str, error: str, failures: int) -> None:
+    def record_failure(self, source: str, error: str, failures: int, next_due: float | None = None) -> None:
         now = now_iso()
         with self._conn() as c:
-            c.execute("INSERT INTO alert_sources (source, last_run, last_error, failures) VALUES (?,?,?,?) "
+            c.execute("INSERT INTO alert_sources (source, last_run, last_error, failures, next_due) VALUES (?,?,?,?,?) "
                       "ON CONFLICT(source) DO UPDATE SET last_run=excluded.last_run, "
-                      "last_error=excluded.last_error, failures=excluded.failures",
-                      (source, now, error[:300], failures))
+                      "last_error=excluded.last_error, failures=excluded.failures, next_due=excluded.next_due",
+                      (source, now, error[:300], failures, next_due))
+
+    def set_next_due(self, source: str, next_due: float) -> None:
+        with self._conn() as c:
+            c.execute("INSERT INTO alert_sources (source, next_due) VALUES (?, ?) "
+                      "ON CONFLICT(source) DO UPDATE SET next_due=excluded.next_due", (source, next_due))
+
+    def schedule(self) -> dict[str, tuple[float | None, int]]:
+        """Persisted {source: (next_due epoch s, consecutive failures)}: survives process restarts, so
+        separate `--once` passes honour intervals and backoff."""
+        with self._conn() as c:
+            return {r["source"]: (r["next_due"], r["failures"]) for r in
+                    c.execute("SELECT source, next_due, failures FROM alert_sources")}
 
     def expire_due(self, now: str | None = None) -> int:
         """Time-based expiry for every source (runs each poll cycle, even if a source is down)."""
