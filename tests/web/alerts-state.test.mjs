@@ -5,7 +5,8 @@ const { base, close } = await serveWeb();
 const b = await launch();
 const iso = (msAgo) => new Date(Date.now() - msAgo).toISOString();
 const json = (body, status = 200) => ({ status, contentType: 'application/json', body: JSON.stringify(body) });
-const src = (list, schedule = {}) => json({ sources: list.map(([source, agoMin]) => ({ source, last_ok: agoMin == null ? null : iso(agoMin * 60e3) })), schedule });
+const src = (list, schedule = {}, extra = { adapters_loaded: 6, load_error: null }) =>
+  json({ ...extra, sources: list.map(([source, agoMin]) => ({ source, last_ok: agoMin == null ? null : iso(agoMin * 60e3) })), schedule });
 const cases = [
   ['nws fresh (+creekwatch), no alerts → ✓', [], src([['nws', 5], ['creekwatch', 1]], { nws: { interval_s: 600 } }), 'clear'],
   ['nws fresh, others stale → ✓ allowed', [], src([['nws', 5], ['sso', 600], ['hab', 600]]), 'clear'],
@@ -15,6 +16,9 @@ const cases = [
   ['nws missing, others fresh → couldn’t check', [], src([['sso', 2], ['creekwatch', 1]]), 'unchecked'],
   ['no source ever ok → couldn’t check', [], src([['nws', null]]), 'unchecked'],
   ['sources endpoint missing → couldn’t check', [], json({ detail: 'Not Found' }, 404), 'unchecked'],
+  ['nws fresh but adapters_loaded 0 → couldn’t check', [], src([['nws', 5]], {}, { adapters_loaded: 0, load_error: null }), 'unchecked'],
+  ['nws fresh but load_error set → couldn’t check', [], src([['nws', 5]], {}, { adapters_loaded: 6, load_error: 'ImportError: data.alerts' }), 'unchecked'],
+  ['nws fresh but adapters fields missing → couldn’t check', [], src([['nws', 5]], {}, {}), 'unchecked'],
   ['nws stale, alerts present → list + incomplete note', JSON.parse(mock('alerts')), src([['nws', 180], ['sso', 2]]), 'stale-list'],
 ];
 const out = [];
