@@ -18,6 +18,13 @@ LOCK="${CW_POLL_LOCK:-$HOME/creekwatch/.poll.lock}"
 log() { printf '%s poll: %s\n' "$(date '+%F %T %Z')" "$*"; }
 exec 9>"$LOCK"
 flock -n 9 || { log "WARN: previous poll still running; this pass SKIPPED"; exit 75; }
+# Hold the redeploy/backup swap lock SHARED for the whole pass: redeploy.sh (swap, rollback) and
+# backup.sh take it EXCLUSIVE, so a swap waits for an in-flight pass instead of stopping the container
+# under it (seen 2026-10-03 20:10:54: pass killed with 137), and a pass never starts mid-swap.
+SWAP_LOCK="${CW_BACKUP_STAGE:-$HOME/creekwatch/backup-stage}/.lock"
+mkdir -p "$(dirname "$SWAP_LOCK")"
+exec 8>>"$SWAP_LOCK"
+flock -s -w "${CW_POLL_SWAP_WAIT:-120}" 8 || { log "WARN: a redeploy swap/backup held the lock too long; this pass SKIPPED"; exit 75; }
 for _ in $(seq 1 30); do   # e.g. a redeploy swap in progress
   [ "$(docker inspect -f '{{.State.Running}}' "$NAME" 2>/dev/null)" = true ] && break; sleep 2
 done
