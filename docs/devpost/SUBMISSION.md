@@ -145,7 +145,7 @@ Details and retrieval URLs: [`data/SOURCES.md`](https://github.com/jphein/creek-
 - **Alec:** student. Field reports, writing, and testing.
 
 ## Built with
-`python` · `fastapi` · `sqlite` · `uv` · `pillow` · `javascript` · `html5` · `css3` · `leaflet` · `openstreetmap` · `usgs-water-services` · `national-weather-service-api` · `open-meteo` · `cdec` · `ceden` · `pwa` · `web-push` · `vapid` · `cap-1.2` · `atom` · `docker` · `aws` · `amazon-ec2` · `kamal` · `playwright` · `claude-code`
+`python` · `fastapi` · `sqlite` · `uv` · `pillow` · `javascript` · `html5` · `leaflet.js` · `openstreetmap` · `usgs-water-services` · `national-weather-service-api` · `open-meteo` · `cdec` · `ceden` · `pwa` · `web-push` · `vapid` · `cap-1.2` · `atom` · `docker` · `aws` · `amazon-ec2` · `kamal` · `playwright` · `claude-code`
 
 ---
 
