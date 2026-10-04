@@ -67,6 +67,9 @@ for (const scheme of ['light', 'dark']) {
   st.title = '<img src=x onerror="window.__xss=1">2024 study';
   st.stations[0].samples[1].ecoli = null; st.stations[0].samples[2].ecoli = '<1'; st.stations[0].samples[3].ecoli = '12';
   st.stations[1].samples[4].qual = '<'; st.stations[1].samples[4].ecoli = 10; st.stations[1].samples[5].qual = '>'; st.stations[1].samples[5].ecoli = 2419.6;
+  // Volunteer E. coli readings on the card: threshold wording, never "swim limit", never alert-styled.
+  wolf.water_quality = { stations: [{ agency: 'WCCA', name: 'Test site A', date: '2026-09-20', age_days: 14, live: true, credit: 'test',
+    readings: { ecoli_mpn_100ml: 410 } }, { agency: 'WCCA', name: 'Test site B', date: '2026-09-20', age_days: 14, live: true, credit: 'test', readings: { ecoli_mpn_100ml: 120 } }] };
   deer.river.stations[0].age_hours = 1; deer.river.stations[0].observed_at = new Date(Date.now() - 9 * 3600e3).toISOString(); // cached age is stale on purpose
   deer.river.stations[1].observed_at = new Date(Date.now() - 2 * 3600e3).toISOString();
   deer.river.stations[1].source_url = 'http://cdec.water.ca.gov/insecure';
@@ -88,6 +91,9 @@ for (const scheme of ['light', 'dark']) {
     nanInDom: /NaN|undefined/.test(await w.innerText()),
     qualBars: await w.locator('.h-station').nth(1).locator('rect.hb').count(),
     qualCaption: await w.locator('.h-station').nth(1).locator('figcaption').innerText(),
+    ecoliSays: await w.locator('.wq-say').allTextContents(),
+    ecoliOffStyled: await w.locator('.wq .wq-say.off').count(),
+    swimWord: /swim limit/i.test(await p.locator('#page-dashboard').innerText()),
     staleNote: (await d.locator('.river .r-st').first().innerText()).includes('older reading'),
     computedAge: /\(9 h ago\)/.test(await d.locator('.river .r-age').first().innerText()) && /\(2 h ago\)/.test(await d.locator('.river .r-age').nth(1).innerText()),
     httpLinks: await p.locator('a[href^="http:"]').count(),
@@ -123,6 +129,9 @@ const checks = {
   objectiveLabelsHonest: L.refLabels.includes('320 statistical threshold (cfu)') && L.refLabels.includes('100 six-week geometric mean (cfu)') && !L.refLabels.some((t) => /single sample/i.test(t)),
   captionNotViolation: L.captions.every((c) => c.includes('One sample above 320 isn’t by itself a violation.')),
   noWatchFillOnBars: L.overBars === 0,
+  ecoliThresholdWording: R.edge.ecoliSays.some((t) => t.includes('above 320 (a statistical threshold, not a single-sample limit)'))
+    && R.edge.ecoliSays.some((t) => t.includes('under the 320 recreational threshold')) && !R.edge.swimWord,
+  ecoliAboveNotAlertStyled: R.edge.ecoliOffStyled === 0 && !R.edge.ecoliSays.some((t) => t.trim().startsWith('!')),
   httpsOnlyLinks: R.edge.httpLinks === 0 && R.edge.objLinkPresent === 0,
   riverAgeFromObservedAt: R.edge.computedAge,
   neverUnsafe: !L.unsafeWord && !D.unsafeWord,

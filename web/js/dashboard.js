@@ -218,7 +218,11 @@ const WQ = [
   ['ph', 'pH', (v) => `${v}`, (v) => (v >= 6.5 && v <= 8.5 ? 'in the healthy range (6.5–8.5)' : 'outside 6.5–8.5'), (v) => v >= 6.5 && v <= 8.5],
   ['water_temp_c', 'Water temperature', (v) => `${Math.round(v * 10) / 10} °C (${Math.round(v * 1.8 + 32)} °F)`, (v) => (v <= 20 ? 'cool enough for fish' : 'warm for fish (over 20 °C)'), (v) => v <= 20],
   ['turbidity_ntu', 'Cloudiness (turbidity)', (v) => `${v} NTU`, (v) => (v <= 10 ? 'clear' : v <= 25 ? 'a bit cloudy' : 'cloudy'), (v) => v <= 10],
-  ['ecoli_mpn_100ml', 'E. coli bacteria', (v) => `${v} per 100 mL`, (v) => (v <= 320 ? 'under the 320 swim limit' : 'over the 320 swim limit'), (v) => v <= 320],
+  // 320 is California's REC-1 statistical threshold value (for a month's samples), not a single-sample swim limit:
+  // one volunteer reading above it is shown neutrally (no "!"/alert colour), never as a violation.
+  ['ecoli_mpn_100ml', 'E. coli bacteria', (v) => `${v} per 100 mL`,
+    (v) => (v <= 320 ? 'under the 320 recreational threshold' : 'above 320 (a statistical threshold, not a single-sample limit)'),
+    (v) => (v <= 320 ? true : null)],
   ['conductivity_us_cm', 'Conductivity', (v) => `${Math.round(v)} µS/cm`, () => 'dissolved minerals', null],
 ];
 
