@@ -2,6 +2,7 @@
 import { getCreeks, getReports, getConditions, getAlerts, reportBand } from './api.js';
 import { esc, bandLabel, reportCardHTML, alertHTML, SEV, httpsUrl } from './ui.js';
 import { wqPopupHTML, upstreamNoteHTML, isNum, isStudyOnly } from './sites.js';
+import { SOURCE_LAYERS, TOGGLE_KEYS, STATION_COORDS } from './sources.js';
 
 const LEAFLET_CSS = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css';
 const LEAFLET_JS = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js';
@@ -9,7 +10,7 @@ const LEAFLET_JS_SRI = 'sha512-puJW3E/qXDqYp9IfhAI54BJEaWIfloJ7JWs7OeD5i6ruC9JZL
 const LEAFLET_CSS_SRI = 'sha512-h9FcoyWjHcOcmEVkxOfTLnmZFWIH0iZhZT1H2TbOq55xssQGEJHEaIm+PgoUaZbRvQTNTluNOEfb1ZRy6D3BOw==';
 const BAND_GLYPH = { good: '✓', fair: '~', watch: '!', alert: '✕' };
 
-let map, L, pinsById = new Map(), creeksCache = [];
+let map, L, pinsById = new Map(), creeksCache = [], layers = {};
 
 function loadLeaflet() {
   if (window.L) return Promise.resolve(window.L);
@@ -39,9 +40,7 @@ function cssVar(name) {
 export async function mountMap(el, qs) {
   el.innerHTML = `<h2 class="sr-only">Map of reports</h2>
     <div class="map-wrap"><div id="map-canvas" role="region" aria-label="Map of Wolf Creek and Deer Creek with recent reports"></div>
-    <div class="map-legend" aria-label="Legend">${['good', 'fair', 'watch', 'alert']
-      .map((b) => `<span><span class="band-dot band-${b}"></span>${BAND_GLYPH[b]} ${bandLabel(b)}</span>`)
-      .join('')}<span><span class="flask-marker sm" aria-hidden="true">⚗</span> Water test</span><span><span class="alert-marker sm sev-watch" aria-hidden="true"><span>!</span></span> Alert area</span><span><span class="swim-marker sm" aria-hidden="true">≈</span> Swim hole test</span><span><span class="study-marker sm" aria-hidden="true">’24</span> Past study site</span></div></div>`;
+    ${layerControlHTML()}</div>`;
   try {
     L = await loadLeaflet();
   } catch (e) {
@@ -53,6 +52,9 @@ export async function mountMap(el, qs) {
     maxZoom: 19,
     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
   }).addTo(map);
+  // One layer group per source (web/js/sources.js); all on by default.
+  layers = Object.fromEntries(TOGGLE_KEYS.map((k) => [k, L.layerGroup().addTo(map)]));
+  wireLayerControl(el);
 
   const [creeks, reports] = await Promise.all([getCreeks().catch(() => []), getReports({ limit: 200 }).catch(() => [])]);
   creeksCache = creeks;
@@ -65,8 +67,8 @@ export async function mountMap(el, qs) {
       const layer = L.geoJSON(c.geojson_line, {
         style: (f) =>
           f?.properties?.main_stem === false
-            ? { color: water, weight: 4, opacity: 0.65, dashArray: '2 8', lineCap: 'round' }
-            : { color: water, weight: 6, opacity: 0.8, lineCap: 'round' },
+            ? { color: water, weight: 4, opacity: 0.65, dashArray: '2 8', lineCap: 'round', className: 'src-osm' }
+            : { color: water, weight: 6, opacity: 0.8, lineCap: 'round', className: 'src-osm' },
         onEachFeature: (f, l) => l.bindTooltip(esc(f?.properties?.name || c.name), { sticky: true }),
       })
         .addTo(map);
@@ -74,13 +76,13 @@ export async function mountMap(el, qs) {
     }
     for (const s of c.sites || []) {
       L.marker([s.lat, s.lon], {
-        icon: L.divIcon({ className: '', html: '<div class="site-marker"></div>', iconSize: [14, 14], iconAnchor: [7, 7] }),
+        icon: L.divIcon({ className: 'src-reports', html: '<div class="site-marker"></div>', iconSize: [14, 14], iconAnchor: [7, 7] }),
         title: `${s.name} (${c.name})`,
         alt: `${s.name}, ${c.name}`,
         keyboard: true,
       })
         .bindPopup(`<strong>${esc(s.name)}</strong><br>${esc(c.name)}<br><a href="#report">Report from here</a>`)
-        .addTo(map);
+        .addTo(layers.reports);
       bounds.push(L.latLngBounds([[s.lat, s.lon], [s.lat, s.lon]]));
     }
   }
@@ -93,7 +95,7 @@ export async function mountMap(el, qs) {
     for (const st of cond?.water_quality?.stations || []) {
       if (!isNum(st.lat) || !isNum(st.lon)) continue;
       L.marker([Number(st.lat), Number(st.lon)], {
-        icon: L.divIcon({ className: '', html: '<div class="flask-marker" aria-hidden="true">⚗</div>', iconSize: [22, 22], iconAnchor: [11, 11] }),
+        icon: L.divIcon({ className: 'src-wq', html: '<div class="flask-marker" aria-hidden="true">⚗</div>', iconSize: [22, 22], iconAnchor: [11, 11] }),
         title: `Volunteer water test: ${st.name}`,
         alt: `Volunteer water test site ${st.name}`,
         keyboard: true,
@@ -101,7 +103,7 @@ export async function mountMap(el, qs) {
         .bindPopup(wqPopupHTML(st, creeks[i].name, reports, { spotName: reportSpot, band: reportBand }),
           // Scroll inside the popup rather than run under the legend on short phones.
           { maxWidth: 300, maxHeight: Math.max(260, innerHeight - 330), autoPanPaddingTopLeft: [52, 12], autoPanPaddingBottomRight: [12, 90] })
-        .addTo(map);
+        .addTo(layers.wq);
     }
   });
 
@@ -116,9 +118,9 @@ export async function mountMap(el, qs) {
     if (!isNum(st.lat) || !isNum(st.lon)) continue; // a null coordinate must not become 0, 0
     const name = spotName(st);
     L.marker([Number(st.lat), Number(st.lon)], {
-      icon: L.divIcon({ className: '', html: '<div class="swim-marker" aria-hidden="true">≈</div>', iconSize: [24, 24], iconAnchor: [12, 12] }),
+      icon: L.divIcon({ className: 'src-swim', html: '<div class="swim-marker" aria-hidden="true">≈</div>', iconSize: [24, 24], iconAnchor: [12, 12] }),
       title: `Swim hole: ${name}`, alt: `Swim hole ${name}`, keyboard: true,
-    }).bindPopup(swimPopupHTML(st, jbr), { maxWidth: 300, autoPanPaddingTopLeft: [52, 12], autoPanPaddingBottomRight: [12, 90] }).addTo(map); // clear the zoom control and legend
+    }).bindPopup(swimPopupHTML(st, jbr), { maxWidth: 300, autoPanPaddingTopLeft: [52, 12], autoPanPaddingBottomRight: [12, 90] }).addTo(layers.swim); // clear the zoom control and legend
   }
 
   // Past-study sites (data #109): study-only stations (site_id null) as grey, dated pins. History, never
@@ -133,10 +135,36 @@ export async function mountMap(el, qs) {
       const yr = String(s.period || '').slice(0, 4);
       const name = String(st.name ?? '').trim() || 'Study site';
       L.marker([Number(st.lat), Number(st.lon)], {
-        icon: L.divIcon({ className: '', html: `<div class="study-marker" aria-hidden="true">${esc(yr.slice(2) ? `’${yr.slice(2)}` : '·')}</div>`, iconSize: [26, 20], iconAnchor: [13, 10] }),
+        icon: L.divIcon({ className: 'src-study', html: `<div class="study-marker" aria-hidden="true">${esc(yr.slice(2) ? `’${yr.slice(2)}` : '·')}</div>`, iconSize: [26, 20], iconAnchor: [13, 10] }),
         title: `Past study site${yr ? ` (${yr})` : ''}: ${name}`, alt: `Past study site ${name}`, keyboard: true,
-      }).bindPopup(studyPopupHTML(st, s), { maxWidth: 300, maxHeight: Math.max(260, innerHeight - 330), autoPanPaddingTopLeft: [52, 12], autoPanPaddingBottomRight: [12, 90] }).addTo(map);
+      }).bindPopup(studyPopupHTML(st, s), { maxWidth: 300, maxHeight: Math.max(260, innerHeight - 330), autoPanPaddingTopLeft: [52, 12], autoPanPaddingBottomRight: [12, 90] }).addTo(layers.study);
     }
+  }
+
+  // Live gauges (USGS) and Yuba-system stations (CDEC). The API carries no coordinates for these, so they
+  // come from STATION_COORDS (sources.js); a station without known coordinates is simply not mapped.
+  const POP = { maxWidth: 300, autoPanPaddingTopLeft: [52, 12], autoPanPaddingBottomRight: [12, 90] };
+  const seenGauge = new Set();
+  for (const cond of conds) {
+    const g = cond?.gauge, at = STATION_COORDS[String(g?.site_no ?? '')];
+    if (!g || !at || seenGauge.has(String(g.site_no))) continue;
+    seenGauge.add(String(g.site_no));
+    const name = String(g.name ?? '').trim() || `USGS ${g.site_no}`;
+    L.marker(at, {
+      icon: L.divIcon({ className: 'src-usgs', html: '<div class="gauge-marker" aria-hidden="true">cfs</div>', iconSize: [32, 20], iconAnchor: [16, 10] }),
+      title: `USGS stream gauge: ${name}`, alt: `USGS stream gauge ${name}`, keyboard: true,
+    }).bindPopup(gaugePopupHTML(g), POP).addTo(layers.usgs);
+  }
+  const seenCdec = new Set();
+  for (const st of conds.flatMap((c) => c?.river?.stations || [])) {
+    const at = STATION_COORDS[String(st?.station_id ?? '')];
+    if (!at || seenCdec.has(String(st.station_id))) continue;
+    seenCdec.add(String(st.station_id));
+    const name = String(st.name ?? '').trim() || `CDEC ${st.station_id}`;
+    L.marker(at, {
+      icon: L.divIcon({ className: 'src-cdec', html: '<div class="cdec-marker" aria-hidden="true">≋</div>', iconSize: [24, 24], iconAnchor: [12, 12] }),
+      title: `CDEC river station: ${name}`, alt: `CDEC river station ${name}`, keyboard: true,
+    }).bindPopup(cdecPopupHTML(st), POP).addTo(layers.cdec);
   }
 
   // Alert areas (docs/ALERTS-SPEC.md): polygons dashed + lightly filled, points as glyph markers.
@@ -147,15 +175,15 @@ export async function mountMap(el, qs) {
     const popup = alertHTML(a, { compact: true }) + `<a class="see-alerts" href="#alerts?id=${encodeURIComponent(a.id)}">Open alert →</a>`;
     if (a.area?.polygon_geojson) {
       try {
-        L.geoJSON(a.area.polygon_geojson, { style: { color, weight: 2, dashArray: '6 6', fillColor: color, fillOpacity: 0.08 } })
-          .bindPopup(popup, { maxWidth: 300 }).addTo(map);
+        L.geoJSON(a.area.polygon_geojson, { style: { color, weight: 2, dashArray: '6 6', fillColor: color, fillOpacity: 0.08, className: 'src-alerts' } })
+          .bindPopup(popup, { maxWidth: 300 }).addTo(layers.alerts);
       } catch { /* malformed polygon from a feed: skip it */ }
     }
     if (a.area?.lat != null && a.area?.lon != null) {
       L.marker([a.area.lat, a.area.lon], {
-        icon: L.divIcon({ className: '', html: `<div class="alert-marker sev-${sev}" aria-hidden="true"><span>${SEV[sev].glyph}</span></div>`, iconSize: [26, 26], iconAnchor: [13, 13] }),
+        icon: L.divIcon({ className: 'src-alerts', html: `<div class="alert-marker sev-${sev}" aria-hidden="true"><span>${SEV[sev].glyph}</span></div>`, iconSize: [26, 26], iconAnchor: [13, 13] }),
         title: `${SEV[sev].label}: ${a.title}`, alt: `${SEV[sev].label}: ${a.title}`, keyboard: true, zIndexOffset: 500,
-      }).bindPopup(popup, { maxWidth: 300 }).addTo(map);
+      }).bindPopup(popup, { maxWidth: 300 }).addTo(layers.alerts);
     }
   }
 
@@ -166,7 +194,7 @@ export async function mountMap(el, qs) {
     const site = c?.sites?.find((s) => s.id === r.site_id);
     const m = L.marker([r.lat, r.lon], {
       icon: L.divIcon({
-        className: '',
+        className: 'src-reports',
         html: `<div class="pin band-${band}"><span class="pin-glyph">${BAND_GLYPH[band]}</span></div>${r.trash_removed ? '<span class="pin-clean" aria-hidden="true">🧤</span>' : ''}`,
         iconSize: [26, 26],
         iconAnchor: [13, 30],
@@ -178,7 +206,7 @@ export async function mountMap(el, qs) {
       riseOnHover: true,
     })
       .bindPopup(reportCardHTML(r, c?.name || '', site?.name || '', { band }) + upstreamNoteHTML(), { maxWidth: 300 })
-      .addTo(map);
+      .addTo(layers.reports);
     pinsById.set(String(r.id), m);
   }
 
@@ -207,6 +235,82 @@ export function studyPopupHTML(st, s) {
     ${upstreamNoteHTML()}
     <p class="credit">${esc(s.credit || s.agency || 'Past study')}${ctx ? ` · <a href="${esc(ctx)}" target="_blank" rel="noopener noreferrer">${esc(s.context_label || 'Study map')}</a>` : ''}</p>
     <a class="see-alerts" href="#dashboard">See the charts on the Creeks page →</a>
+  </div>`;
+}
+
+/* ---------- source layer control (sources.js) ---------- */
+function layerControlHTML() {
+  const bands = ['good', 'fair', 'watch', 'alert']
+    .map((b) => `<span><span class="band-dot band-${b}"></span>${BAND_GLYPH[b]} ${bandLabel(b)}</span>`).join('');
+  const chips = SOURCE_LAYERS.filter((s) => s.toggle !== false).map((s) => `<button type="button" class="ml-chip" data-src="${esc(s.key)}"
+    aria-pressed="true">${s.glyph}<span>${esc(s.shortLabel)}</span><span class="sr-only"> (${esc(s.label)})</span></button>`).join('');
+  const rows = SOURCE_LAYERS.map((s) => {
+    const href = httpsUrl(s.attributionUrl);
+    return `<li class="ml-src" data-src="${esc(s.key)}">
+      <p class="ml-src-h">${s.glyph}<strong>${esc(s.label)}</strong>${s.toggle === false ? '<span class="ml-always">always on</span>' : ''}</p>
+      <p>${esc(s.description)}</p>${s.key === 'reports' ? `<p class="ml-bands-in">${bands}</p>` : ''}
+      <p class="ml-terms"><span>Terms:</span> ${esc(s.license)}</p>
+      <p class="ml-credit"><span>Credit:</span> ${href ? `<a href="${esc(href)}" target="_blank" rel="noopener noreferrer">${esc(s.attribution)}</a>` : esc(s.attribution)}</p>
+    </li>`;
+  }).join('');
+  return `<div class="map-legend" role="region" aria-label="Map layers and legend">
+    <div class="ml-bands" aria-label="Report colours">${bands}</div>
+    <div class="ml-row"><div class="ml-chips" role="group" aria-label="Show or hide map layers">${chips}</div>
+      <button type="button" class="ml-info" aria-expanded="false" aria-controls="ml-panel"><span aria-hidden="true">ⓘ</span> Sources</button></div>
+    <div id="ml-panel" class="ml-panel" hidden><h3 class="ml-panel-h">Map layers and where the data comes from</h3><ul>${rows}</ul></div>
+  </div>`;
+}
+function setLayer(key, on) {
+  const g = layers[key];
+  if (!g || !map) return;
+  if (on) g.addTo(map); else map.removeLayer(g);
+  document.querySelector(`.ml-chip[data-src="${key}"]`)?.setAttribute('aria-pressed', String(!!on));
+}
+function wireLayerControl(root) {
+  const lg = root.querySelector('.map-legend');
+  if (!lg) return;
+  lg.addEventListener('keydown', (e) => {
+    const info = lg.querySelector('.ml-info');
+    if (e.key === 'Escape' && info.getAttribute('aria-expanded') === 'true') { info.click(); info.focus(); }
+  });
+  lg.addEventListener('click', (e) => {
+    const chip = e.target.closest('.ml-chip');
+    if (chip) return setLayer(chip.dataset.src, chip.getAttribute('aria-pressed') !== 'true');
+    const info = e.target.closest('.ml-info');
+    if (info) {
+      const open = info.getAttribute('aria-expanded') !== 'true';
+      info.setAttribute('aria-expanded', String(open));
+      lg.querySelector('#ml-panel').hidden = !open;
+    }
+  });
+}
+const fmtNum = (v, d = 1) => Number(v).toLocaleString(undefined, { maximumFractionDigits: d });
+const fmtTime = (iso) => { const t = Date.parse(iso || ''); return t ? new Date(t).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : ''; };
+export function gaugePopupHTML(g) {
+  const vals = [isNum(g.discharge_cfs) && `<strong>${esc(fmtNum(g.discharge_cfs))} cfs</strong> flow`, isNum(g.gage_height_ft) && `gage height ${esc(fmtNum(g.gage_height_ft, 2))} ft`].filter(Boolean);
+  const href = httpsUrl(g.source_url), when = fmtTime(g.observed_at);
+  return `<div class="swim-pop gauge-pop">
+    <p class="sp-kicker">USGS stream gauge · live${g.provisional ? ', provisional' : ''}</p>
+    <strong class="sp-name">${esc(String(g.name ?? '').trim() || `USGS ${g.site_no ?? ''}`)}</strong>
+    <p class="sp-val">${vals.length ? vals.join(' · ') : 'No reading right now.'}${isNum(g.pct_of_median) ? ` · ${esc(Math.round(Number(g.pct_of_median)))}% of normal for this date` : ''}</p>
+    ${when ? `<p class="sp-date">As of <strong>${esc(when)}</strong></p>` : ''}
+    ${g.note ? `<p class="sp-note">${esc(g.note)}</p>` : ''}
+    <p class="credit">U.S. Geological Survey${href ? ` · <a href="${esc(href)}" target="_blank" rel="noopener noreferrer">data</a>` : ''}</p>
+  </div>`;
+}
+export function cdecPopupHTML(st) {
+  const vals = st.kind === 'reservoir'
+    ? [isNum(st.storage_af) && `<strong>${esc(fmtNum(st.storage_af, 0))} acre-feet</strong> stored`, isNum(st.elevation_ft) && `water level ${esc(fmtNum(st.elevation_ft))} ft`]
+    : [isNum(st.flow_cfs) && `<strong>${esc(fmtNum(st.flow_cfs))} cfs</strong> flow`, isNum(st.stage_ft) && `stage ${esc(fmtNum(st.stage_ft, 2))} ft`];
+  const v = vals.filter(Boolean), href = httpsUrl(st.source_url), when = fmtTime(st.observed_at);
+  const ageH = Date.parse(st.observed_at || '') ? (Date.now() - Date.parse(st.observed_at)) / 3600e3 : NaN;
+  return `<div class="swim-pop cdec-pop">
+    <p class="sp-kicker">CDEC river station · regional context</p>
+    <strong class="sp-name">${esc(String(st.name ?? '').trim() || `CDEC ${st.station_id ?? ''}`)}</strong>
+    <p class="sp-val">${v.length ? v.join(' · ') : 'No reading right now.'}</p>
+    ${when ? `<p class="sp-date">As of <strong>${esc(when)}</strong>${ageH > 6 ? ' (an older reading; CDEC can lag by hours)' : ''}</p>` : ''}
+    ${st.note ? `<p class="sp-note">${esc(st.note)}</p>` : ''}
+    <p class="credit">${esc(st.credit || 'California Department of Water Resources, CDEC')}${href ? ` · <a href="${esc(href)}" target="_blank" rel="noopener noreferrer">data</a>` : ''}</p>
   </div>`;
 }
 
@@ -248,6 +352,7 @@ export function showMap(qs) {
   const id = qs?.get('report');
   const m = id && pinsById.get(String(id));
   if (m) {
+    setLayer('reports', true); // a shared report link must show its pin even if Reports was switched off
     map.setView(m.getLatLng(), 16);
     m.openPopup();
   }
