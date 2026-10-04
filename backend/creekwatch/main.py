@@ -25,7 +25,7 @@ from . import db
 from .config import REPO_ROOT, Settings
 from .data_iface import DataLayer, load_creeks, utcnow_iso
 from .photos import HEIC_SUPPORTED, PhotoError, process_photo
-from .ratelimit import RateLimiter
+from .ratelimit import RateLimiter, rate_key
 
 log = logging.getLogger("creekwatch")
 
@@ -211,7 +211,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         reporter_name: Annotated[str | None, Form(max_length=60)] = None,
         photo: Annotated[UploadFile | None, File()] = None,
     ) -> JSONResponse:
-        retry = limiter.check(client_ip(request))
+        retry = limiter.check(rate_key(client_ip(request)))
         if retry is not None:
             raise HTTPException(429, "Too many reports from this device. Please wait a few minutes.",
                                 headers={"Retry-After": str(int(retry))})
