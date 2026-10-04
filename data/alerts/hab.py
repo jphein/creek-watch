@@ -48,6 +48,7 @@ class HAB(Source):
             try:
                 rid = str(r.get("Bloom_Report_ID") or "").strip()
             except Exception as e:  # noqa: BLE001
+                self._seen += 1
                 self.skip("bloom ?", e)
                 continue
             if not rid:
@@ -61,6 +62,7 @@ class HAB(Source):
                 best[rid] = dict(r, _sev=sev, _kind=kind)
         out = []
         for rid, r in best.items():
+            self._seen += 1
             try:
                 a = self._alert(rid, r)
             except Exception as e:  # noqa: BLE001 - one bad bloom record never drops the rest
@@ -72,8 +74,8 @@ class HAB(Source):
 
     def _alert(self, rid, r):
         obs = parse_time(r.get("Observation_Date"))
-        if obs is None:
-            return None
+        if obs is None:   # required field unparseable = a BAD record (counted), not a filter
+            raise ValueError(f"bad Observation_Date {r.get('Observation_Date')!r}")
         lat, lon = r.get("Bloom_Latitude"), r.get("Bloom_Longitude")
         lat = float(lat) if lat is not None else None
         lon = float(lon) if lon is not None else None

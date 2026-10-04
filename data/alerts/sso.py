@@ -11,6 +11,8 @@ from .model import Source, creeks_near, in_region, make_alert
 
 URL = "https://www.waterboards.ca.gov/water_issues/programs/sso/docs/data_files/Cat1-2-3-Spills.txt"
 PACIFIC = ZoneInfo("America/Los_Angeles")
+REQUIRED_COLUMNS = {"SPILL_EVENT_ID", "SPILL_REPORT_VERSION", "SPILL_TYPE", "LATITUDE", "LONGITUDE",
+                    "ESTIMATED_SPILL_START_DATE_AND_TIME", "AGENCY_NAME"}
 ACTIVE_DAYS = 30      # a spill counts as a current alert for 30 days after it started
 HISTORY_DAYS = 365    # older-than-30-day spills are kept as status "expired" history
 CAT_WORDS = {
@@ -45,7 +47,11 @@ class SSO(Source):
         # 10 MB daily file (2026-10): needs more than the 10 s default; capped at 50 MB / 120 s.
         text = http.get_text(URL, timeout=60, conditional=True, max_bytes=50 * 1024 * 1024, deadline_s=120)
         latest: dict[str, dict] = {}
-        for r in csv.DictReader(io.StringIO(text), delimiter="\t"):
+        reader = csv.DictReader(io.StringIO(text), delimiter="\t")
+        missing = REQUIRED_COLUMNS - set(reader.fieldnames or [])
+        if missing:  # schema change: rows would all be silently filtered -> a false all-clear
+            raise RuntimeError(f"spill file is missing columns {sorted(missing)}")
+        for r in reader:
             # Dedupe: one SPILL_EVENT_ID can have several report rows (versions); keep the latest.
             stype = (r.get("SPILL_TYPE") or "").strip()
             if stype not in CAT_WORDS:
@@ -59,6 +65,7 @@ class SSO(Source):
                 latest[eid] = dict(r, _ver=ver, _lat=lat, _lon=lon)
         out = []
         for eid, r in latest.items():
+            self._seen += 1
             try:
                 a = self._alert(eid, r, now)
             except Exception as e:  # noqa: BLE001 - skip one bad record, keep the rest
@@ -70,7 +77,9 @@ class SSO(Source):
 
     def _alert(self, eid, r, now):
         start = _when(r.get("ESTIMATED_SPILL_START_DATE_AND_TIME"))
-        if start is None or start > now + timedelta(days=1) or now - start > timedelta(days=HISTORY_DAYS):
+        if start is None:  # required field unparseable = a BAD record (counted), not a filter
+            raise ValueError(f"bad spill start {r.get('ESTIMATED_SPILL_START_DATE_AND_TIME')!r}")
+        if start > now + timedelta(days=1) or now - start > timedelta(days=HISTORY_DAYS):
             return None
         lat, lon = r["_lat"], r["_lon"]
         creeks = creeks_near(lat, lon)

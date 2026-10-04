@@ -76,7 +76,7 @@ def clip(text: str | None, n: int = 280) -> str:
 # Per-source https host allowlist and fallback portal. An alert url that isn't https on an
 # allowed host (or contains characters that could break a feed) is replaced by the portal.
 SOURCE_URLS = {
-    "nws": ({"forecast.weather.gov", "alerts.weather.gov", "www.weather.gov", "api.weather.gov"},
+    "nws": ({"forecast.weather.gov", "www.weather.gov", "api.weather.gov"},   # not alerts.weather.gov: NXDOMAIN
             "https://www.weather.gov/sto/"),
     "nwps": ({"water.noaa.gov"}, "https://water.noaa.gov/"),
     "usgs": ({"waterdata.usgs.gov"}, "https://waterdata.usgs.gov/"),
@@ -111,9 +111,12 @@ def safe_url(source: str, url: str | None) -> str:
     netloc = u.netloc.lower()
     if u.scheme != "https" or "@" in netloc or port not in (None, 443):
         return portal
-    if netloc.removesuffix(":443") not in hosts:
+    host = netloc.removesuffix(":443")
+    if host not in hosts:
         return portal
-    return url
+    # Rebuild with lowercase scheme and host (no :443): downstream checks are case-sensitive
+    # (e.g. the API's ^https:// regex), so 'HTTPS://Forecast.weather.gov/x' must not slip through raw.
+    return urllib.parse.urlunsplit(("https", host, u.path, u.query, u.fragment))
 
 
 MAX_POLYGON_POINTS = 2000
@@ -179,6 +182,9 @@ def make_alert(*, source: str, source_id: str, source_name: str, category: str, 
     }
 
 
+MAX_SKIP_RATIO = 0.5
+
+
 class Source:
     """One alert source. Subclasses implement _fetch(now) -> list[Alert].
 
@@ -198,6 +204,7 @@ class Source:
         self.last_ok: str | None = None
         self.last_skipped = 0
         self._skips: list[str] = []
+        self._seen = 0           # per-record loops count every record they attempt
         self._lock = threading.Lock()
 
     def _fetch(self, now: datetime) -> list[dict]:  # pragma: no cover - abstract
@@ -208,8 +215,18 @@ class Source:
 
     def run(self, now: datetime | None = None) -> list[dict]:
         now = now or datetime.now(timezone.utc)
-        self._skips = []
+        self._skips, self._seen = [], 0
         raw = self._fetch(now)                       # source-level failure propagates
+        # Skips must never look like success: the API store EXPIRES whatever a successful fetch
+        # omits, so an upstream schema change (every record raising) would otherwise read as an
+        # all-clear. Raise when nothing survived, or when most records failed. A lone bad record
+        # (its own alert expiring) is acceptable.
+        n_skip, seen = len(self._skips), max(self._seen, len(self._skips))
+        if n_skip and (not raw or n_skip / seen > MAX_SKIP_RATIO):
+            with self._lock:
+                self.last_skipped = n_skip
+            raise RuntimeError(f"{n_skip} of {seen} records failed to parse "
+                               f"(likely an upstream schema change); first: {self._skips[0]}")
         out, idx = [], {}
         for a in raw:                                # one alert per id in a full-set result
             if a["id"] in idx:

@@ -419,22 +419,31 @@ def test_bacteria_ages_and_dedupes(monkeypatch):
         assert not [a for a in creekwatch_alerts("deer", h, NOW) if a["category"] == "bacteria"]  # no double report
 
 
-@pytest.mark.parametrize("url,kept", [
-    ("https://evil.example\\@forecast.weather.gov/x", False),   # browsers: '\' == '/', host evil.example
-    ("https://evil.example\\.forecast.weather.gov/", False),
-    ("https://user:pw@forecast.weather.gov/", False),           # userinfo
-    ("https://forecast.weather.gov@evil.example/", False),
-    ("https://forecast.weather.gov:8443/", False),              # non-443 port
-    ("https://forecast.weather.gov/\t", False),                 # control char (WHATWG strips tabs)
-    ("https://forecäst.weather.gov/", False),              # non-ASCII / IDN
-    ("javascript:alert(1)", False),
-    ("https://forecast.weather.gov/MapClick.php?lat=39.2&lon=-121.0", True),
-    ("https://forecast.weather.gov:443/x", True),
-    ("https://FORECAST.weather.gov/x", True),
+PORTAL_NWS = model.SOURCE_URLS["nws"][1]
+
+
+@pytest.mark.parametrize("url,expected", [
+    ("https://evil.example\\@forecast.weather.gov/x", PORTAL_NWS),   # browsers: '\' == '/', host evil.example
+    ("https://evil.example\\.forecast.weather.gov/", PORTAL_NWS),
+    ("https://user:pw@forecast.weather.gov/", PORTAL_NWS),            # userinfo
+    ("https://forecast.weather.gov@evil.example/", PORTAL_NWS),
+    ("https://forecast.weather.gov:8443/", PORTAL_NWS),               # non-443 port
+    ("https://forecast.weather.gov/\t", PORTAL_NWS),                  # control char (WHATWG strips tabs)
+    ("https://forec\u00e4st.weather.gov/", PORTAL_NWS),               # non-ASCII / IDN
+    ("javascript:alert(1)", PORTAL_NWS),
+    ("https://alerts.weather.gov/x", PORTAL_NWS),                     # NXDOMAIN host: not allowlisted
+    ("https://forecast.weather.gov/MapClick.php?lat=39.2&lon=-121.0",
+     "https://forecast.weather.gov/MapClick.php?lat=39.2&lon=-121.0"),
+    ("https://forecast.weather.gov:443/x", "https://forecast.weather.gov/x"),
+    ("https://FORECAST.weather.gov/x", "https://forecast.weather.gov/x"),
+    ("HTTPS://forecast.weather.gov/x", "https://forecast.weather.gov/x"),   # #39's regex is case-sensitive
 ])
-def test_safe_url_rejects_parser_differentials(url, kept):
-    """Regression for the background security review: urlsplit vs browser host disagreement."""
-    assert (model.safe_url("nws", url) == url) is kept
+def test_safe_url_rejects_parser_differentials(url, expected):
+    """Regression for the background security review (urlsplit vs browser host disagreement),
+    plus normalisation so downstream case-sensitive checks never drop a valid alert."""
+    got = model.safe_url("nws", url)
+    assert got == expected
+    assert got.startswith("https://") and got == got.strip()
 
 
 def test_real_adapter_urls_survive_strict_check():
@@ -452,3 +461,56 @@ def test_nws_cap_reference_fields_are_latest_message(monkeypatch):
     monkeypatch.setattr(http, "get_text", route(nws={"features": [f]}))
     (b,) = NWS().run(NOW)
     assert "cap_sender" not in b                                      # would break "sender,identifier,sent"
+
+
+# ---- skips must not read as an all-clear under the API's full-set store ------------------
+def _nwps_with(n_good, n_bad):
+    fx = copy.deepcopy(NWPS_FIX)
+    gauges = []
+    for i in range(n_good + n_bad):
+        g = copy.deepcopy(next(x for x in fx["gauges"] if x["lid"] == "BRWC1"))
+        g["lid"] = f"G{i}"
+        g["status"]["observed"]["floodCategory"] = "minor"
+        if i >= n_good:
+            del g["name"]                                          # malformed record
+        gauges.append(g)
+    fx["gauges"] = gauges
+    return fx
+
+
+@pytest.mark.parametrize("good,bad,raises", [(0, 5, True), (4, 6, True), (9, 1, False), (5, 5, False)])
+def test_skips_dominate_raises_instead_of_resolving(monkeypatch, good, bad, raises):
+    monkeypatch.setattr(http, "get_text", route(nwps=_nwps_with(good, bad)))
+    src = NWPS()
+    if raises:
+        with pytest.raises(RuntimeError, match="records failed to parse"):
+            src.run(NOW)
+        assert src.fetch(NOW) == [] and "records failed to parse" in src.last_error   # non-raising path
+    else:
+        out = src.run(NOW)
+        assert len(out) == good and src.last_skipped == bad
+
+
+def test_schema_change_on_every_source_raises(monkeypatch):
+    """Upstream renames a key: every record breaks -> each adapter raises, never returns []."""
+    broken_hab = {"result": {"records": [dict(r, Observation_Date="garbage-date", Bloom_Latitude="x")
+                                         for r in HAB_FIX["result"]["records"]]}}
+    broken_sso = SSO_FIX.replace("LATITUDE", "LAT_DD", 1)                     # renamed column
+    broken_oehha = {"result": {"records": [{k.replace("Latitude", "Lat"): v for k, v in r.items()}
+                                           for r in OEHHA_FIX["result"]["records"]]}}
+    broken_nws = {"features": [{"properties": {k: v for k, v in f["properties"].items() if k != "event"}}
+                               for f in NWS_FIX["features"]]}
+    monkeypatch.setattr(http, "get_text", route(nwps=_nwps_with(0, 3), hab=broken_hab, sso=broken_sso,
+                                                oehha=broken_oehha, nws=broken_nws))
+    for src in (NWPS(), HAB(), SSO(), OEHHA(), NWS()):
+        with pytest.raises(RuntimeError):
+            src.run(NOW)
+
+
+def test_http_refuses_redirects():
+    import urllib.error
+    h = http._NoRedirect()
+    req = __import__("urllib.request").request.Request("https://api.weather.gov/x")
+    with pytest.raises(urllib.error.HTTPError, match="redirect"):
+        h.redirect_request(req, None, 302, "Found", {}, "http://169.254.169.254/latest/meta-data")
+    assert any(isinstance(x, http._NoRedirect) for x in http._opener.handlers)

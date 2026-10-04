@@ -17,6 +17,17 @@ _cond: dict[str, tuple[str | None, str | None, str]] = {}   # url -> (etag, last
 _lock = threading.Lock()
 
 
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    """Never follow redirects: every source URL is a fixed, known https endpoint, so a redirect
+    is either a misconfiguration or an attempt to bounce us somewhere else (SSRF)."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        raise urllib.error.HTTPError(req.full_url, code, f"redirect to {newurl!r} refused", headers, fp)
+
+
+_opener = urllib.request.build_opener(_NoRedirect)
+
+
 class ResponseTooLarge(IOError):
     pass
 
@@ -60,7 +71,7 @@ def get_text(url: str, timeout: float = 10, conditional: bool = False, accept: s
                 headers["If-Modified-Since"] = prev[1]
     req = urllib.request.Request(url, headers=headers)
     try:
-        with urllib.request.urlopen(req, timeout=timeout) as r:
+        with _opener.open(req, timeout=timeout) as r:
             body = _read_bounded(r, max_bytes, deadline).decode("utf-8", "replace")
             if conditional:
                 with _lock:

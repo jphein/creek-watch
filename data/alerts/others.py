@@ -67,6 +67,7 @@ class RiverDBBacteria(Source):
         out = []
         for creek_id in ("deer", "wolf"):
             for st in wq.get_water_quality(creek_id, now=now)["stations"]:
+                self._seen += 1
                 try:
                     a = ecoli_alert(creek_id, st, now)
                 except Exception as e:  # noqa: BLE001 - one bad station record never drops the rest
@@ -122,6 +123,7 @@ class OEHHA(Source):
                           f"?resource_id={self.RESOURCE}&q=Nevada&limit=200", timeout=10)
         out = []
         for r in d["result"]["records"]:
+            self._seen += 1
             try:
                 a = self._advisory(r)
             except Exception as e:  # noqa: BLE001 - one bad advisory record never drops the rest
@@ -132,10 +134,7 @@ class OEHHA(Source):
         return out
 
     def _advisory(self, r):
-        try:
-            lat, lon = float(r["Latitude"]), float(r["Longitude"])
-        except (KeyError, TypeError, ValueError):
-            return None
+        lat, lon = float(r["Latitude"]), float(r["Longitude"])   # unparseable = bad record (counted)
         if "nevada" not in (r.get("County") or "").lower() or not in_region(lat, lon):
             return None
         link = (r.get("Link") or "").strip()

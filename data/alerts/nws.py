@@ -58,7 +58,11 @@ class NWS(Source):
                 errors.append(f"{creek_id}: {e}")
                 continue
             for f in d.get("features") or []:
-                p = f.get("properties") or {}
+                p = f.get("properties") or {} if isinstance(f, dict) else {}
+                if not p.get("id") or not p.get("event"):   # malformed feature: count it, never silently drop
+                    self._seen += 1
+                    self.skip(f"feature {p.get('id', '?')}", ValueError("missing id/event"))
+                    continue
                 if p.get("status") != "Actual" or category_for(p.get("event")) is None:
                     continue
                 sid = stable_id(p)
@@ -72,6 +76,7 @@ class NWS(Source):
             raise RuntimeError("; ".join(errors))
         out = []
         for sid, f in seen.items():
+            self._seen += 1
             try:
                 out.append(self._alert(sid, f, creeks_for[sid], now))
             except Exception as e:  # noqa: BLE001 - one malformed alert never drops the rest

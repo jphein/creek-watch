@@ -28,6 +28,7 @@ class NWPS(Source):
                           f"?bbox.xmin={w}&bbox.ymin={s}&bbox.xmax={e}&bbox.ymax={n}&srid=EPSG_4326")
         out = []
         for g in d.get("gauges") or []:
+            self._seen += 1
             try:
                 out += self._gauge_alerts(g, now)
             except Exception as e:  # noqa: BLE001 - one bad gauge record never drops the rest
