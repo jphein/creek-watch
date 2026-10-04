@@ -5,7 +5,9 @@ Keyless JSON (dynamicapp/req/JSONDataServlet). CDEC's own station pages label ti
 America/Los_Angeles to UTC. CDEC hourly data lags (often ~10-12 h), so every value
 carries observed_at and age_hours, and the API/UI should show the observation time.
 
-get_river(now=None, timeout_s=10) -> {"stations": [...], "fetched_at"}; never raises.
+get_river(now=None, timeout_s=10) -> {"stations": [...], "fetched_at"} or None. Never raises.
+Returns None when the fetch failed or no station parsed, so ingest._cached records a failure
+(serves the last good value, backs off 15 min) instead of caching an empty result as success.
 """
 from __future__ import annotations
 
@@ -73,8 +75,8 @@ def get_river(now: datetime | None = None, timeout_s: float = 10, fetch=None) ->
     out = []
     try:
         best = latest((fetch or (lambda u: _get_json(u, timeout_s)))(url))
-    except Exception:  # noqa: BLE001 - never raise; the caller shows "unavailable"
-        best = {}
+    except Exception:  # noqa: BLE001 - never raise; None = failed (caller backs off, keeps last good)
+        return None
     for sid, meta in STATIONS.items():
         vals, times = {}, []
         for num, key in meta["sensors"].items():
@@ -93,4 +95,6 @@ def get_river(now: datetime | None = None, timeout_s: float = 10, fetch=None) ->
             "credit": CREDIT,
             "source_url": f"https://cdec.water.ca.gov/dynamicapp/QueryF?s={sid}",
         })
+    if not out:
+        return None   # nothing parsed: a failure, not an all-quiet river
     return {"stations": out, "fetched_at": now.replace(microsecond=0).isoformat().replace("+00:00", "Z")}

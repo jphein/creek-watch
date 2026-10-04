@@ -334,7 +334,7 @@ def get_conditions(creek_id: str, *, max_age_s: int | None = None, timeout_s: fl
     from . import wq
     jobs["wq"] = lambda: wq.get_water_quality(creek_id, timeout_s=timeout_s)
     from . import cdec
-    jobs["river"] = lambda: _cached("cdec:river", ttl("gauge"), lambda: cdec.get_river(timeout_s=timeout_s) or None)
+    jobs["river"] = lambda: _cached("cdec:river", ttl("gauge"), lambda: cdec.get_river(timeout_s=timeout_s))
     futs = {k: _pool.submit(fn) for k, fn in jobs.items()}
     res = {}
     for k, f in futs.items():

@@ -34,10 +34,33 @@ def test_get_river_from_fixture():
         assert s["source_url"].startswith("https://cdec.water.ca.gov/")
 
 
-def test_get_river_never_raises():
+def test_get_river_failure_is_none_not_empty_success():
     def boom(url):
         raise OSError("cdec down")
-    assert cdec.get_river(now=NOW, fetch=boom)["stations"] == []
+    assert cdec.get_river(now=NOW, fetch=boom) is None                 # never raises, never a truthy {}
+    assert cdec.get_river(now=NOW, fetch=lambda url: []) is None       # nothing parsed = failure too
+
+
+def test_cdec_outage_backs_off_and_keeps_last_good(monkeypatch):
+    """Oracle #73: an outage must not be cached as success (wiping values, skipping back-off)."""
+    ingest.clear_cache()
+    monkeypatch.setattr(cdec, "_get_json", lambda url, timeout: FIX)
+    good = ingest._cached("cdec:river", 900, lambda: cdec.get_river(now=NOW))
+    assert good and good["stations"]
+    calls = {"n": 0}
+
+    def down(url, timeout):
+        calls["n"] += 1
+        raise OSError("cdec down")
+    monkeypatch.setattr(cdec, "_get_json", down)
+    clock = {"t": ingest.time.time() + 901}
+    monkeypatch.setattr(ingest.time, "time", lambda: clock["t"])
+    r1 = ingest._cached("cdec:river", 900, lambda: cdec.get_river(now=NOW))
+    r2 = ingest._cached("cdec:river", 900, lambda: cdec.get_river(now=NOW))
+    assert r1["stations"] == good["stations"] and r1.get("stale") is True     # last good, flagged stale
+    assert "cdec:river" in ingest._failed and calls["n"] == 1                 # backing off, not re-hitting
+    assert r2 == r1
+    ingest.clear_cache()
 
 
 def test_conditions_include_river(monkeypatch):
