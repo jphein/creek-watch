@@ -138,10 +138,11 @@ run_app "$NAME" "$CW_PORT" "$IMAGE" unless-stopped || { log "docker run failed";
 if healthy "$HEALTH_TIMEOUT" "$CW_PORT" 1; then
   echo "$SHA" > "$BASE/deployed.sha"
   log "LIVE $IMAGE (https://${HOSTNAME_PUBLIC})"
-  # Self-update the installed copy the timer runs (new inode via mv, so this running bash is unaffected).
-  if [ -f "$SRC/deploy/redeploy.sh" ] && [ -d "$BASE/bin" ] && ! cmp -s "$SRC/deploy/redeploy.sh" "$BASE/bin/redeploy.sh"; then
-    cp "$SRC/deploy/redeploy.sh" "$BASE/bin/.redeploy.sh.new" && chmod +x "$BASE/bin/.redeploy.sh.new" \
-      && mv "$BASE/bin/.redeploy.sh.new" "$BASE/bin/redeploy.sh" && log "updated bin/redeploy.sh from $SHORT"
+  # Deliberately NO self-update of ~/creekwatch/bin/redeploy.sh from main: that copy runs on the host as a
+  # docker-group user (root-equivalent), so a merge must only ever change what runs INSIDE the container.
+  # Updating the host script is an explicit `deploy/install.sh`.
+  if [ -f "$SRC/deploy/redeploy.sh" ] && [ -f "$BASE/bin/redeploy.sh" ] && ! cmp -s "$SRC/deploy/redeploy.sh" "$BASE/bin/redeploy.sh"; then
+    log "note: deploy/redeploy.sh on $SHORT differs from the installed copy; run deploy/install.sh to adopt it"
   fi
   # Keep the 3 newest creekwatch:<sha> images; prune the rest (in-use images refuse removal).
   docker images creekwatch --format '{{.CreatedAt}}\t{{.Repository}}:{{.Tag}}' | sort -r \

@@ -30,7 +30,7 @@ A sha that fails is written to `~/creekwatch/failed.shas`, and the timer won't r
 ## Files
 
 - `redeploy.sh`: build, stage, swap, verify and roll back. It re-execs itself on ubox0 and forwards `CW_*` overrides.
-- `install.sh`: idempotent. It copies `redeploy.sh` to `~/creekwatch/bin/` on ubox0 and installs and enables `creekwatch-redeploy.{service,timer}`. After each successful deploy, the installed copy self-updates from `main`.
+- `install.sh`: idempotent. It copies `redeploy.sh` to `~/creekwatch/bin/` on ubox0 and installs and enables `creekwatch-redeploy.{service,timer}`. The installed copy is **never** self-updated from `main`: it runs on the host as a docker-group user, so a merge may only change what runs inside the container. Re-run `install.sh` to adopt a changed `redeploy.sh`.
 - `Caddyfile.snippet`: the site block in `/etc/caddy/Caddyfile` on ubox0. Besides the proxy it sets two things:
   - Tunnel traffic gets `X-Forwarded-For` from `CF-Connecting-IP`, so per-IP rate limiting sees real phones and not cloudflared. LAN traffic, which has no CF header, keeps Caddy's own XFF.
   - `Cache-Control` keeps the Cloudflare edge from caching: photos are marked `private`, so deletion is effective, and everything else is `no-cache`, so a redeploy reaches phones at once.
