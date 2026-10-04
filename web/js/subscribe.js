@@ -186,6 +186,7 @@ function bind(key, existing) {
     const btn = form.querySelector('button[type="submit"]');
     btn.disabled = true;
     hint.textContent = '';
+    let replaced = null; // endpoint of a leftover subscription we already unsubscribed
     try {
       const perm = Notification.permission === 'granted' ? 'granted' : await Notification.requestPermission();
       if (perm !== 'granted') {
@@ -202,7 +203,6 @@ function bind(key, existing) {
       // got FCM 410 on the welcome push (prod, 2026-10-03 20:35). Replace it with a fresh one.
       let sub = await reg.pushManager.getSubscription();
       const wasOn = !!loadFilters();
-      let replaced = null;
       if (sub && !(wasOn && sameKey(sub.options && sub.options.applicationServerKey, keyBytes))) {
         replaced = sub.endpoint;
         await sub.unsubscribe().catch(() => {});
@@ -216,7 +216,16 @@ function bind(key, existing) {
       toast(wasOn && !replaced ? 'Alert settings saved.' : 'Alerts are on. We’ll only buzz you for what you picked.');
       render();
     } catch (err) {
-      hint.textContent = err instanceof ApiError ? err.message : 'Couldn’t turn on alerts on this phone. Check your connection and try again.';
+      if (replaced) {
+        // The old subscription is already gone and the new one didn't make it (subscribe() or the POST failed):
+        // alerts are OFF on this phone. Say so plainly, and make local state match.
+        try { localStorage.removeItem(LS); } catch { /* soft */ }
+        kvDel('push-filters');
+        pushUnsubscribe(replaced).catch(() => {}); // best effort: the server forgets the old endpoint too
+        hint.textContent = 'Your previous alert subscription was removed and a new one couldn’t be created, so alerts are OFF on this phone. Tap Turn on alerts to try again.';
+      } else {
+        hint.textContent = err instanceof ApiError ? err.message : 'Couldn’t turn on alerts on this phone. Check your connection and try again.';
+      }
       btn.disabled = false;
     }
   };
