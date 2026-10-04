@@ -2,8 +2,8 @@
 
 **You're recording the narration yourself.** It replaces the text-to-speech voice. JP puts your audio over the screen recording.
 
-**Length rule (contest):** the finished video must be **between 3:00 and 5:00**. This script is about **4:05 of speech** at a relaxed pace (140 words a minute). With pauses it lands at about **4:25–4:45**.
-- If a full read runs **over 4:45**, cut the lines marked *(optional)*.
+**Length rule (contest):** the finished video must be **between 3:00 and 5:00**. This script is about **4:15 of speech** at a relaxed pace (140 words a minute). With pauses it lands at about **4:35–4:55**, close to the limit.
+- **Time your first full read.** If it runs **over 4:45**, cut the lines marked *(optional)*. That brings it to about 4:15 finished.
 - If it's **under 3:15**, slow down. Don't add words.
 
 ---
@@ -78,16 +78,16 @@
 >
 > For real emergencies, / the app points you to / Nevada County Alerts / and 911.
 
-## 07: The data (about 3:44–4:02)
-**SHOW:** the About page: the source list and links.
+## 07: The data (about 3:44–4:11)
+**SHOW:** the About page (the source list and links), then the Wolf Creek card's **"Past study · 2024"** panel with its chart.
 **SAY:**
 > Behind it all: / reports from people at the creek, / stream gauges from the U.S. Geological Survey, / weather from the National Weather Service, / rainfall estimates from Open-Meteo, / and water tests by local volunteer groups.
 >
-> *(add if live: only if the About page or the Wolf Creek card shows the 2024 study on recording day. Ask JP.)* In 2024, / the regional water board studied bacteria / along Wolf Creek, / and you can see that history here too.
+> In 2024, / the regional water board studied bacteria / along Wolf Creek, / and you can see that history here too.
 >
 > *(optional)* All the code is open source.
 
-## 08: One Health, and close (about 4:02–4:27)
+## 08: One Health, and close (about 4:11–4:36)
 **SHOW:** your best creek photo, then the title card with the URL and team names.
 **SAY:**
 > This is One Health: / a healthy creek, / healthy wildlife, / and healthy people / are all connected. / Creek Watch lets the people / who already walk by our creeks / become their early-warning system, / and help clean them up.
@@ -98,12 +98,11 @@
 
 ## Timing check (counted)
 Word counts are spoken words only, with the breath marks removed.
-- **Full script, excluding the *(add if live)* line:** 577 words, about 4:07 of speech, about **4:25–4:45** finished.
-- **With all *(optional)* lines cut** (45 words): 532 words, about 3:48 of speech, about **4:05–4:20** finished.
-- **The *(add if live)* line:** 19 words, about 8 seconds more. If you add it, cut the *(optional)* lines too.
-- Section lengths: 01 56 · 02 55 · 03 135 · 04 50 · 05 91 · 06 97 · 07 39 · 08 54.
+- **Full script:** 596 words, about 4:15 of speech, about **4:35–4:55** finished. That's close to 5:00, so time your first read.
+- **With all *(optional)* lines cut** (45 words): 551 words, about 3:56 of speech, about **4:15–4:30** finished.
+- Section lengths: 01 56 · 02 55 · 03 135 · 04 50 · 05 91 · 06 97 · 07 58 · 08 54.
 
-Every version lands between 3:00 and 5:00. **Time your first full read.** If it's over 4:45, cut the *(optional)* lines.
+Both versions land between 3:00 and 5:00. **If your first full read is over 4:45, use the cut version.**
 
 ## SHOW list: new footage the cut needs (for luna-creekwatch-brand)
 
@@ -114,6 +113,6 @@ Capture at a phone size (390×844). Use **real** data only: no test reports on t
 4. **Alerts page:** the list, one alert opened, and its official-source link.
 5. **Get alerts:** choosing a creek and a severity, then the **welcome notification** "Creek Watch alerts are on". Film it on a device where push works. Don't present this as a tested-on-a-real-phone claim in any text.
 6. **About page:** the source list, for section 07.
-7. *(add if live)* The 2024 Wolf Creek study, wherever the app shows it.
+7. **Wolf Creek card, "Past study · 2024"**: open the panel to show the chart and its caption (live since 2026-10-03).
 
 Already covered by earlier footage: the creek video and photos (Alec), the map, and the dashboard score with its reasons.

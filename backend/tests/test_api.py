@@ -309,3 +309,59 @@ def test_conditions_warmup_can_be_disabled(tmp_path):
         assert calls == []
         c.get("/api/conditions", params={"creek_id": "deer"})
         assert calls == ["deer"]
+
+
+# ---- cache_ttl_hint_s from data.ingest (RiverDB cap answered from the snapshot) -----------------
+
+def _dl_with(results):
+    from creekwatch.data_iface import DataLayer
+    dl = DataLayer(600, use_data_package=False)
+    calls = []
+
+    def gc(cid):
+        calls.append(cid)
+        return dict(results[min(len(calls), len(results)) - 1])
+    dl._get_conditions = gc
+    return dl, calls
+
+
+def test_capped_response_cached_briefly_and_hint_stripped(monkeypatch):
+    import time as _t
+    from creekwatch import data_iface
+    clock = [1000.0]
+    monkeypatch.setattr(data_iface.time, "monotonic", lambda: clock[0])
+    capped = {"gauge": None, "water_quality": {"capped": True, "stations": []}, "cache_ttl_hint_s": 30}
+    full = {"gauge": None, "water_quality": {"stations": [{"live": True}]}}
+    dl, calls = _dl_with([capped, full])
+    r1 = dl.conditions("deer")
+    assert "cache_ttl_hint_s" not in r1 and r1["water_quality"]["capped"] is True   # internal hint stripped
+    clock[0] += 29; dl.conditions("deer"); assert len(calls) == 1                  # within the hint
+    clock[0] += 2;  r3 = dl.conditions("deer"); assert len(calls) == 2              # hint expired: refetch
+    assert "capped" not in r3["water_quality"]
+    clock[0] += 599; dl.conditions("deer"); assert len(calls) == 2                  # normal 600 s again
+
+
+@pytest.mark.parametrize("hint,expect", [(None, 600), (0, 600), (-5, 600), ("30", 600), (True, 600),
+                                         (1, 5), (30, 30), (30.5, 30.5), (10_000, 600)])
+def test_ttl_hint_clamped(hint, expect):
+    from creekwatch.data_iface import DataLayer
+    dl = DataLayer(600, use_data_package=False)
+    res = {"gauge": None} if hint is None else {"gauge": None, "cache_ttl_hint_s": hint}
+    assert dl._ttl_for(res) == expect
+
+
+def test_failed_conditions_negative_cached_60s(monkeypatch):
+    from creekwatch import data_iface
+    from creekwatch.data_iface import DataLayer
+    clock = [1000.0]
+    monkeypatch.setattr(data_iface.time, "monotonic", lambda: clock[0])
+    dl = DataLayer(600, use_data_package=False)
+    calls = []
+
+    def boom(cid):
+        calls.append(cid)
+        raise RuntimeError("upstream down")
+    dl._get_conditions = boom
+    assert "error" in dl.conditions("deer")
+    clock[0] += 59; dl.conditions("deer"); assert len(calls) == 1
+    clock[0] += 2;  dl.conditions("deer"); assert len(calls) == 2

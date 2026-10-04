@@ -107,6 +107,8 @@ docs/      spec, submission text, demo script, field guide
 | [National Weather Service API](https://www.weather.gov/documentation/services-web-api) | Temperature, short forecast | [Public domain](https://www.weather.gov/disclaimer); no endorsement implied |
 | [Open-Meteo](https://open-meteo.com/) | Rain in the past and next 24 h (model estimates, not a gauge) | [CC BY 4.0](https://open-meteo.com/en/terms); free API for non-commercial use |
 | [RiverDB](https://riverdb.org) | Volunteer water tests: South Yuba River Citizens League (Deer Creek, monthly, 2022 to now), Sierra Streams Institute (Deer Creek, 2000–2023), Wolf Creek Community Alliance (Wolf Creek, 2017–2019) | The groups' public data, credited on every reading; periodic samples, not live |
+| [CEDEN via data.ca.gov](https://data.ca.gov/dataset/surface-water-fecal-indicator-bacteria-results) | The 2024 Regional Board *E. coli* study on Wolf Creek, shown as dated history ("Past study · 2024") | State Water Board public data; no licence listed; credited |
+| [CDEC (California DWR)](https://cdec.water.ca.gov/) | South Yuba River flow (JBR) and Englebright Lake storage (ENG), as regional context only | State public data; credited; readings can lag by hours, and each shows its observation time |
 | [OpenStreetMap](https://www.openstreetmap.org/copyright) | Base map; creek lines and the 12 access sites (via Overpass) | © OpenStreetMap contributors, [ODbL](https://opendatacommons.org/licenses/odbl/) |
 
 Details, retrieval URLs and the right-creek checks: [data/SOURCES.md](data/SOURCES.md).
