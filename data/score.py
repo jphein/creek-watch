@@ -16,6 +16,7 @@ WINDOW_DAYS = 7          # reports older than this are ignored
 HALF_LIFE_H = 72.0       # a report's weight halves every 3 days
 ALERT_RECENT_H = 72      # dead fish / sewage / chemical inside this window -> alert
 RUNOFF_RECENT_H = 48     # brown/cloudy reports inside this window count toward runoff watch
+ORANGE_RECENT_H = 72     # orange water inside this window -> watch (possible mine drainage)
 
 BANDS = [(80, "good"), (60, "fair"), (40, "watch"), (0, "alert")]
 BAND_ORDER = {"good": 0, "fair": 1, "watch": 2, "alert": 3}
@@ -33,6 +34,11 @@ REPORT_RULES = [
      "A rotten-egg smell can be natural decay in still water, but it also comes with low oxygen."),
     ("water_brown", "water_color", {"brown"}, 15,
      "Brown water carries soil. Sediment smothers the gravel that insects and fish eggs need, and it carries pollutants with it."),
+    ("water_orange", "water_color", {"orange"}, 12,
+     "Orange water can be a sign of mine drainage (iron and other metals) from old mine sites "
+     "upstream, or of a natural iron seep. Avoid contact, and report it through CalEPA's "
+     "environmental complaint form (https://calepa.ca.gov/enforcement/complaints/), which sends "
+     "it to the appropriate agency (for water quality, the Water Boards)."),
     ("water_green", "water_color", {"green"}, 10,
      "Green water often means algae growing on extra nutrients (fertilizer, septic, pet waste)."),
     ("water_cloudy", "water_color", {"cloudy"}, 6,
@@ -183,6 +189,8 @@ def report_flags(report: dict) -> list[str]:
         f.append("brown_water")
     if _field(report, "water_color") == "green":
         f.append("green_water")
+    if _field(report, "water_color") == "orange":
+        f.append("orange_water")
     if _field(report, "trash") == "lots":
         f.append("trash_heavy")
     if _truthy(report.get("trash_removed")) and _field(report, "trash") in ("some", "lots"):
@@ -378,6 +386,14 @@ def compute_health(creek_id: str, reports: list[dict] | None, conditions: dict |
         warn("runoff_ahead", "advisory", "Heavy rain forecast",
              f"About {rain_next:.2f} in of rain is forecast in the next 24 h. A runoff pulse is likely, "
              "so reports during or after the storm are especially useful.")
+
+    orange = recent_with(lambda r: _field(r, "water_color") == "orange", ORANGE_RECENT_H)
+    if orange:
+        warn("orange_water_watch", "watch", "Orange water reported",
+             f"{len(orange)} report(s) of orange water in the last 3 days. Orange water can be a sign of "
+             "mine drainage (iron and other metals) from old mine sites, or of a natural iron seep. Avoid "
+             "contact until it clears, and report it through CalEPA's environmental complaint form "
+             "(https://calepa.ca.gov/enforcement/complaints/), which sends it to the appropriate agency.")
 
     bloomy = recent_with(lambda r: _field(r, "algae") == "lots" or _field(r, "water_color") == "green",
                          WINDOW_DAYS * 24)
