@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import asyncio
-import hmac
 import ipaddress
 import json
 import logging
@@ -31,7 +30,6 @@ from .data_iface import DataLayer, load_creeks, utcnow_iso
 from . import photos as photos_mod
 from .photos import HEIC_SUPPORTED, PhotoBusy, PhotoError, process_photo
 from .ratelimit import RateLimiter, rate_key
-from .uploads import UploadError, make_upload_store
 from .alerts.poller import AlertContext, Poller, load_adapters
 from .alerts.push import PushService, VapidKeys
 from .alerts.routes import register as register_alerts
@@ -190,9 +188,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             return await anyio.to_thread.run_sync(process_photo, raw, s.photo_max_px, limiter=gate["threads"])
         finally:
             sem.release()
-    uploads = make_upload_store(s)
-    app.state.uploads = uploads
-
     def maintenance() -> HTTPException:
         return HTTPException(503, "Creek Watch is moving to a new server. Reports are paused for a few minutes; "
                                   "please try again shortly.", headers={"Retry-After": "120"})
@@ -378,11 +373,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         photo_file = None
         if clean is not None:
             photo_file = f"{uuid.uuid4().hex}.jpg"
-            try:
-                uploads.put(photo_file, clean)
-            except UploadError:
-                raise HTTPException(503, "We couldn't save your photo just now. Please try again, "
-                                         "or send your report without the photo.")
+            (s.uploads_dir / photo_file).write_bytes(clean)
 
         clean_text = lambda v: (v or "").strip() or None  # noqa: E731
         rec = {
@@ -464,18 +455,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         with db.connect(s.db_path) as conn:
             n, bags, since = conn.execute(q, args).fetchone()
         return JSONResponse({"cleanups": n, "bags": bags, "since": since})
-
-    @app.post("/internal/poll", include_in_schema=False)
-    async def internal_poll(request: Request) -> JSONResponse:
-        """Cron-triggered alert poll (Cloudflare build). Exists only when CREEKWATCH_INTERNAL_TOKEN is set;
-        the token is compared in constant time and never logged."""
-        given = request.headers.get("x-internal-token", "")
-        if not s.internal_token or not hmac.compare_digest(given.encode(), s.internal_token.encode()):
-            raise HTTPException(404, "Not Found")
-        if alert_poller.load_error or not alert_poller.adapters:
-            return JSONResponse({"error": "adapters not loaded", "load_error": alert_poller.load_error}, status_code=503)
-        summary = await anyio.to_thread.run_sync(alert_poller.run_due)
-        return JSONResponse(summary)
 
     @app.get("/api/meta", include_in_schema=False)
     def meta() -> dict[str, Any]:
