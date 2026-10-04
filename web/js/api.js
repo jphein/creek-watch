@@ -152,7 +152,7 @@ export function reportBand(r) {
   const flags = r.flags && r.flags.length ? warningFlags(r.flags) : deriveFlags(r);
   if (flags.some((x) => ALERT_HINTS.some((h) => x.includes(h)))) return 'alert';
   if (flags.length) return 'watch';
-  if (r.algae === 'some' || r.trash === 'some' || ['cloudy', 'green', 'other'].includes(r.water_color) || ['rotten', 'other'].includes(r.odor))
+  if (r.algae === 'some' || r.trash === 'some' || ['cloudy', 'green', 'orange', 'other'].includes(r.water_color) || ['rotten', 'other'].includes(r.odor))
     return 'fair';
   return 'good';
 }

@@ -1,5 +1,26 @@
 [
  {
+  "id": 9001,
+  "creek_id": "wolf",
+  "site_id": null,
+  "location_kind": "side_stream",
+  "lat": 39.235,
+  "lon": -121.04,
+  "observed_at": "2026-10-03T20:00:00Z",
+  "water_color": "orange",
+  "algae": "none",
+  "trash": "none",
+  "flow": "low",
+  "odor": "none",
+  "dead_fish": false,
+  "wildlife_seen": "",
+  "notes": "Small side stream below an old mine adit; rusty orange water and staining on the rocks.",
+  "reporter_name": null,
+  "photo_url": null,
+  "flags": [],
+  "trash_removed": false
+ },
+ {
   "id": 3,
   "creek_id": "wolf",
   "site_id": "wolf-downtown",

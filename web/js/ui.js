@@ -96,7 +96,7 @@ const SIGNAL_LABEL = {
   rain_24h: 'Rain, last 24 hours', air_temp: 'Air temperature', stream_flow: 'Stream flow',
   report_coverage: 'Reports this week', early_warning_cap: 'Early warning', volunteer_lab_data: 'Volunteer water test',
   dead_fish: 'Dead fish seen', odor_sewage_chemical: 'Sewage or chemical smell', odor_rotten: 'Rotten-egg smell',
-  water_brown: 'Muddy brown water', water_green: 'Green water', water_cloudy: 'Cloudy water',
+  water_brown: 'Muddy brown water', water_green: 'Green water', water_cloudy: 'Cloudy water', water_orange: 'Orange (rusty) water',
   algae_lots: 'Lots of algae', algae_some: 'Some algae', trash_lots: 'Lots of trash', trash_some: 'Some trash',
   flow_flood: 'Flooding', flow_dry: 'Dry creek bed',
 };
@@ -130,7 +130,7 @@ export function toast(msg) {
 }
 
 export const VALUE_LABELS = {
-  water_color: { clear: 'Clear', cloudy: 'Cloudy', brown: 'Brown / muddy', green: 'Green', other: 'Other color' },
+  water_color: { clear: 'Clear', cloudy: 'Cloudy', brown: 'Brown / muddy', orange: 'Orange / rusty', green: 'Green', other: 'Other color' },
   flow: { dry: 'Dry', low: 'Low', normal: 'Normal', high: 'High', flood: 'Flooding' },
   algae: { none: 'No algae', some: 'Some algae', lots: 'Lots of algae' },
   trash: { none: 'No trash', some: 'Some trash', lots: 'Lots of trash' },
@@ -148,7 +148,7 @@ export function reportCardHTML(r, creekName = '', siteName = '', { band } = {}) 
         <strong>${esc(siteName || creekName || 'Creek report')}</strong>
         <time datetime="${esc(r.observed_at)}">${esc(timeAgo(r.observed_at))}</time>
       </header>
-      <p class="rep-tags">${[v('water_color'), `${v('flow')} flow`, v('algae'), v('trash'), v('odor')]
+      <p class="rep-tags">${r.location_kind === 'side_stream' ? '<span class="tag-side">Side stream</span>' : ''}${[v('water_color'), `${v('flow')} flow`, v('algae'), v('trash'), v('odor')]
         .filter(Boolean)
         .map((t) => `<span>${esc(t)}</span>`)
         .join('')}${r.dead_fish ? '<span class="tag-alert">Dead fish</span>' : ''}${

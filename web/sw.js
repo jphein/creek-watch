@@ -2,7 +2,7 @@
 // a cached fallback for GETs. POSTs (reports) always go to the network; the
 // page keeps its own offline outbox in IndexedDB.
 importScripts('js/idb-schema.js');
-const VERSION = 'cw-v11';
+const VERSION = 'cw-v12';
 const SHELL = [
   './', 'index.html', 'css/app.css', 'manifest.webmanifest',
   'js/app.js', 'js/api.js', 'js/ui.js', 'js/icons.js', 'js/store.js',
