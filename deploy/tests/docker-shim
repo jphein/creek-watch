@@ -16,6 +16,8 @@ if [ "$1" = cp ] && [ "${3:-}" = - ] && [[ "$2" == *uploads ]] && [ -n "${SHIM_M
       tar -C "$d" --sparse --format=gnu -cf - uploads > "$t"
       python3 -c "import tarfile,sys;print('sparse members=',sum(m.issparse() for m in tarfile.open(sys.argv[1])))" "$t" >> "${SHIM_LOG:-/dev/null}"
       cat "$t"; rm -rf "$d" "$t"; exit 0 ;;
+    slow)      # the real archive, delivered after ${SHIM_SLOW:-5} s (stands in for a long rsync-sized backup)
+      sleep "${SHIM_SLOW:-5}"; cat "$t"; rm -f "$t"; exit 0 ;;
     many)      # a valid tar of 3000 empty files (inode-exhaustion shape, scaled down)
       d=$(mktemp -d); mkdir "$d/uploads"; (cd "$d/uploads" && seq 1 3000 | xargs touch)
       tar -C "$d" -cf - uploads > "$t"

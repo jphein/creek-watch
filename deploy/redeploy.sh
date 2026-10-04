@@ -94,6 +94,13 @@ take_backup_lock() {
   BACKUP_LOCK_HELD=1
 }
 
+# release_backup_lock: drop the lock as soon as the swap (and its health gate / rollback) is done, so poll
+# passes and backups never wait on the post-deploy housekeeping. Idempotent.
+release_backup_lock() {
+  [ -n "${BACKUP_LOCK_HELD:-}" ] || return 0
+  flock -u 8; exec 8>&-; BACKUP_LOCK_HELD=
+}
+
 rollback() {
   take_backup_lock
   docker inspect "$PREV" >/dev/null 2>&1 || die "no $PREV container to roll back to"
@@ -165,8 +172,9 @@ fi
 docker rm -f "$STAGE" >/dev/null
 log "staged OK; swapping"
 
-# Hold the backup lock across the swap (released when this script exits) so backup.sh never runs while
-# no container is named $NAME.
+# Exclusive swap lock (shared by poll.sh passes, exclusive for backup.sh) held ONLY across stop -> start ->
+# health gate (or rollback): typically 3-4 s, worst case ~75 s (10 s stop + 60 s health timeout).
+# The image build and the staging check above run without it.
 take_backup_lock
 # 2) Swap: keep the old container (stopped) as $PREV so rollback is one `docker start`. Gap is ~1-2 s.
 docker rm -f "$PREV" >/dev/null 2>&1 || true
@@ -179,6 +187,7 @@ run_app "$NAME" "$CW_PORT" "$IMAGE" unless-stopped || { log "docker run failed";
 if healthy "$HEALTH_TIMEOUT" "$CW_PORT" 1; then
   echo "$SHA" > "$BASE/deployed.sha"
   log "LIVE $IMAGE (https://${HOSTNAME_PUBLIC})"
+  release_backup_lock
   # Deliberately NO self-update of ~/creekwatch/bin/redeploy.sh from main: that copy runs on the host as a
   # docker-group user (root-equivalent), so a merge must only ever change what runs INSIDE the container.
   # Updating the host script is an explicit `deploy/install.sh`.
@@ -193,6 +202,7 @@ else
   docker logs --tail 30 "$NAME" 2>&1 | sed 's/^/  | /'
   docker rm -f "$NAME" >/dev/null
   rollback
+  release_backup_lock
   fail "post-swap health check failed for $SHORT (rolled back)"
 fi
 }

@@ -41,13 +41,19 @@ fi
 
 STAMP=$(date -u +%Y%m%dT%H%MZ)
 mkdir -p "$STAGE"
-# One run at a time: a manual or test run must not race the hourly timer over $STAGE.
-exec 9>"$STAGE/.lock"
-# redeploy.sh takes this same lock around its container swap, so a backup never runs inside the
-# ~3 s window where no container is named $NAME (seen 2026-10-03 18:47: "No such container").
+# Two locks:
+#  - $STAGE/.backup.lock EXCLUSIVE: one backup at a time (a manual/test run vs the hourly timer).
+#  - $STAGE/.lock (the swap lock) SHARED: redeploy.sh takes it EXCLUSIVE around its container swap, so a
+#    backup never runs inside the ~3 s window where no container is named $NAME (seen 2026-10-03 18:47:
+#    "No such container"), and a swap waits for a running backup. Shared, so poll passes (also shared)
+#    run alongside a long backup instead of being blocked by its rsync.
 # Exit 75 (EX_TEMPFAIL) when skipped: a missed hour must show up as a failed unit (systemctl --failed,
 # journal priority), not as a quiet success. The next hourly run is unaffected.
-flock -w "${CW_BACKUP_LOCK_WAIT:-120}" 9 || { log "WARN: another backup or a redeploy swap held the lock for ${CW_BACKUP_LOCK_WAIT:-120}s; this run is SKIPPED"; exit 75; }
+W="${CW_BACKUP_LOCK_WAIT:-120}"
+exec 9>>"$STAGE/.backup.lock"
+flock -x -w "$W" 9 || { log "WARN: another backup held the backup lock for ${W}s; this run is SKIPPED"; exit 75; }
+exec 7>>"$STAGE/.lock"
+flock -s -w "$W" 7 || { log "WARN: a redeploy swap held the swap lock for ${W}s; this run is SKIPPED"; exit 75; }
 # Belt and braces: wait for the container to be running (e.g. a manual docker restart).
 for _ in $(seq 1 30); do
   [ "$(docker inspect -f '{{.State.Running}}' "$NAME" 2>/dev/null)" = true ] && break; sleep 2
