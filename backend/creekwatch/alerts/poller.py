@@ -26,7 +26,10 @@ log = logging.getLogger("creekwatch.alerts")
 MAX_ALERTS_PER_SOURCE = 500
 MIN_INTERVAL_S, MAX_INTERVAL_S = 60, 7 * 86400   # honour the data lane's daily / 12 h sources
 MAX_BACKOFF_S = 6 * 3600
-FETCH_TIMEOUT_S = 90.0                            # SSO's 10 MB download needs > 60 s
+FETCH_TIMEOUT_S = 90.0
+# A timer pass that lands a little before next_due (timer jitter, or the previous pass's fetch time)
+# must not skip a whole cycle: sources due within this slack run now.
+DUE_SLACK_S = 30.0                            # SSO's 10 MB download needs > 60 s
 
 
 @dataclass
@@ -126,7 +129,7 @@ class Poller:
                     if now - st.started > self.fetch_timeout_s * 10:
                         log.error("alert source %s has been stuck for %.0f s", src, now - st.started)
                     continue
-                if force or st.next_run <= now:
+                if force or st.next_run <= now + DUE_SLACK_S:
                     st.running, st.started = True, now
                     fut = self._pool.submit(self._fetch, src, ctx)
                     fut.add_done_callback(lambda f, s=src: setattr(self.state[s], "running", False))
@@ -136,7 +139,7 @@ class Poller:
         deadline = time.monotonic() + self.fetch_timeout_s
         for src, fut in launched.items():
             try:  # everything per source is isolated: no exception can abort the cycle or expire_due
-                self._process(src, fut, deadline, summary)
+                self._process(src, fut, deadline, summary, now)
             except Exception as e:
                 log.exception("alert source %s: processing crashed", src)
                 summary["failed"][src] = type(e).__name__
@@ -150,7 +153,7 @@ class Poller:
             log.exception("expire_due failed")
         return summary
 
-    def _process(self, src: str, fut: Future, deadline: float, summary: dict[str, Any]) -> None:
+    def _process(self, src: str, fut: Future, deadline: float, summary: dict[str, Any], started: float) -> None:
         try:
             alerts = fut.result(timeout=max(0.01, deadline - time.monotonic()))
         except TimeoutError:
@@ -163,7 +166,9 @@ class Poller:
             return
         st = self.state[src]
         changes = self.store.apply_fetch(src, alerts)
-        st.failures, st.next_run = 0, self.clock() + self.interval(src)
+        # Schedule from the PASS START, not the fetch end, so fetch time never pushes the next run past
+        # the next timer tick (with the 5-min timer, NWS used to slip a whole cycle).
+        st.failures, st.next_run = 0, started + self.interval(src)
         self.store.set_next_due(src, st.next_run)
         summary["ran"].append(src)
         for ch in changes:

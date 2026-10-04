@@ -102,8 +102,9 @@ def test_poller_backoff_and_schedule(store):
     p = Poller([boom], store, ctx_factory, clock=lambda: clock[0])
     p.run_due()
     assert p.state["sso"].next_run == 1000 + 600  # interval * 2**1
-    clock[0] += 599; p.run_due(); assert boom.calls == 1   # not due yet
-    clock[0] += 2; p.run_due(); assert boom.calls == 2
+    from creekwatch.alerts.poller import DUE_SLACK_S
+    clock[0] += 600 - DUE_SLACK_S - 1; p.run_due(); assert boom.calls == 1   # outside the slack: not due
+    clock[0] += 2; p.run_due(); assert boom.calls == 2                         # inside the slack: due
     assert p.state["sso"].next_run == clock[0] + 1200      # 2**2
     boom.exc = None
     clock[0] += 1200; p.run_due()
@@ -401,3 +402,26 @@ def test_rearm_migration_backfills_inactive_rows(tmp_path):
     AlertStore(db)
     rows = dict(sqlite3.connect(db).execute("SELECT id, inactive_since FROM alerts").fetchall())
     assert rows["x:1"] and rows["x:1"].endswith("Z") and rows["x:2"] is None
+
+
+def test_timer_jitter_does_not_skip_a_cycle(store):
+    """5-min timer, NWS interval 300 s: a fetch that takes 4 s, then the next tick lands at +298 s
+    (jitter). The source must run on that tick, not slip to the one after."""
+    clock = [10_000.0]
+
+    class Slow(FakeAdapter):
+        def fetch(self, ctx):
+            clock[0] += 4.0                      # the fetch itself takes 4 s of wall time
+            return super().fetch(ctx)
+
+    nws = Slow("nws", [make_alert()], interval_s=300)
+    p = Poller([nws], store, ctx_factory, clock=lambda: clock[0])
+    p.run_due()
+    assert p.state["nws"].next_run == 10_000.0 + 300, "next_due is stamped from the pass start"
+    clock[0] = 10_000.0 + 298                     # next timer tick, 2 s early
+    p.run_due()
+    assert nws.calls == 2, "a source due within the slack runs on this tick"
+    clock[0] += 60                                # an unrelated early tick well before due
+    p.run_due()
+    assert nws.calls == 2, "slack is small: no extra fetches"
+    p.shutdown()
