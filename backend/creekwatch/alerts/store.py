@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import sqlite3
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -10,6 +11,8 @@ from pathlib import Path
 from typing import Any, Iterable
 
 from .model import SEVERITY_RANK
+
+log = logging.getLogger("creekwatch.alerts")
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS alerts (
@@ -116,6 +119,8 @@ class AlertStore:
             # resolve: active alerts of this source that the successful fetch no longer returned
             gone = [r["id"] for r in c.execute("SELECT id FROM alerts WHERE source=? AND status='active'", (source,))
                     if r["id"] not in seen]
+            if gone and not seen:  # N>0 -> 0: legitimate (all resolved) but worth a look in the logs
+                log.warning("alert source %s returned 0 alerts after %d active; expiring them", source, len(gone))
             for aid in gone:
                 p = json.loads(c.execute("SELECT payload FROM alerts WHERE id=?", (aid,)).fetchone()[0])
                 p.update(status="expired", updated=now)
