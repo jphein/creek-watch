@@ -2,7 +2,7 @@
 // gauge + weather, 7-day report sparkline, recent reports.
 import { getCreeks, getHealth, getConditions, getReports, getAlerts, getCleanupStats, reportBand } from './api.js';
 import { esc, BANDS, bandLabel, timeAgo, reportCardHTML, signalLabel, signalValue, safeUrl, httpsUrl, alertHTML } from './ui.js';
-import { privateNoteHTML, upstreamNoteHTML, siteAccess } from './sites.js';
+import { privateNoteHTML, upstreamNoteHTML, siteAccess, isNum, isStudyOnly } from './sites.js';
 
 const BAND_GLYPH = { good: '✓', fair: '~', watch: '!', alert: '✕' };
 
@@ -165,9 +165,9 @@ function historyHTML(cond) {
     const ctxUrl = httpsUrl(s.context_url);
     // Our own spots first; study-only stations (site_id null, #109) collapse below, in API order.
     const all = (s.stations || []).filter(Boolean);
-    const ours = all.filter((st) => st.site_id != null || !('site_id' in st)), others = all.filter((st) => !ours.includes(st));
+    const ours = all.filter((st) => !isStudyOnly(st)), others = all.filter(isStudyOnly);
     const stationBlock = (st) => `<section class="h-station" aria-label="${esc(st.name)}">
-        <h4>${esc(st.name)}</h4>${st.waterbody && st.site_id == null && 'site_id' in st ? `<p class="h-water">${esc(st.waterbody)}</p>` : ''}
+        <h4>${esc(st.name)}</h4>${st.waterbody && isStudyOnly(st) ? `<p class="h-water">${esc(st.waterbody)}</p>` : ''}
         ${st.text ? `<p>${esc(st.text)}</p>` : ''}
         ${historyChart(st, s.objective, s.gm_min_samples)}
       </section>`;
@@ -195,7 +195,8 @@ function fmtAsOf(iso) {
   if (!t) return '';
   return new Date(t).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
 }
-const n0 = (v, d = 0) => (Number.isFinite(Number(v)) ? Number(v).toLocaleString(undefined, { maximumFractionDigits: d }) : null);
+// isNum, not Number.isFinite(Number(v)): Number(null) is 0, so a missing flow would read "0 cfs".
+const n0 = (v, d = 0) => (isNum(v) ? Number(v).toLocaleString(undefined, { maximumFractionDigits: d }) : null);
 
 function riverHTML(cond) {
   const sts = cond?.river?.stations || [];

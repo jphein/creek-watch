@@ -73,6 +73,8 @@ for (const scheme of ['light', 'dark']) {
   deer.river.stations[0].age_hours = 1; deer.river.stations[0].observed_at = new Date(Date.now() - 9 * 3600e3).toISOString(); // cached age is stale on purpose
   deer.river.stations[1].observed_at = new Date(Date.now() - 2 * 3600e3).toISOString();
   deer.river.stations[1].source_url = 'http://cdec.water.ca.gov/insecure';
+  // Missing values must not read as 0 (Number(null) === 0; prod sends flow_cfs: None); a real 0 still shows.
+  deer.river.stations[0].flow_cfs = null; deer.river.stations[0].stage_ft = 0; deer.river.stations[1].storage_af = '';
   st.objective = { ...st.objective, url: 'http://www.waterboards.ca.gov/insecure.pdf' };
   deer.bacteria_history = { studies: [{ ...st, is_current: true, id: 'current-should-not-show' }] }; // only dated history renders
   const ctx = await b.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: 'block' });
@@ -95,6 +97,7 @@ for (const scheme of ['light', 'dark']) {
     ecoliOffStyled: await w.locator('.wq .wq-say.off').count(),
     swimWord: /swim limit/i.test(await p.locator('#page-dashboard').innerText()),
     staleNote: (await d.locator('.river .r-st').first().innerText()).includes('older reading'),
+    riverVals: await d.locator('.river .r-vals').allTextContents(),
     computedAge: /\(9 h ago\)/.test(await d.locator('.river .r-age').first().innerText()) && /\(2 h ago\)/.test(await d.locator('.river .r-age').nth(1).innerText()),
     httpLinks: await p.locator('a[href^="http:"]').count(),
     objLinkPresent: await w.locator('details.history .credit a', { hasText: 'state objective' }).count(),
@@ -145,6 +148,7 @@ const checks = {
   edgeOnlyNumbersPlotted: R.edge.firstStationBars === 11 && R.edge.notShownNote && !R.edge.nanInDom,
   qualNotExact: R.edge.qualBars === 11 && R.edge.qualCaption.includes('2 result(s) outside the lab’s measuring range (<10, >2419.6) not drawn as exact values'),
   edgeStaleRiver: R.edge.staleNote && R.edge.staleClass === 1,
+  riverMissingNotZero: R.edge.riverVals[0]?.trim() === 'stage 0 ft' && !/acre-feet/.test(R.edge.riverVals[1] || '') && /water level/.test(R.edge.riverVals[1] || ''),
   onlyDatedHistory: R.edge.currentStudyHidden,
   emptyRendersNothing: R.empty.river === 0 && R.empty.history === 0,
   noPageErrors: !L.errors.length && !D.errors.length && !R.edge.errors.length,

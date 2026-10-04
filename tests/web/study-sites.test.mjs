@@ -64,6 +64,8 @@ for (const scheme of ['light', 'dark']) R[scheme] = await run(HIST, HIST, { sche
   s.context_url = 'http://experience.arcgis.com/insecure';
   const o = s.stations.filter((x) => x.site_id == null);
   o[0].name = '<img src=x onerror="window.__xss=1">Hostile'; o[1].lat = null; o[2].lon = '';
+  // No site_id key at all (older payload shape): ours in BOTH the panel and the map (no study pin). Oracle #110 N2.
+  delete o[3].site_id; o[3].name = 'Keyless station';
   R.edge = await run(e, { studies: [{ ...structuredClone(HIST).studies[0], is_current: true, id: 'cur' }] });
 }
 await b.close(); close();
@@ -81,7 +83,8 @@ const checks = {
   panelOursTopOthersCollapsed: L.top.length === 2 && /Other sites in this study \(7\)/.test(L.othersSummary) && L.others.length === 7 && L.waters.includes('French Ravine (tributary)'),
   censoredNotExact: L.frBars === 12 && /1 result\(s\) outside the lab’s measuring range \(>2419\.6\) not drawn as exact values/.test(L.frCaption),
   edgeHttpsOnly: !R.edge.popLinks.some((l) => /^http:/.test(l.href)) && !R.edge.ctxLinks.some((l) => /^http:/.test(l.href)),
-  edgeEscapedAndBadCoords: !R.edge.xss && !R.edge.injected && R.edge.titles.length === 5 && R.edge.titles.some((t) => t.includes('<img')),
+  edgeEscapedAndBadCoords: !R.edge.xss && !R.edge.injected && R.edge.titles.length === 4 && R.edge.titles.some((t) => t.includes('<img')),
+  keylessIsOursEverywhere: !R.edge.titles.some((t) => t.includes('Keyless')) && R.edge.top.includes('Keyless station') && !R.edge.others.includes('Keyless station') && R.edge.others.length === 6,
   noPageErrors: !L.errs.length && !R.dark.errs.length && !R.edge.errs.length,
 };
 console.log(JSON.stringify({ titles: L.titles, popup: L.popup, top: L.top, others: L.others, edgeTitles: R.edge.titles, checks }, null, 1));

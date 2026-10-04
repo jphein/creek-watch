@@ -1,7 +1,7 @@
 // Map — creek lines, site markers, recent-report pins coloured by band.
 import { getCreeks, getReports, getConditions, getAlerts, reportBand } from './api.js';
 import { esc, bandLabel, reportCardHTML, alertHTML, SEV, httpsUrl } from './ui.js';
-import { wqPopupHTML, upstreamNoteHTML, isNum } from './sites.js';
+import { wqPopupHTML, upstreamNoteHTML, isNum, isStudyOnly } from './sites.js';
 
 const LEAFLET_CSS = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css';
 const LEAFLET_JS = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js';
@@ -128,7 +128,7 @@ export async function mountMap(el, qs) {
     if (!s || s.is_current !== false) continue;
     for (const st of s.stations || []) {
       const key = String(st?.station_code ?? st?.name ?? '');
-      if (!st || st.site_id != null || !key || studied.has(key) || !isNum(st.lat) || !isNum(st.lon)) continue;
+      if (!isStudyOnly(st) || !key || studied.has(key) || !isNum(st.lat) || !isNum(st.lon)) continue;
       studied.add(key);
       const yr = String(s.period || '').slice(0, 4);
       const name = String(st.name ?? '').trim() || 'Study site';
