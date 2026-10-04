@@ -19,7 +19,7 @@ def test_healthz_and_version(client):
 def test_creeks_stub(client):
     creeks = client.get("/api/creeks").json()
     ids = {c["id"] for c in creeks}
-    assert {"wolf-creek", "deer-creek"} <= ids
+    assert {"wolf", "deer"} <= ids
     assert all(st.keys() >= {"id", "name", "lat", "lon"} for c in creeks for st in c["sites"])
 
 
@@ -35,7 +35,7 @@ def test_post_and_get_report_with_photo(client, settings):
     r = client.post("/api/reports", data=REPORT, files={"photo": ("creek.jpg", gps_jpeg(), "image/jpeg")})
     assert r.status_code == 201, r.text
     rep = r.json()
-    assert rep["id"] and rep["creek_id"] == "deer-creek"
+    assert rep["id"] and rep["creek_id"] == "deer"
     assert rep["site_id"] == "deer-pioneer-park"  # auto-picked nearest site
     assert rep["dead_fish"] is False and rep["flags"] == []
     assert rep["photo_url"].startswith("/uploads/") and rep["photo_url"].endswith(".jpg")
@@ -50,7 +50,7 @@ def test_post_and_get_report_with_photo(client, settings):
     assert max(img.size) <= 1600 and img.size[1] > img.size[0]
 
     assert client.get(f"/api/reports/{rep['id']}").json() == rep
-    lst = client.get("/api/reports", params={"creek_id": "deer-creek"}).json()
+    lst = client.get("/api/reports", params={"creek_id": "deer"}).json()
     assert [x["id"] for x in lst] == [rep["id"]]
     assert client.get("/api/reports/999999").status_code == 404
 
@@ -94,17 +94,17 @@ def test_photo_too_large(tmp_path):
 
 def test_flags_and_health_alert(client):
     r = client.post("/api/reports", data=dict(REPORT, dead_fish="true", odor="chemical")).json()
-    assert set(r["flags"]) >= {"dead_fish", "chemical_odor"}
-    h = client.get("/api/health", params={"creek_id": "deer-creek"}).json()
+    assert set(r["flags"]) >= {"dead_fish_alert", "chemical_odor_alert"}
+    h = client.get("/api/health", params={"creek_id": "deer"}).json()
     assert 0 <= h["score"] <= 100 and h["band"] == "alert" and h["recent_report_count"] == 1
     assert all(sig.keys() >= {"name", "value", "weight", "explanation", "source"} for sig in h["signals"])
-    calm = client.get("/api/health", params={"creek_id": "wolf-creek"}).json()
+    calm = client.get("/api/health", params={"creek_id": "wolf"}).json()
     assert calm["band"] == "good" and calm["recent_report_count"] == 0
-    assert set(client.get("/api/health").json()) >= {"wolf-creek", "deer-creek"}
+    assert set(client.get("/api/health").json()) >= {"wolf", "deer"}
 
 
 def test_conditions(client):
-    c = client.get("/api/conditions", params={"creek_id": "wolf-creek"}).json()
+    c = client.get("/api/conditions", params={"creek_id": "wolf"}).json()
     assert {"gauge", "weather", "fetched_at"} <= c.keys()
     assert client.get("/api/conditions", params={"creek_id": "nope"}).status_code == 404
 
@@ -177,3 +177,21 @@ def test_report_budget_bounds_valid_flood_only(tmp_path):
             assert c.post("/api/reports", data=REPORT,
                           files={"photo": ("a.jpg", b"garbage", "image/jpeg")}).status_code == 415
         assert [c.post("/api/reports", data=REPORT).status_code for _ in range(4)] == [201, 201, 201, 503]
+
+
+def test_client_ip_trust():
+    from starlette.requests import Request
+
+    from creekwatch.main import make_client_ip
+
+    ip = make_client_ip("127.0.0.0/8,172.16.0.0/12")
+
+    def req(peer, **h):
+        hdrs = [(k.replace("_", "-").encode(), v.encode()) for k, v in h.items()]
+        return Request({"type": "http", "client": (peer, 1234), "headers": hdrs})
+
+    assert ip(req("172.17.0.1", cf_connecting_ip="203.0.113.7", x_forwarded_for="127.0.0.1")) == "203.0.113.7"
+    assert ip(req("172.17.0.1", x_forwarded_for="198.51.100.2, 127.0.0.1")) == "198.51.100.2"
+    assert ip(req("172.17.0.1", cf_connecting_ip="not-an-ip")) == "172.17.0.1"
+    # untrusted peer can't spoof
+    assert ip(req("203.0.113.99", cf_connecting_ip="1.2.3.4", x_forwarded_for="5.6.7.8")) == "203.0.113.99"
