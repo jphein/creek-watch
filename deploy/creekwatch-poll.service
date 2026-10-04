@@ -1,0 +1,15 @@
+[Unit]
+Description=Creek Watch: one alert-poller pass (inside the live container)
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=jp
+ExecStart=/home/jp/creekwatch/bin/poll.sh
+TimeoutStartSec=420
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/home/jp/creekwatch

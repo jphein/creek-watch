@@ -7,10 +7,10 @@ here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 host="${CW_DEPLOY_HOST:-ubox0}"
 if [ "$(hostname -s)" != "$host" ]; then
   ssh "$host" 'mkdir -p ~/creekwatch/bin ~/creekwatch/units'
-  scp -q "$here/redeploy.sh" "$here/backup.sh" "$host:creekwatch/bin/"
-  scp -q "$here"/creekwatch-redeploy.{service,timer} "$here"/creekwatch-backup.{service,timer} "$host:creekwatch/units/"
-  exec ssh "$host" 'chmod +x ~/creekwatch/bin/redeploy.sh ~/creekwatch/bin/backup.sh &&
+  scp -q "$here/redeploy.sh" "$here/backup.sh" "$here/poll.sh" "$host:creekwatch/bin/"
+  scp -q "$here"/creekwatch-redeploy.{service,timer} "$here"/creekwatch-backup.{service,timer} "$here"/creekwatch-poll.{service,timer} "$host:creekwatch/units/"
+  exec ssh "$host" 'chmod +x ~/creekwatch/bin/redeploy.sh ~/creekwatch/bin/backup.sh ~/creekwatch/bin/poll.sh &&
     sudo install -m 644 ~/creekwatch/units/creekwatch-*.service ~/creekwatch/units/creekwatch-*.timer /etc/systemd/system/ &&
-    sudo systemctl daemon-reload && sudo systemctl enable --now creekwatch-redeploy.timer creekwatch-backup.timer &&
+    sudo systemctl daemon-reload && sudo systemctl enable --now creekwatch-redeploy.timer creekwatch-backup.timer creekwatch-poll.timer &&
     systemctl list-timers "creekwatch-*" --no-pager'
 fi
