@@ -25,7 +25,8 @@ CREATE TABLE IF NOT EXISTS alerts (
     first_seen            TEXT NOT NULL,
     updated               TEXT NOT NULL,
     expires               TEXT,
-    last_pushed_severity  TEXT
+    last_pushed_severity  TEXT,
+    inactive_since        TEXT
 );
 CREATE INDEX IF NOT EXISTS alerts_status ON alerts (status, updated DESC);
 CREATE INDEX IF NOT EXISTS alerts_source ON alerts (source, status);
@@ -44,6 +45,18 @@ CREATE TABLE IF NOT EXISTS alert_sources (
     next_due    REAL
 );
 """
+
+
+# An alert that comes back after being inactive this long is a NEW incident: its push claim is
+# re-armed (same id + same severity notifies again). Shorter gaps are flapping and stay quiet.
+REARM_AFTER_S = 12 * 3600
+
+
+def _age_s(since: str | None, now: str) -> float:
+    if not since:
+        return 0.0
+    fmt = "%Y-%m-%dT%H:%M:%SZ"
+    return (datetime.strptime(now, fmt) - datetime.strptime(since, fmt)).total_seconds()
 
 
 def now_iso() -> str:
@@ -65,6 +78,8 @@ class AlertStore:
             cols = {r[1] for r in c.execute("PRAGMA table_info(alert_sources)")}
             if "next_due" not in cols:  # DBs created before the persisted schedule
                 c.execute("ALTER TABLE alert_sources ADD COLUMN next_due REAL")
+            if "inactive_since" not in {r[1] for r in c.execute("PRAGMA table_info(alerts)")}:
+                c.execute("ALTER TABLE alerts ADD COLUMN inactive_since TEXT")
 
     def _conn(self) -> sqlite3.Connection:
         c = sqlite3.connect(self.db_path, timeout=10)
@@ -89,20 +104,23 @@ class AlertStore:
                 seen.add(a["id"])
                 if a["expires"] and a["expires"] <= now and a["status"] == "active":
                     a = dict(a, status="expired")
-                row = c.execute("SELECT payload, status, severity, first_seen, last_pushed_severity "
-                                "FROM alerts WHERE id = ?", (a["id"],)).fetchone()
+                row = c.execute("SELECT payload, status, severity, first_seen, last_pushed_severity, "
+                                "inactive_since FROM alerts WHERE id = ?", (a["id"],)).fetchone()
                 payload = json.dumps(a, sort_keys=True, separators=(",", ":"))
                 if row is None:
                     kind = "new" if a["status"] == "active" else "unchanged"
                     c.execute("INSERT INTO alerts (id, source, payload, status, severity, category, first_seen,"
-                              " updated, expires) VALUES (?,?,?,?,?,?,?,?,?)",
+                              " updated, expires, inactive_since) VALUES (?,?,?,?,?,?,?,?,?,?)",
                               (a["id"], source, payload, a["status"], a["severity"], a["category"], now,
-                               a["updated"], a["expires"]))
+                               a["updated"], a["expires"], None if a["status"] == "active" else now))
                 else:
                     if row["payload"] == payload:
                         kind = "unchanged"
                     elif a["status"] == "active" and row["status"] != "active":
                         kind = "new"  # re-activated
+                        if _age_s(row["inactive_since"], now) >= REARM_AFTER_S:
+                            # a new incident under the same id: announce it again
+                            c.execute("UPDATE alerts SET last_pushed_severity=NULL WHERE id=?", (a["id"],))
                     elif (a["status"] == "active"
                           and SEVERITY_RANK[a["severity"]] > SEVERITY_RANK.get(row["severity"], -1)):
                         kind = "escalated"
@@ -110,8 +128,10 @@ class AlertStore:
                         kind = "updated"
                     if kind != "unchanged":
                         c.execute("UPDATE alerts SET payload=?, status=?, severity=?, category=?, updated=?, "
-                                  "expires=? WHERE id=?", (payload, a["status"], a["severity"], a["category"],
-                                                          a["updated"], a["expires"], a["id"]))
+                                  "expires=?, inactive_since=CASE WHEN ?='active' THEN NULL "
+                                  "ELSE COALESCE(inactive_since, ?) END WHERE id=?",
+                                  (payload, a["status"], a["severity"], a["category"], a["updated"], a["expires"],
+                                   a["status"], now, a["id"]))
                 c.execute("DELETE FROM alert_creeks WHERE alert_id = ?", (a["id"],))
                 c.executemany("INSERT OR IGNORE INTO alert_creeks VALUES (?, ?)",
                               [(a["id"], cid) for cid in a["area"]["creek_ids"]])
@@ -124,8 +144,8 @@ class AlertStore:
             for aid in gone:
                 p = json.loads(c.execute("SELECT payload FROM alerts WHERE id=?", (aid,)).fetchone()[0])
                 p.update(status="expired", updated=now)
-                c.execute("UPDATE alerts SET status='expired', updated=?, payload=? WHERE id=?",
-                          (now, json.dumps(p, sort_keys=True, separators=(",", ":")), aid))
+                c.execute("UPDATE alerts SET status='expired', updated=?, payload=?, inactive_since=? WHERE id=?",
+                          (now, json.dumps(p, sort_keys=True, separators=(",", ":")), now, aid))
             c.execute("INSERT INTO alert_sources (source, last_run, last_ok, last_error, failures, alert_count) "
                       "VALUES (?,?,?,NULL,0,?) ON CONFLICT(source) DO UPDATE SET last_run=excluded.last_run, "
                       "last_ok=excluded.last_ok, last_error=NULL, failures=0, alert_count=excluded.alert_count",
@@ -160,8 +180,8 @@ class AlertStore:
                              "AND expires <= ?", (now,)).fetchall()
             for r in rows:
                 p = json.loads(r["payload"]); p.update(status="expired")
-                c.execute("UPDATE alerts SET status='expired', payload=? WHERE id=?",
-                          (json.dumps(p, sort_keys=True, separators=(",", ":")), r["id"]))
+                c.execute("UPDATE alerts SET status='expired', payload=?, inactive_since=? WHERE id=?",
+                          (json.dumps(p, sort_keys=True, separators=(",", ":")), now, r["id"]))
         return len(rows)
 
     def claim_push(self, alert_id: str, severity: str) -> bool:
