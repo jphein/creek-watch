@@ -8,6 +8,12 @@ from creekwatch.config import Settings
 from creekwatch.main import create_app
 
 
+@pytest.fixture(autouse=True)
+def hermetic(monkeypatch):
+    # Unit tests use the built-in stubs; the data package is exercised in test_integration_data.py.
+    monkeypatch.setenv("CREEKWATCH_USE_DATA_PKG", "0")
+
+
 @pytest.fixture
 def settings(tmp_path):
     return Settings(data_dir=tmp_path / "d", web_dir=tmp_path / "noweb", sites_json=tmp_path / "missing.json",
@@ -35,7 +41,7 @@ def gps_jpeg(size=(3000, 2000)) -> bytes:
 
 
 REPORT = {
-    "creek_id": "deer-creek", "lat": "39.2630", "lon": "-121.0228",
+    "creek_id": "deer", "lat": "39.2630", "lon": "-121.0228",
     "water_color": "clear", "algae": "none", "trash": "some", "flow": "normal", "odor": "none",
     "dead_fish": "false", "notes": "Looks good", "reporter_name": "Alec",
 }

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import ipaddress
 import json
 import logging
 import math
@@ -35,7 +36,7 @@ Odor = Literal["none", "earthy", "sewage", "chemical", "rotten", "other"]
 
 REPORT_COLUMNS = ("id", "creek_id", "site_id", "lat", "lon", "observed_at", "created_at", "water_color", "algae",
                   "trash", "flow", "odor", "dead_fish", "wildlife_seen", "notes", "reporter_name", "photo_file", "flags")
-HEALTH_WINDOW = timedelta(days=7)
+HEALTH_WINDOW = timedelta(days=14)  # data.score windows to 7 days itself, with recency decay
 _START = time.time()
 _START_ISO = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
@@ -83,26 +84,29 @@ def iso(dt: datetime) -> str:
     return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
-def compute_flags(r: dict[str, Any]) -> list[str]:
-    flags = []
-    if r["dead_fish"]:
-        flags.append("dead_fish")
-    if r["odor"] in ("sewage", "chemical"):
-        flags.append(f"{r['odor']}_odor")
-    if r["algae"] == "lots":
-        flags.append("heavy_algae")
-    if r["water_color"] == "brown":
-        flags.append("brown_water")
-    if r["flow"] == "flood":
-        flags.append("flood")
-    if r["trash"] == "lots":
-        flags.append("heavy_trash")
-    return flags
+def make_client_ip(trusted: str):
+    """Real client IP. Only a trusted peer (Caddy via loopback/docker bridge) may vouch for it, preferring
+    Cloudflare's CF-Connecting-IP (set at the edge, so unspoofable through the tunnel), then the first
+    X-Forwarded-For hop. Anyone else is identified by the TCP peer address."""
+    nets = [ipaddress.ip_network(n.strip(), strict=False) for n in trusted.split(",") if n.strip()]
 
+    def client_ip(request: Request) -> str:
+        peer = request.client.host if request.client else "unknown"
+        try:
+            peer_ip = ipaddress.ip_address(peer)
+        except ValueError:
+            return peer
+        if not any(peer_ip in n for n in nets):
+            return peer
+        for raw in (request.headers.get("cf-connecting-ip", ""),
+                    request.headers.get("x-forwarded-for", "").split(",")[0]):
+            try:
+                return str(ipaddress.ip_address(raw.strip()))
+            except ValueError:
+                continue
+        return peer
 
-def client_ip(request: Request) -> str:
-    # uvicorn --proxy-headers already rewrites request.client from X-Forwarded-For behind Caddy.
-    return request.client.host if request.client else "unknown"
+    return client_ip
 
 
 # ---- app -------------------------------------------------------------------
@@ -118,9 +122,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     app = FastAPI(title="Creek Watch API", version="0.1.0", lifespan=lifespan,
                   docs_url="/api/docs", openapi_url="/api/openapi.json", redoc_url=None)
-    creeks = load_creeks(s.sites_json)
+    creeks = load_creeks(s.sites_json, s.use_data_package)
     creek_by_id = {c["id"]: c for c in creeks}
-    data = DataLayer(s.conditions_ttl_s)
+    data = DataLayer(s.conditions_ttl_s, s.use_data_package)
+    client_ip = make_client_ip(s.trusted_proxies)
     limiter = RateLimiter(s.rate_limit_count, s.rate_limit_window_s)
     photo_budget = RateLimiter(s.photo_budget, s.rate_limit_window_s)
     report_budget = RateLimiter(s.report_budget, s.rate_limit_window_s)
@@ -267,7 +272,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             "dead_fish": bool(dead_fish), "wildlife_seen": clean_text(wildlife_seen), "notes": clean_text(notes),
             "reporter_name": clean_text(reporter_name), "photo_file": photo_file,
         }
-        rec["flags"] = json.dumps(compute_flags(rec))
+        rec["flags"] = json.dumps(data.report_flags(rec))
         cols = [c for c in REPORT_COLUMNS if c != "id"]
         with db.connect(s.db_path) as conn:
             cur = conn.execute(f"INSERT INTO reports ({', '.join(cols)}) VALUES ({', '.join('?' * len(cols))})",
