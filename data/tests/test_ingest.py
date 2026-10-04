@@ -170,3 +170,32 @@ def test_conditions_include_water_quality(monkeypatch):
     monkeypatch.setattr(ingest, "_http_get_text", lambda url, timeout: route(url))
     c = ingest.get_conditions("wolf")
     assert c["water_quality"]["stations"][0]["agency"] == "WCCA"
+
+
+
+def test_failed_refresh_backs_off_instead_of_retrying_every_call(monkeypatch):
+    calls = {"n": 0}
+
+    def down():
+        calls["n"] += 1
+        raise OSError("upstream refusing")
+
+    assert ingest._cached("k", 60, lambda: {"v": 1}) == {"v": 1}
+    clock = {"t": ingest.time.time() + 120}                       # past the ttl
+    monkeypatch.setattr(ingest.time, "time", lambda: clock["t"])
+    first = ingest._cached("k", 60, down)
+    second = ingest._cached("k", 60, down)
+    assert first == second == {"v": 1, "stale": True}
+    assert calls["n"] == 1                                         # second call didn't hit upstream
+    clock["t"] += ingest.FAIL_BACKOFF_S + 1
+    ingest._cached("k", 60, down)
+    assert calls["n"] == 2                                         # retried after the backoff
+    assert ingest._cached("k2", 60, down) is None                  # no stale value: None, still fast
+
+
+def test_backoff_clears_on_success(monkeypatch):
+    ingest._cached("k3", 0, lambda: (_ for _ in ()).throw(OSError("x")))
+    clock = {"t": ingest.time.time() + ingest.FAIL_BACKOFF_S + 1}
+    monkeypatch.setattr(ingest.time, "time", lambda: clock["t"])
+    assert ingest._cached("k3", 0, lambda: {"ok": 1}) == {"ok": 1}
+    assert "k3" not in ingest._failed
