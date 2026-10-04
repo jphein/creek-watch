@@ -8,6 +8,9 @@ Type=oneshot
 User=jp
 ExecStart=/home/jp/creekwatch/bin/poll.sh
 TimeoutStartSec=420
+# poll.sh exits 75 when it skips an overlapping pass: a skip, not a failure (the next tick catches up).
+# NOT on creekwatch-backup.service, where 75 deliberately marks a missed hourly backup (#31).
+SuccessExitStatus=75
 NoNewPrivileges=yes
 PrivateTmp=yes
 ProtectSystem=strict
