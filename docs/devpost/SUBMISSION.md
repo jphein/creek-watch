@@ -36,7 +36,7 @@ Wolf Creek runs through downtown Grass Valley, and Deer Creek runs through downt
 - **Early warning:** the rules above raise a *watch* or an *alert*, each with a plain-language reason.
 - **About the data:** every source with a link, how the score works, its limitations, privacy, and the One Health framing.
 
-## What makes it different (and what doesn't)
+## Prior art and what's new
 Citizen creek reporting isn't new: IBM Research's 2010 *Creek Watch* app, whose name we honour, showed that a photo plus a few plain questions helps water managers ([CHI 2011](https://dl.acm.org/doi/10.1145/1978942.1979251)). OneAquaHealth's own app does guided assessments today. Creek Watch adds three things for two real creeks in California's Sierra foothills. It fuses each report with live USGS stream-gauge, National Weather Service and Open-Meteo rainfall data into a 0–100 score that explains every point it gives or takes. It runs simple, transparent early-warning rules. And it's honest about a real monitoring gap: Wolf Creek has no live stream gauge, and Deer Creek's only one is 22 km downstream, below a reservoir. Local groups (Wolf Creek Community Alliance and Sierra Streams Institute) have run trained, lab-grade monitoring here for about 20 years; Creek Watch is the everyday layer between their samples, not a replacement. Full landscape: [docs/devpost/PRIOR-ART.md](https://github.com/jphein/creek-watch/blob/main/docs/devpost/PRIOR-ART.md).
 
 ## Target users
@@ -55,9 +55,10 @@ All code was written new for this hackathon on October 3–4, 2026, during the e
 
 - **Backend:** Python 3.12, FastAPI and SQLite, run with uv. One process serves the JSON API (`/api/*`) and the static web app. Photo uploads are re-encoded with Pillow (with HEIC support), which strips EXIF and caps the size. Enum validation, per-IP rate limiting and a geofence reject reports far from the creeks.
 - **Frontend:** a no-build progressive web app in plain HTML, CSS and ES modules, with Leaflet and OpenStreetMap tiles. It is mobile-first and installable, with light and dark themes.
-- **Data and score:** creek lines and 12 public access sites were built from OpenStreetMap (Overpass API). Each site was snapped to the open channel and checked for public access; road bridges with private banks are marked "view from the bridge only". Ingest modules pull USGS Water Services instantaneous values (discharge, gage height), National Weather Service observations and forecasts, and Open-Meteo hourly precipitation (rain in the past and next 24 h), all cached. A transparent, weighted, rule-based score combines them with recent citizen reports. Each signal records its name, value, weight, explanation and source. The score and ingest have 29 tests (21 for the score, 8 for ingest), and the API has 16 more. All 45 pass (`uv run pytest`, 2026-10-03).
+- **Data and score:** creek lines and 12 public access sites were built from OpenStreetMap (Overpass API). Each site was snapped to the open channel and checked for public access; road bridges with private banks are marked "view from the bridge only". Ingest modules pull USGS stream-gauge readings (discharge and gage height via NWIS Water Services, with the newer USGS Water Data OGC API as a fallback), National Weather Service current conditions from station KGOO (Nevada County Air Park) plus gridpoint short forecasts for each town, and Open-Meteo hourly rainfall estimates for the past and next 24 h. All are keyless, and the results are cached. A transparent, weighted, rule-based score combines them with recent citizen reports. Each signal records its name, value, weight, explanation and source. The score and ingest have 29 tests (21 for the score, 8 for ingest), and the API has 16 more. All 45 pass (`uv run pytest`, 2026-10-03).
 - **Honest gauge mapping:** a USGS site-inventory query over the area returns only 4 active real-time stream gauges. Deer Creek uses 11418500, which is on Deer Creek but 22 km downstream and regulated. Wolf Creek has no live gauge (former station 11423150 holds only 3 water-quality samples), so Bear River near Wheatland (11424000) is shown as low-weight regional context only. The score says so in its explanations rather than pretending a distant gauge describes the creek in town.
 - **Deploy:** a Docker container on a small always-on home server, behind Caddy with TLS and a Cloudflare tunnel, at https://creekwatch.realm.watch.
+- **Team prior work:** the team already runs [Forage for All](https://forage.techempower.org/), an open-source (AGPL-3.0) community map of edible plants on public land, built with privacy-first design: fuzzy locations by default, anonymous reports allowed, no trackers. Creek Watch carries over those principles (locations rounded to about 110 m, photo metadata stripped, optional names). **No code was reused.** Creek Watch is a separate codebase written for this hackathon.
 - **AI assistance:** the code and docs were written with AI coding assistants (Anthropic's Claude, via Claude Code) under human direction and review. The app itself uses **no AI** in the scoring: the score is deterministic rules, so every result can be explained.
 
 ## Data sources
@@ -86,7 +87,9 @@ Details and retrieval URLs: [`data/SOURCES.md`](https://github.com/jphein/creek-
 - Partner with local creek volunteer groups to calibrate the score against their monitoring.
 - Add more creeks, offline report queueing for spots with no signal, and SMS or email alerts.
 - Spanish and other languages.
-- Export reports in open, standard formats so other platforms (such as the OneAquaHealth hub tools) can use them.
+- Export reports in open, standard formats so other platforms (such as the OneAquaHealth hub tools) can use them, and publish observations to Stroud's open-source [Monitor My Watershed](https://monitormywatershed.org/) portal.
+- Show [iNaturalist](https://www.inaturalist.org/) wildlife sightings near each site, through its public API.
+- Add a Creek Watch layer inside the team's [Forage for All](https://forage.techempower.org/) community map, and build an Expo/native version of the report flow.
 
 ## Team
 - **Jeffrey "JP" Hein:** Sierra College student, full-stack developer, and founder of TechEMPOWER. Design and development.

@@ -36,58 +36,64 @@ Sources: [Grist, 2010-11-11](https://grist.org/article/2010-11-11-iphone-app-let
 - [CreekWatch, RiverWatch Institute of Alberta](https://creekwatch.ca/), running since 2014;
 - [CreekWatchers, Cape Fear River Watch](https://capefearriverwatch.org/creekwatchers/), in North Carolina.
 
-**Recommendation: keep the name, and cite IBM openly.**
+**Recommendation (adopted): keep the name, and cite IBM openly.**
 - There's no legal blocker that we found.
 - Renaming would cost the live URL, the repo, the docs and the script under a hard deadline.
 - IBM's app is the closest ancestor of our report flow, in the same state and under the same name. A judge who remembers it would find hiding it worse than crediting it.
 
 The Devpost text should say: *"Named in the spirit of IBM Research's 2010 Creek Watch app (CHI 2011), which first showed that a photo plus a few plain questions gives water managers useful data. That app is no longer available. We extend the idea with live gauge and weather fusion, an explained score and early warning, and an open-source web app."*
 
-Fallback names, if JP prefers a rename. Each was searched, and no app or product was found:
-- **Creek Signal:** names the early-warning output. `creeksignal.org` has no NS records; `.com` is registered.
-- **CreekCheck:** a verb people use ("do a creek check"). Neither `.org` nor `.com` has NS records.
-- **Creek Pulse:** suggests a live health reading. Neither `.org` nor `.com` has NS records.
+**Decision (lead, 2026-10-03): keep "Creek Watch" and cite IBM.** Fallback names are in [Appendix A](#appendix-a-fallback-names-if-jp-wants-a-rename).
 
 ---
 
 ## 2. Similar tools
 
-| Tool | Who | Status | What it does | vs Creek Watch |
-|---|---|---|---|---|
-| [OneAquaHealth Citizen Science App](https://www.oneaquahealth.eu/citizen-science-project/) | OneAquaHealth (EU), the **contest sponsor**; app at app.enora-oah.eu | Live (the project page says so) | PWA. Guided steps to record water quality, vegetation, wildlife, pollution, photos and video, with "a structured scoring system". Used at research sites in Benevento, Coimbra, Ghent, Oslo and Toulouse | **The closest match, and the judges know it well.** Same idea: a guided PWA with photos. Ours differs by fusing live gauge and weather data, giving a rule-based warning with reasons, and being set in a US region outside its case-study cities |
-| [IBM Creek Watch](https://scistarter.org/creek-watch) | IBM Research and the CA Water Board | Defunct (see §1) | Photo plus level, flow and trash | Ancestor of our report flow. No score, no data fusion, no warnings |
-| [CrowdWater](https://crowdwater.ch/en/start/) | University of Zurich (SNSF) | 200 | App for water level (virtual staff gauge), temporary streams, soil moisture and plastic, aimed at "modelling of floods and droughts" in data-poor areas | Same "fill the gauge gap" motive, but for hydrology. It doesn't score water quality and has no One Health framing |
-| [FreshWater Watch](https://www.freshwaterwatch.org) | Earthwatch Europe | 200 | Kit-based nitrate, phosphate and turbidity tests with an app, and a global open map ([about](https://earthwatch.org.uk/program/freshwater-watch-in-the-uk/)) | Lab-style chemistry with kits. We use no kits, so our data is coarser but anyone can report |
-| [Monitor My Watershed](https://monitormywatershed.org/) / [WikiWatershed](https://wikiwatershed.org/) / [Leaf Pack Network](https://leafpacknetwork.org/) | Stroud Water Research Center | 200 / 403 / 403 | Data portal for DIY sensors (EnviroDIY) and macroinvertebrate data. A paid ($4.99) Water Quality app for educators logs chemical, physical and biological parameters ([help](https://wikiwatershed.org/help/wq-app-help/)) | Serious-science tooling. Ours is no-kit and two minutes long |
-| [Water Rangers](https://waterrangers.com/) | Canadian non-profit, founded 2015 | 403 | Test kits (pH, hardness, alkalinity, clarity, oxygen, conductivity) plus web and app reporting of algae and pollution ([WWF Tech Hub](https://techhub.wwf.ca/innovator/citizen-science-tools-for-water-quality-monitoring/)) | Kit-based again. Its pollution reporting overlaps ours |
-| [mWater](https://www.mwater.co) | mWater (open source) | 200 | WASH platform for mapping water sources and sanitation with test kits, used by thousands of NGOs ([E4C](https://www.engineeringforchange.org/solutions/product/mwater-explorer-mobile-app/)) | Focused on drinking water and sanitation, not urban creek ecology |
-| [bloomWatch](https://cyanos.org/bloomwatch/) | Cyanobacteria Monitoring Collaborative | 200 | Photo reports of possible cyanobacteria blooms ([NALMS](https://www.nalms.org/monitoring-habs-with-the-bloomwatch-app/)) | Covers only one of our signals (algae) |
-| [EPA CyAN app](https://epa.gov/water-research/cyanobacteria-assessment-network-mobile-application-cyan-app) | US EPA | 200 | Weekly satellite cyanobacteria data for water bodies of about 1 km² or more | Too coarse for small creeks like ours. It's for lakes and reservoirs |
-| [CA HABs Portal](https://mywaterquality.ca.gov/habs/) | CA Water Boards | 200 | Online form to report a harmful algal bloom, with a [reports map](https://mywaterquality.ca.gov/habs/resources/reports-map/) | Official channel for blooms. A future Creek Watch could link "lots of algae" reports to it |
-| [EyeOnWater](https://www.eyeonwater.org/) | EyeOnWater consortium | 200 | Photo plus a water-colour scale | Colour only |
-| [Stream Tracker](https://www.streamtracker.org) | CSU, NASA, USFS; uses the CitSci.org app | 200 | Flowing, standing, dry or frozen observations for intermittent streams ([CitSci blog](https://blog.citsci.org/2018/04/09/stream-tracker/)) | Flow only. Same gap-filling motive |
-| [Creek Critters](https://natureforward.org/creek-critters/) | Nature Forward and the Izaak Walton League | 200 | Guided macroinvertebrate ID that produces a "Stream Health Score" | A health score from bugs, with a guided flow. Ours uses no-touch observations plus public data |
-| [Georgia Adopt-A-Stream](https://adoptastream.georgia.gov/how-do-i-get-started-adopt-stream) | Georgia EPD | 200 | State volunteer program: chemical, bacterial, macroinvertebrate and visual monitoring, with an online database | A trained, regular program. We're the casual-observer layer |
-| [CA SWAMP Clean Water Team](https://www.waterboards.ca.gov/water_issues/programs/swamp/clean_water_team/) and [CEDEN](https://ceden.org) | CA Water Boards | 200 | The state's citizen-monitoring program and its data exchange. Its [apps list](https://waterboards.ca.gov/water_issues/programs/swamp/clean_water_team/apps.html) still lists IBM Creek Watch | The destination for formal data. Exporting to CEDEN formats is a possible next step (not built) |
-| [How's My Waterway](https://mywaterway.epa.gov) | US EPA | 200 | Official assessment and impairment status of waterways | Official status, updated slowly. Ours is live and casual |
-| [iNaturalist](https://www.inaturalist.org/) | iNaturalist | 403 to scripts | Species observations, including freshwater projects | We record "wildlife seen" as free text only. A future version could link to iNat |
-| [L.A. Creek Freak](https://lacreekfreak.wordpress.com/about/) | Blog (2008–) | n/a | Advocacy and mapping of LA's lost creeks | A story and advocacy precedent. Not a tool |
-| IOOS / NOAA | NOAA | n/a | Ocean and coastal observing | Not comparable. We do use NOAA's **NWS** API as a data source |
+| Tool | Who | Status | What it does | vs Creek Watch | Code licence (checked) | Open source? | Relation |
+|---|---|---|---|---|---|---|---|
+| [OneAquaHealth Citizen Science App](https://www.oneaquahealth.eu/citizen-science-project/) | OneAquaHealth (EU), the **contest sponsor**; app at app.enora-oah.eu | Live (the project page says so) | PWA. Guided steps to record water quality, vegetation, wildlife, pollution, photos and video, with "a structured scoring system". Used at research sites in Benevento, Coimbra, Ghent, Oslo and Toulouse | **The closest match, and the judges know it well.** Same idea: a guided PWA with photos. Ours differs by fusing live gauge and weather data, giving a rule-based warning with reasons, and being set in a US region outside its case-study cities | not checked (hosted at app.enora-oah.eu) | ? | prior art (the sponsor's tool); possible data destination |
+| [IBM Creek Watch](https://scistarter.org/creek-watch) | IBM Research and the CA Water Board | Defunct (see §1) | Photo plus level, flow and trash | Ancestor of our report flow. No score, no data fusion, no warnings | no public source found (not searched in depth) | N (inferred) | prior art (name and report-flow ancestor) |
+| [CrowdWater](https://crowdwater.ch/en/start/) | University of Zurich (SNSF) | 200 | App for water level (virtual staff gauge), temporary streams, soil moisture and plastic, aimed at "modelling of floods and droughts" in data-poor areas | Same "fill the gauge gap" motive, but for hydrology. It doesn't score water quality and has no One Health framing | no official repo found (GitHub search, 2026-10-03). The app is built on the SPOTTERON platform. **Data is CC BY 4.0** ([Zenodo](https://zenodo.org/records/15356572)) | N (app); open data | prior art; its open data could be cited |
+| [FreshWater Watch](https://www.freshwaterwatch.org) | Earthwatch Europe | 200 | Kit-based nitrate, phosphate and turbidity tests with an app, and a global open map ([about](https://earthwatch.org.uk/program/freshwater-watch-in-the-uk/)) | Lab-style chemistry with kits. We use no kits, so our data is coarser but anyone can report | no public repo found (GitHub search returned none) | N | prior art |
+| [Monitor My Watershed](https://monitormywatershed.org/) / [WikiWatershed](https://wikiwatershed.org/) / [Leaf Pack Network](https://leafpacknetwork.org/) | Stroud Water Research Center | 200 / 403 / 403 | Data portal for DIY sensors (EnviroDIY) and macroinvertebrate data. A paid ($4.99) Water Quality app for educators logs chemical, physical and biological parameters ([help](https://wikiwatershed.org/help/wq-app-help/)) | Serious-science tooling. Ours is no-kit and two minutes long | [monitor-my-watershed](https://github.com/WikiWatershed/monitor-my-watershed) **BSD-3-Clause**; [model-my-watershed](https://github.com/WikiWatershed/model-my-watershed) **Apache-2.0** (gh api) | Y | **possible data destination**: publish observations to Monitor My Watershed |
+| [Water Rangers](https://waterrangers.com/) | Canadian non-profit, founded 2015 | 403 | Test kits (pH, hardness, alkalinity, clarity, oxygen, conductivity) plus web and app reporting of algae and pollution ([WWF Tech Hub](https://techhub.wwf.ca/innovator/citizen-science-tools-for-water-quality-monitoring/)) | Kit-based again. Its pollution reporting overlaps ours | hosted platform, no public app repo; its [open data standard (WQX)](https://github.com/WaterRangers/Water-Rangers-Open-Data-Standard-WQX-) is **MIT** | N (platform); Y (data standard) | possible partner (shared data standard) |
+| [mWater](https://www.mwater.co) | mWater (open source) | 200 | WASH platform for mapping water sources and sanitation with test kits, used by thousands of NGOs ([E4C](https://www.engineeringforchange.org/solutions/product/mwater-explorer-mobile-app/)) | Focused on drinking water and sanitation, not urban creek ecology | [mWater says](https://www.mwater.co/open-source) it is "70% open source": the core server and portal are proprietary, while libraries are LGPL-3.0 or Apache-2.0 (gh api, e.g. [minimongo](https://github.com/mWater/minimongo)) | partial | adjacent prior art (water, sanitation and hygiene, or WASH) |
+| [bloomWatch](https://cyanos.org/bloomwatch/) | Cyanobacteria Monitoring Collaborative | 200 | Photo reports of possible cyanobacteria blooms ([NALMS](https://www.nalms.org/monitoring-habs-with-the-bloomwatch-app/)) | Covers only one of our signals (algae) | not checked | ? | prior art (algae signal only) |
+| [EPA CyAN app](https://epa.gov/water-research/cyanobacteria-assessment-network-mobile-application-cyan-app) | US EPA | 200 | Weekly satellite cyanobacteria data for water bodies of about 1 km² or more | Too coarse for small creeks like ours. It's for lakes and reservoirs | not checked | ? | prior art (not applicable to small creeks) |
+| [CA HABs Portal](https://mywaterquality.ca.gov/habs/) | CA Water Boards | 200 | Online form to report a harmful algal bloom, with a [reports map](https://mywaterquality.ca.gov/habs/resources/reports-map/) | Official channel for blooms. A future Creek Watch could link "lots of algae" reports to it | n/a (state web form) | n/a | **possible hand-off / data destination** for algae reports |
+| [EyeOnWater](https://www.eyeonwater.org/) | EyeOnWater consortium | 200 | Photo plus a water-colour scale | Colour only | not checked | ? | prior art (colour) |
+| [Stream Tracker](https://www.streamtracker.org) | CSU, NASA, USFS; uses the CitSci.org app | 200 | Flowing, standing, dry or frozen observations for intermittent streams ([CitSci blog](https://blog.citsci.org/2018/04/09/stream-tracker/)) | Flow only. Same gap-filling motive | not checked (uses the CitSci.org app) | ? | prior art (flow / gap filling) |
+| [Creek Critters](https://natureforward.org/creek-critters/) | Nature Forward and the Izaak Walton League | 200 | Guided macroinvertebrate ID that produces a "Stream Health Score" | A health score from bugs, with a guided flow. Ours uses no-touch observations plus public data | not checked | ? | prior art (guided score) |
+| [Georgia Adopt-A-Stream](https://adoptastream.georgia.gov/how-do-i-get-started-adopt-stream) | Georgia EPD | 200 | State volunteer program: chemical, bacterial, macroinvertebrate and visual monitoring, with an online database | A trained, regular program. We're the casual-observer layer | n/a (state program) | n/a | prior art |
+| [CA SWAMP Clean Water Team](https://www.waterboards.ca.gov/water_issues/programs/swamp/clean_water_team/) and [CEDEN](https://ceden.org) | CA Water Boards | 200 | The state's citizen-monitoring program and its data exchange. Its [apps list](https://waterboards.ca.gov/water_issues/programs/swamp/clean_water_team/apps.html) still lists IBM Creek Watch | The destination for formal data. Exporting to CEDEN formats is a possible next step (not built) | n/a (state program and database) | n/a | **possible data destination** (CEDEN format) |
+| [How's My Waterway](https://mywaterway.epa.gov) | US EPA | 200 | Official assessment and impairment status of waterways | Official status, updated slowly. Ours is live and casual | not checked | ? | possible context source (official status) |
+| [iNaturalist](https://www.inaturalist.org/) | iNaturalist | 403 to scripts | Species observations, including freshwater projects | We record "wildlife seen" as free text only. A future version could link to iNat | [inaturalist/inaturalist](https://github.com/inaturalist/inaturalist) **MIT**, active (pushed 2026-10-02) | Y | **API we could use**: show sightings near each site |
+| [L.A. Creek Freak](https://lacreekfreak.wordpress.com/about/) | Blog (2008–) | n/a | Advocacy and mapping of LA's lost creeks | A story and advocacy precedent. Not a tool | n/a (blog) | n/a | prior art (advocacy and story) |
+| IOOS / NOAA | NOAA | n/a | Ocean and coastal observing | Not comparable. We do use NOAA's **NWS** API as a data source | n/a | n/a | not comparable (we use NOAA's NWS API) |
 
 ### Other entries in this same hackathon (public GitHub repos, checked via the GitHub API)
 
 The pattern of turning citizen checks into an explained score is crowded here.
 
-| Repo | Created | What it says it does |
-|---|---|---|
-| [saqlainzahoor/streampulse](https://github.com/saqlainzahoor/streampulse) | 2026-09-21 | Dashboard, health gauges, guided wizard and gamification. **Simulated data** for fictional sites (per its README) |
-| [HyunsikParker/streamcheck](https://github.com/HyunsikParker/streamcheck) | 2026-09-23 | OneAquaHealth questions plus explained consistency and weather (Open-Meteo) checks, and a FHIR export. Uses the 5 EU research cities |
-| [codeswithroh/streamreach](https://github.com/codeswithroh/streamreach) | 2026-09-28 | Citizen checks plus forecasts become FHIR risk assessments for clinicians. Explained factors, an LLM-drafted advisory, and human approval. Simulated citizen data in EU demo cities |
-| [BabayoAP/aquaplot](https://github.com/BabayoAP/aquaplot) | 2026-09-23 | A photo becomes a stream-health reading banded by the EU Water Framework Directive (WFD), plus a One Health signal |
-| [Ryugi62/streamfhir](https://github.com/Ryugi62/streamfhir) | 2026-09-29 | Citizen checks become HL7 FHIR R4 records with corroborated warnings |
-| [kinnuworks/brook](https://github.com/kinnuworks/brook) | 2026-10-02 | A spoken, 7-language guide to the OneAquaHealth stream check |
+| Repo | Created | What it says it does | Code licence (gh api) | Relation |
+|---|---|---|---|---|
+| [saqlainzahoor/streampulse](https://github.com/saqlainzahoor/streampulse) | 2026-09-21 | Dashboard, health gauges, guided wizard and gamification. **Simulated data** for fictional sites (per its README) | MIT | same-contest competitor |
+| [HyunsikParker/streamcheck](https://github.com/HyunsikParker/streamcheck) | 2026-09-23 | OneAquaHealth questions plus explained consistency and weather (Open-Meteo) checks, and a FHIR export. Uses the 5 EU research cities | MIT | same-contest competitor |
+| [codeswithroh/streamreach](https://github.com/codeswithroh/streamreach) | 2026-09-28 | Citizen checks plus forecasts become FHIR risk assessments for clinicians. Explained factors, an LLM-drafted advisory, and human approval. Simulated citizen data in EU demo cities | none (no LICENSE file) | same-contest competitor |
+| [BabayoAP/aquaplot](https://github.com/BabayoAP/aquaplot) | 2026-09-23 | A photo becomes a stream-health reading banded by the EU Water Framework Directive (WFD), plus a One Health signal | MIT | same-contest competitor |
+| [Ryugi62/streamfhir](https://github.com/Ryugi62/streamfhir) | 2026-09-29 | Citizen checks become HL7 FHIR R4 records with corroborated warnings | MIT | same-contest competitor |
+| [kinnuworks/brook](https://github.com/kinnuworks/brook) | 2026-10-02 | A spoken, 7-language guide to the OneAquaHealth stream check | NOASSERTION (custom or undetected) | same-contest competitor |
 
 *We read the READMEs of streampulse, streamcheck and streamreach (via WebFetch). For the others, we read only the repo description. We didn't run any of them.*
+
+**Policy: we fork nothing and reuse no code or text from any of these.** That follows from the contest's originality rule ("original and developed during the hackathon period") and the deadline. Same-contest entries are listed only as facts about the landscape. "Open source" in the tables means a licence was found on GitHub, not that we used the code.
+
+## 2a. Team prior work: Forage for All (not a competitor)
+
+- **What:** [Forage for All](https://forage.techempower.org/), source at [techempower-org/forageforall](https://github.com/techempower-org/forageforall) (public). It's JP's open-source, community-run map of edible plants on public land, built with Expo/React Native and InstantDB. Pins carry photos, and a **ripeness ring** fills as other people confirm. Its README lists "four promises": free forever; "Fuzzy locations by default. Anonymous reports allowed. No trackers."; open source; volunteer-run. Its PRIVACY.md says pins use a "fuzzy location ~110m by default" and that it uses no analytics. It also has a community ethics agreement ([FORAGING_ETHICS.md](https://github.com/techempower-org/forageforall/blob/main/FORAGING_ETHICS.md)).
+- **Licence:** the LICENSE file is the **GNU AGPL v3** (read locally). GitHub's licence detector reports `NOASSERTION`. Community data is listed as CC BY-SA 4.0 in its README.
+- **Relation:** the team's prior work. Creek Watch carries over its *principles*: locations rounded to about 110 m, no trackers, optional names, and plain-language community reporting. **No code was reused.** Creek Watch is a separate codebase (Python/FastAPI with a no-build web app) written for this hackathon. Its EXIF stripping is new here; Forage for All's docs don't claim it.
+- **Possible future:** a Creek Watch layer inside Forage for All, and an Expo/native version of the report flow.
 
 ---
 
@@ -128,3 +134,14 @@ The pattern of turning citizen checks into an explained score is crowded here.
 
 **Suggested Devpost paragraph** (for "What makes it different"):
 > Citizen creek reporting isn't new: IBM Research's 2010 *Creek Watch* app, whose name we honour, showed that a photo plus a few plain questions helps water managers, and OneAquaHealth's own app does guided assessments today. Creek Watch adds three things for two real creeks in California's Sierra foothills. It fuses each report with live USGS stream-gauge and National Weather Service data into a 0–100 score that explains every point it gives or takes. It runs simple, transparent early-warning rules. And it's honest about a real monitoring gap: Wolf Creek has no live stream gauge, and Deer Creek's only one is 22 km downstream, below a reservoir. Local groups (Wolf Creek Community Alliance and Sierra Streams Institute) have run trained, lab-grade monitoring here for about 20 years; Creek Watch is the everyday layer between their samples, not a replacement.
+
+---
+
+## Appendix A: fallback names (if JP wants a rename)
+
+Not adopted. Kept in case JP prefers one. Each was searched on 2026-10-03, and no app or product by that name was found:
+- **Creek Signal:** names the early-warning output. `creeksignal.org` has no NS records; `.com` is registered. Nearest uses are "Signal Creek" (a Steam game, and a campground).
+- **CreekCheck:** a verb people use ("do a creek check"). Neither `.org` nor `.com` has NS records. The nearest is Nature Forward's "Creek Critters", a different name.
+- **Creek Pulse:** suggests a live health reading. Neither `.org` nor `.com` has NS records, and no product was found.
+
+A rename would also mean changing the `creekwatch.realm.watch` URL, the repo name, every doc and the demo script.
