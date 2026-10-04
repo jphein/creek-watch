@@ -237,8 +237,11 @@ async function creekCard(c) {
   </article>`;
 }
 
-export async function mountDashboard(el) {
-  el.innerHTML = `<h2 class="sr-only">Creek health</h2><p class="dash-intro">How the creeks are doing right now, and why.</p><div id="dash-cards"><p class="muted">Loading…</p></div>`;
+export async function mountDashboard(el, { refresh = false } = {}) {
+  // On a refresh keep the current cards on screen until the new ones are ready.
+  if (!refresh || !el.querySelector('#dash-cards')) {
+    el.innerHTML = `<h2 class="sr-only">Creek health</h2><p class="dash-intro">How the creeks are doing right now, and why.</p><div id="dash-cards"><p class="muted">Loading…</p></div>`;
+  }
   const box = el.querySelector('#dash-cards');
   try {
     const creeks = await getCreeks();

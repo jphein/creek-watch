@@ -34,8 +34,10 @@ export function route() {
   } else if (page === 'map') {
     const first = !mounted.has('map');
     import('./map.js').then((m) => (first ? m.mountMap(el, qs) : m.showMap(qs)));
-  } else if (page === 'dashboard' && !mounted.has(page)) {
-    import('./dashboard.js').then((m) => m.mountDashboard(el));
+  } else if (page === 'dashboard') {
+    // Refresh on every visit so a just-sent report shows up (no stale scores).
+    const first = !mounted.has('dashboard');
+    import('./dashboard.js').then((m) => m.mountDashboard(el, { refresh: !first }));
   }
   mounted.add(page);
 }
